@@ -105,6 +105,27 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         const [linked] = await q.query("SELECT COUNT(*) AS n FROM verifications WHERE cross_booth_request_id = ?", [id]);
         expect(Number(linked.n)).toBe(6);
     });
+    it("admin password changes require the current password, preserve the current session and revoke other sessions", async () => {
+        const account = await mkUser("ADMIN", "password-change-admin");
+        const activeSession = await login(account.email);
+        const otherSession = await login(account.email);
+        await activeSession.post("/api/v1/admin/settings/password/change").set(H).send({
+            currentPassword: "Wrong-Current-Password",
+            newPassword: "New-Secure-Password-2026",
+        }).expect(403);
+        await activeSession.get("/api/v1/admin/settings").expect(200);
+        await activeSession.post("/api/v1/admin/settings/password/change").set(H).send({
+            currentPassword: pw,
+            newPassword: "New-Secure-Password-2026",
+        }).expect(200);
+        await activeSession.get("/api/v1/admin/settings").expect(200);
+        await otherSession.get("/api/v1/admin/settings").expect(401);
+        await request(app).post("/api/v1/auth/login").set(H).send({ email: account.email, password: pw }).expect(401);
+        await request(app).post("/api/v1/auth/login").set(H).send({
+            email: account.email,
+            password: "New-Secure-Password-2026",
+        }).expect(200);
+    });
     it("T6: expired grant is denied", async () => {
         const a = await login(U.a1.email);
         await q.exec("UPDATE cross_booth_requests SET grant_expires_at = DATE_SUB(NOW(3), INTERVAL 1 MINUTE) WHERE requester_id = ?", [U.a1.id]);

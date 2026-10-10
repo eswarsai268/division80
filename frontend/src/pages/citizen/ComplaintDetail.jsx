@@ -25,7 +25,25 @@ export default function ComplaintDetail() {
     const idx = FLOW.indexOf(c.data.status);
     return <div className="space-y-3">
     <div className="card"><div className="flex justify-between"><h1 className="font-semibold">{c.data.title}</h1><Badge s={c.data.status}/></div><p className="mt-2 text-sm text-slate-600">{c.data.description}</p></div>
-    <div className="card"><h2 className="mb-2 text-sm font-semibold">Progress</h2><ol className="space-y-2">{FLOW.map((s, i) => <li key={s} className={`flex items-center gap-2 text-sm ${i <= idx ? "font-medium text-brand-700" : "text-slate-400"}`}><span className={`h-2.5 w-2.5 rounded-full ${i <= idx ? "bg-brand-600" : "bg-slate-300"}`}/>{s.replace(/_/g, " ")}</li>)}</ol></div>
+    <div className="card complaint-progress-card">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold">Progress</h2>
+        {idx >= 0 && <span className="text-xs font-medium text-brand-700">Step {idx + 1} of {FLOW.length}</span>}
+      </div>
+      <ol className="complaint-progress" aria-label="Complaint progress">
+        {FLOW.map((s, i) => {
+          const state = i < idx ? "complete" : i === idx ? "current" : "upcoming";
+          return <li key={s} className={`complaint-progress-step is-${state}`}>
+            <span className="complaint-progress-track" aria-hidden="true">
+              <span className="complaint-progress-track-fill" />
+            </span>
+            <span className="complaint-progress-node" aria-hidden="true">{state === "complete" ? "✓" : i + 1}</span>
+            <span className="complaint-progress-label">{s.replace(/_/g, " ")}</span>
+            {state === "current" && <span className="sr-only">Current status</span>}
+          </li>;
+        })}
+      </ol>
+    </div>
     <div className="card space-y-2"><h2 className="text-sm font-semibold">Photos</h2>
       <div className="flex flex-wrap gap-2">{att.data?.map((a) => <img key={a.id} src={a.url} alt="Complaint attachment" className="h-24 w-24 rounded-lg object-cover"/>)}{att.data?.length === 0 && <p className="text-xs text-slate-500">No photos yet.</p>}</div>
       <input type="file" accept="image/jpeg,image/png" aria-label="Add photo" className="text-sm" onChange={(e) => { const f = e.target.files?.[0]; if (f)

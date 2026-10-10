@@ -47,6 +47,7 @@ const a2 = __importStar(require("../services/admin2"));
 const ie = __importStar(require("../services/importExport"));
 const files = __importStar(require("../services/files"));
 const xb = __importStar(require("../services/crossBooth"));
+const auth = __importStar(require("../services/auth"));
 /** Admin routes (auth + ADMIN role + rate limit are already applied by the parent router). */
 function extendAdmin(ad) {
     const idp = (req, n) => (0, http_1.parse)(http_1.uuid, req.params[n]);
@@ -61,6 +62,10 @@ function extendAdmin(ad) {
     ad.get("/complaints/:complaintId/attachments", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await files.listAttachmentsAdmin((0, http_1.ctx)(req), idp(req, "complaintId")))));
     ad.get("/settings", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.settings((0, http_1.ctx)(req)))));
     ad.patch("/settings/login-media", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.updateLoginVideo((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ loginVideoUrl: zod_1.z.string().url().max(1000).nullable() }), req.body).loginVideoUrl))));
+    ad.post("/settings/password/change", rateLimit_1.limits.passwordChange, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await auth.changePassword((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
+        currentPassword: zod_1.z.string().min(1).max(128),
+        newPassword: zod_1.z.string().min(12).max(128),
+    }), req.body), String(req.id)))));
     ad.get("/cross-booth", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await xb.listAdminRequests((0, http_1.ctx)(req)))));
     ad.post("/import-jobs", rateLimit_1.limits.importJobs, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.createImportJob((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ csv: zod_1.z.string().min(10).max(8_000_000) }), req.body).csv), 201)));
     ad.get("/import-jobs", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.listImportJobs((0, http_1.ctx)(req)))));

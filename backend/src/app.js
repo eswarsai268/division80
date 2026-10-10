@@ -27,7 +27,7 @@ function createApp() {
         genReqId: (req, res) => { const id = (0, crypto_1.randomUUID)(); res.setHeader("X-Request-Id", id); return id; },
         serializers: { req: (r) => ({ id: r.id, method: r.method, url: String(r.url).split("?")[0] }) }, // no query strings in logs
     }));
-    app.use((0, helmet_1.default)());
+    app.use((0, helmet_1.default)({ contentSecurityPolicy: { directives: { mediaSrc: ["'self'", "https://res.cloudinary.com"] } } }));
     app.use((0, cors_1.default)({ origin: env_1.env.CORS_ORIGIN, credentials: true, methods: ["GET", "POST", "PATCH", "DELETE"] }));
     app.get("/health", (_req, res) => res.json({ status: "ok" }));
     app.get("/ready", async (_req, res) => {

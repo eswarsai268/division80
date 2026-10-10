@@ -1,24 +1,67 @@
-import { MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { MoreHorizontal, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-const linkClass = ({ isActive }) => `flex flex-col items-center text-xs ${isActive ? "text-brand-600" : "text-slate-500"}`;
+const linkClass = ({ isActive }) => `app-nav-link ${isActive ? "is-active" : ""}`;
 
-export default function BottomNav({ main, more }) {
+export default function BottomNav({ main = [], more = [] }) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open)
+      return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape")
+        setOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [open]);
+
   return (
     <>
       {open && more.length > 0 && (
-        <div className="fixed inset-x-0 bottom-14 border-t border-brand-100 bg-white shadow-lg">
-          <div className="mx-auto grid max-w-3xl grid-cols-4 gap-2 p-3">
-            {more.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} onClick={() => setOpen(false)} className={linkClass}><Icon size={20} />{label}</NavLink>)}
-          </div>
+        <div className="app-more-layer">
+          <button className="app-more-backdrop" onClick={() => setOpen(false)} aria-label="Close menu" tabIndex={-1} />
+          <section className="app-more-sheet" role="dialog" aria-modal="true" aria-labelledby="more-menu-title">
+            <div className="app-more-heading">
+              <div>
+                <h2 id="more-menu-title">More</h2>
+                <p>Tools and account</p>
+              </div>
+              <button className="app-more-close" onClick={() => setOpen(false)} aria-label="Close menu"><X size={19} /></button>
+            </div>
+            <div className="app-more-grid">
+              {more.map(({ to, label, icon: Icon }) => (
+                <NavLink key={to} to={to} onClick={() => setOpen(false)} className={linkClass}>
+                  <span className="app-nav-icon"><Icon size={20} strokeWidth={1.8} /></span>
+                  <span>{label}</span>
+                </NavLink>
+              ))}
+            </div>
+          </section>
         </div>
       )}
-      <nav className="fixed inset-x-0 bottom-0 border-t border-brand-100 bg-white">
-        <div className="mx-auto flex max-w-3xl justify-around py-2">
-          {main.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} onClick={() => setOpen(false)} className={linkClass}><Icon size={20} />{label}</NavLink>)}
-          {more.length > 0 && <button onClick={() => setOpen(!open)} className="flex flex-col items-center text-xs text-slate-500" aria-label="More pages"><MoreHorizontal size={20} />More</button>}
+      <nav className="app-bottom-nav" aria-label="Main navigation">
+        <div className="app-bottom-nav-inner">
+          {main.map(({ to, label, icon: Icon }) => (
+            <NavLink key={to} to={to} onClick={() => setOpen(false)} className={linkClass}>
+              <span className="app-nav-icon"><Icon size={20} strokeWidth={1.8} /></span>
+              <span>{label}</span>
+            </NavLink>
+          ))}
+          {more.length > 0 && (
+            <button
+              onClick={() => setOpen(!open)}
+              className={`app-nav-link ${open ? "is-active" : ""}`}
+              aria-label="More pages"
+              aria-expanded={open}
+              aria-controls="more-menu-title"
+            >
+              <span className="app-nav-icon"><MoreHorizontal size={20} strokeWidth={1.8} /></span>
+              <span>More</span>
+            </button>
+          )}
         </div>
       </nav>
     </>

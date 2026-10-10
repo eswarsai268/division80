@@ -94,6 +94,20 @@
     }
    }
   },
+  "/api/v1/auth/login-media": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "GET /api/v1/auth/login-media",
+    "description": "Public login-page media configuration. Returns a Cloudinary video URL or null.",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     }
+    }
+   }
+  },
   "/api/v1/auth/me": {
    "get": {
     "tags": [
@@ -472,6 +486,7 @@
      "cross-booth"
     ],
     "summary": "POST /api/v1/cross-booth/requests",
+    "description": "Creates a request scoped to an exact voter ID (or household ID) and source booth. The target-booth approver grants time-limited READ or VERIFY access; VERIFY is required to record cross-booth steps.",
     "responses": {
      "200": {
       "description": "OK: {success,data,requestId}"
@@ -492,6 +507,7 @@
      "cross-booth"
     ],
     "summary": "GET /api/v1/cross-booth/requests",
+    "description": "Lists requests made by the current booth member and requests targeting booths where they can approve.",
     "responses": {
      "200": {
       "description": "OK: {success,data,requestId}"
@@ -504,6 +520,26 @@
      },
      "422": {
       "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/cross-booth/requests/{requestId}/household": {
+   "get": {
+    "tags": [
+     "cross-booth"
+    ],
+    "summary": "GET /api/v1/cross-booth/requests/{requestId}/household",
+    "description": "Returns household roster data only to the requester while an approved, time-limited read or verify grant is active.",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "404": {
+      "description": "No active grant for this requester"
      }
     }
    }
@@ -1130,6 +1166,75 @@
      },
      "422": {
       "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/settings/login-media": {
+   "patch": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "PATCH /api/v1/admin/settings/login-media",
+    "description": "Stores or removes an HTTPS res.cloudinary.com video delivery URL for login pages.",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/settings/password/change": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "POST /api/v1/admin/settings/password/change",
+    "description": "Requires the active admin's current password and a new password with at least 12 characters. Keeps the current session active and revokes all other sessions.",
+    "responses": {
+     "200": {
+      "description": "Password changed"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Current password is incorrect"
+     },
+     "422": {
+      "description": "Validation error or new password is unchanged"
+     },
+     "429": {
+      "description": "Password change rate limit reached"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/cross-booth": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/cross-booth",
+    "description": "Lists organization-scoped cross-booth requests and the number of verification steps recorded under each grant.",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
      }
     }
    }

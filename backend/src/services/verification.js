@@ -29,6 +29,7 @@ async function recordVerification(c, input, idempotencyKey) {
             const grant = (await (0, pool_1.query)(`SELECT r.id, r.source_booth_id AS sourceBoothId FROM cross_booth_requests r
               JOIN booth_assignments a ON a.booth_id = r.source_booth_id AND a.user_id = r.requester_id
               JOIN booths target ON target.id = r.target_booth_id AND target.status = 'ACTIVE'
+              JOIN households h ON h.id = r.resource_id AND h.booth_id = r.target_booth_id AND h.deleted_at IS NULL
              WHERE r.requester_id = ? AND r.resource_id = ? AND r.target_booth_id = ? AND r.action = 'VERIFY'
                AND r.status = 'APPROVED' AND r.grant_expires_at > NOW(3)
                AND a.revoked_at IS NULL AND a.starts_at <= NOW(3) AND (a.ends_at IS NULL OR a.ends_at > NOW(3))

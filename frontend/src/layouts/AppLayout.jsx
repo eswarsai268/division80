@@ -15,7 +15,7 @@ export default function AppLayout() {
   if (!me) return null;
   const onLogout = async () => { await logout().catch(() => undefined); qc.clear(); nav(loginFor(me.role)); };
   return (
-    <div className="mx-auto min-h-screen max-w-3xl pb-24">
+    <div className="app-shell mx-auto min-h-screen max-w-3xl">
       <AppHeader me={me} onLogout={onLogout} />
       <main className="p-4"><Outlet /></main>
       <BottomNav {...NAV[me.role]} />

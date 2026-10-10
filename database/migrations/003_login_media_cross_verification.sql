@@ -1,4 +1,4 @@
-CREATE TABLE organization_settings (
+CREATE TABLE IF NOT EXISTS organization_settings (
   organization_id CHAR(36) PRIMARY KEY,
   login_video_url VARCHAR(1000) NULL,
   updated_by CHAR(36) NULL,
@@ -9,5 +9,7 @@ ALTER TABLE cross_booth_requests
   MODIFY action ENUM('READ','VERIFY') NOT NULL DEFAULT 'READ';
 
 ALTER TABLE verifications
-  ADD COLUMN cross_booth_request_id CHAR(36) NULL,
+  ADD COLUMN cross_booth_request_id CHAR(36) NULL;
+
+ALTER TABLE verifications
   ADD KEY idx_ver_cross_request (cross_booth_request_id);

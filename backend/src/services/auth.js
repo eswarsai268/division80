@@ -5,6 +5,7 @@ exports.login = login;
 exports.refresh = refresh;
 exports.logoutByTokens = logoutByTokens;
 exports.me = me;
+exports.changePassword = changePassword;
 const crypto_1 = require("crypto");
 const env_1 = require("../config/env");
 const pool_1 = require("../db/pool");
@@ -91,4 +92,20 @@ async function me(userId) {
     if (!u)
         throw (0, errors_1.unauthorized)();
     return u;
+}
+async function changePassword(c, input, requestId) {
+    return (0, pool_1.tx)(async (conn) => {
+        const user = (await (0, pool_1.query)("SELECT password_hash FROM users WHERE id = ? AND organization_id = ? AND role = 'ADMIN' AND status = 'ACTIVE' FOR UPDATE", [c.user.id, c.user.organizationId], conn))[0];
+        if (!user)
+            throw (0, errors_1.unauthorized)();
+        if (!(await (0, password_1.verifyPassword)(user.password_hash, input.currentPassword)))
+            throw new errors_1.AppError(403, "INVALID_CURRENT_PASSWORD", "Current password is incorrect");
+        if (await (0, password_1.verifyPassword)(user.password_hash, input.newPassword))
+            throw new errors_1.AppError(422, "PASSWORD_UNCHANGED", "Choose a new password different from your current password");
+        const passwordHash = await (0, password_1.hashPassword)(input.newPassword);
+        await (0, pool_1.exec)("UPDATE users SET password_hash = ? WHERE id = ?", [passwordHash, c.user.id], conn);
+        await (0, pool_1.exec)("UPDATE sessions SET revoked_at = NOW(3) WHERE user_id = ? AND id <> ? AND revoked_at IS NULL", [c.user.id, c.user.sessionId], conn);
+        await (0, audit_1.audit)({ actorId: c.user.id, action: "ADMIN_PASSWORD_CHANGE", resourceType: "USER", resourceId: c.user.id, outcome: "SUCCESS", requestId }, conn);
+        return { changed: true, otherSessionsRevoked: true };
+    });
 }

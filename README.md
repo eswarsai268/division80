@@ -31,9 +31,9 @@ Race tests (T-5.4) and load tests are **not** included yet — see docs/security
 4. Citizens register, submit complaints, track the timeline.
 
 ## API summary (`/api/v1`)
-auth: register, login, refresh, logout, me · public: events, announcements · complaints: create, mine, :id, :id/timeline ·
+auth: register, login, refresh, logout, me, login-media · public: events, announcements · complaints: create, mine, :id, :id/timeline ·
 booth: dashboard, households(+search/cursor), households/:id(/citizens), complaints, verifications · cross-booth: requests (+approve/reject) ·
-admin: dashboard, booths, assignments, users, complaints, audit-logs, events (+publish/archive). Health: `/health`, `/ready`.
+admin: dashboard, booths, assignments, users, complaints, audit-logs, cross-booth report, login-video settings, events (+publish/archive). Health: `/health`, `/ready`.
 Responses: `{ success, data | error:{code,message}, requestId }`.
 
 ## Frontend structure (`frontend/src`)
@@ -61,8 +61,10 @@ public/      manifest.webmanifest, sw.js (never caches /api), favicon.svg
 Admin → Import → download the CSV template → upload booth voter rows → review the preview → Confirm. The worker (`npm run dev:worker`) must be running to commit imports and generate exports. Booth members see only rosters for booths assigned to them. Voters in another booth use the approved cross-booth workflow.
 
 Admins can optionally set a login welcome video in Settings by pasting an HTTPS Cloudinary `res.cloudinary.com/<cloud>/video/upload/...` delivery URL. The video is public, muted and looping on sign-in pages; no Cloudinary secret is stored in the app.
+
+Admins can change their own password in Settings by entering their current password and confirming a new password (at least 12 characters). The current session stays active and all other sessions for that account are revoked. Password changes are rate-limited and written to the audit log without storing password values.
 Endpoint index: `docs/api/openapi.json`.
 
 ## Status
 Read `docs/security/threat-model.md` for assumptions and the list of NOT-yet-implemented items before any production use.
-This code has not been compiled or run in the build environment (no network) — run `npm install && npm test` first and fix anything surfaced.
+Validation: `npm run build` and `npm test -w backend`. The database-backed authorization tests are skipped unless `TEST_DB=1` is set against a dedicated synthetic test database; never point them at real citizen data.
