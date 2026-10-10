@@ -1,0 +1,24 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { Outlet, useNavigate } from "react-router-dom";
+import AppHeader from "../components/AppHeader";
+import BottomNav from "../components/BottomNav";
+import { loginFor } from "../auth/paths";
+import { NAV } from "../auth/navConfig";
+import { useMe } from "../auth/useMe";
+import { logout } from "../services/authService";
+
+/** Shell for signed-in pages: header + content + bottom navigation (mobile first). */
+export default function AppLayout() {
+  const { data: me } = useMe();
+  const qc = useQueryClient();
+  const nav = useNavigate();
+  if (!me) return null;
+  const onLogout = async () => { await logout().catch(() => undefined); qc.clear(); nav(loginFor(me.role)); };
+  return (
+    <div className="mx-auto min-h-screen max-w-3xl pb-24">
+      <AppHeader me={me} onLogout={onLogout} />
+      <main className="p-4"><Outlet /></main>
+      <BottomNav {...NAV[me.role]} />
+    </div>
+  );
+}

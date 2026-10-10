@@ -1,0 +1,1416 @@
+{
+ "openapi": "3.0.3",
+ "info": {
+  "title": "Samasya Medhi API",
+  "version": "0.2.0",
+  "description": "Endpoint index generated from route files. Cookie auth (access_token, refresh_token). Mutating requests require header X-Requested-With: samasya-web. Request/response schemas are enforced by zod in backend/src/routes."
+ },
+ "paths": {
+  "/api/v1/auth/register": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "POST /api/v1/auth/register",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/auth/login": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "POST /api/v1/auth/login",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/auth/refresh": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "POST /api/v1/auth/refresh",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/auth/logout": {
+   "post": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "POST /api/v1/auth/logout",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/auth/me": {
+   "get": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "GET /api/v1/auth/me",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/public/events": {
+   "get": {
+    "tags": [
+     "public"
+    ],
+    "summary": "GET /api/v1/public/events",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/public/announcements": {
+   "get": {
+    "tags": [
+     "public"
+    ],
+    "summary": "GET /api/v1/public/announcements",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/complaints": {
+   "post": {
+    "tags": [
+     "complaints"
+    ],
+    "summary": "POST /api/v1/complaints",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/complaints/mine": {
+   "get": {
+    "tags": [
+     "complaints"
+    ],
+    "summary": "GET /api/v1/complaints/mine",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/complaints/{complaintId}": {
+   "get": {
+    "tags": [
+     "complaints"
+    ],
+    "summary": "GET /api/v1/complaints/{complaintId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/complaints/{complaintId}/timeline": {
+   "get": {
+    "tags": [
+     "complaints"
+    ],
+    "summary": "GET /api/v1/complaints/{complaintId}/timeline",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/booth/dashboard": {
+   "get": {
+    "tags": [
+     "booth"
+    ],
+    "summary": "GET /api/v1/booth/dashboard",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/booth/households": {
+   "get": {
+    "tags": [
+     "booth"
+    ],
+    "summary": "GET /api/v1/booth/households",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/booth/households/{householdId}": {
+   "get": {
+    "tags": [
+     "booth"
+    ],
+    "summary": "GET /api/v1/booth/households/{householdId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/booth/households/{householdId}/citizens": {
+   "get": {
+    "tags": [
+     "booth"
+    ],
+    "summary": "GET /api/v1/booth/households/{householdId}/citizens",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/booth/booths/{boothId}/summary": {
+   "get": {
+    "tags": [
+     "booth"
+    ],
+    "summary": "GET /api/v1/booth/booths/{boothId}/summary",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/booth/complaints": {
+   "get": {
+    "tags": [
+     "booth"
+    ],
+    "summary": "GET /api/v1/booth/complaints",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/booth/complaints/{complaintId}": {
+   "get": {
+    "tags": [
+     "booth"
+    ],
+    "summary": "GET /api/v1/booth/complaints/{complaintId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/booth/verifications": {
+   "post": {
+    "tags": [
+     "booth"
+    ],
+    "summary": "POST /api/v1/booth/verifications",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "booth"
+    ],
+    "summary": "GET /api/v1/booth/verifications",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/booth/verifications/{verificationId}": {
+   "get": {
+    "tags": [
+     "booth"
+    ],
+    "summary": "GET /api/v1/booth/verifications/{verificationId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/cross-booth/requests": {
+   "post": {
+    "tags": [
+     "cross-booth"
+    ],
+    "summary": "POST /api/v1/cross-booth/requests",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "cross-booth"
+    ],
+    "summary": "GET /api/v1/cross-booth/requests",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/cross-booth/requests/{requestId}/approve": {
+   "post": {
+    "tags": [
+     "cross-booth"
+    ],
+    "summary": "POST /api/v1/cross-booth/requests/{requestId}/approve",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/cross-booth/requests/{requestId}/reject": {
+   "post": {
+    "tags": [
+     "cross-booth"
+    ],
+    "summary": "POST /api/v1/cross-booth/requests/{requestId}/reject",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/dashboard": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/dashboard",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/booths": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "POST /api/v1/admin/booths",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/booths",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/booths/{boothId}": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/booths/{boothId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "patch": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "PATCH /api/v1/admin/booths/{boothId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/booths/{boothId}/assignments": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "POST /api/v1/admin/booths/{boothId}/assignments",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/booths/{boothId}/assignments",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/assignments/{assignmentId}": {
+   "delete": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "DELETE /api/v1/admin/assignments/{assignmentId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/users": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/users",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "POST /api/v1/admin/users",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/users/{userId}": {
+   "patch": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "PATCH /api/v1/admin/users/{userId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/complaints": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/complaints",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/complaints/{complaintId}": {
+   "patch": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "PATCH /api/v1/admin/complaints/{complaintId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/complaints/{complaintId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/audit-logs": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/audit-logs",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/events": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "POST /api/v1/admin/events",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/events",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/events/{eventId}/publish": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "POST /api/v1/admin/events/{eventId}/publish",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/events/{eventId}/archive": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "POST /api/v1/admin/events/{eventId}/archive",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/citizens": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/citizens",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/citizens/{citizenId}": {
+   "patch": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "PATCH /api/v1/admin/citizens/{citizenId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/households": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/households",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/households/{householdId}": {
+   "delete": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "DELETE /api/v1/admin/households/{householdId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/assignments": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/assignments",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/events/{eventId}": {
+   "patch": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "PATCH /api/v1/admin/events/{eventId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/complaints/{complaintId}/attachments": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/complaints/{complaintId}/attachments",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/settings": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/settings",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/import-jobs": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "POST /api/v1/admin/import-jobs",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/import-jobs",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/import-jobs/{jobId}": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/import-jobs/{jobId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/import-jobs/{jobId}/confirm": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "POST /api/v1/admin/import-jobs/{jobId}/confirm",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/export-jobs": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "POST /api/v1/admin/export-jobs",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/export-jobs",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/export-jobs/{jobId}": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/export-jobs/{jobId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/export-jobs/{jobId}/download": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/export-jobs/{jobId}/download",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/complaints/{complaintId}/attachments": {
+   "post": {
+    "tags": [
+     "complaints"
+    ],
+    "summary": "POST /api/v1/complaints/{complaintId}/attachments",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "get": {
+    "tags": [
+     "complaints"
+    ],
+    "summary": "GET /api/v1/complaints/{complaintId}/attachments",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/profile": {
+   "get": {
+    "tags": [
+     "profile"
+    ],
+    "summary": "GET /api/v1/profile",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   },
+   "patch": {
+    "tags": [
+     "profile"
+    ],
+    "summary": "PATCH /api/v1/profile",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  },
+  "/api/v1/files/{attachmentId}": {
+   "get": {
+    "tags": [
+     "files"
+    ],
+    "summary": "GET /api/v1/files/{attachmentId}",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "422": {
+      "description": "Validation error"
+     }
+    }
+   }
+  }
+ }
+}

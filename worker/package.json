@@ -1,0 +1,17 @@
+{
+  "name": "@samasya/worker",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.6"
+  },
+  "scripts": {
+    "dev": "node --env-file=../.env --watch src/index.js",
+    "start": "node --env-file=../.env src/index.js"
+  },
+  "dependencies": {
+    "mysql2": "^3.11.5",
+    "pino": "^9.5.0"
+  },
+  "devDependencies": {}
+}

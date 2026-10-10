@@ -1,0 +1,9 @@
+{
+  "name": "Samasya Medhi – Partskaram Madhi",
+  "short_name": "Samasya Medhi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eff6ff",
+  "theme_color": "#1e40af",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

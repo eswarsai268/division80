@@ -1,0 +1,26 @@
+name: ci
+on: [pull_request, push]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      tidb: { image: "pingcap/tidb:v8.5.0", ports: ["4000:4000"] }
+    env:
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_USER: root
+      DATABASE_NAME: samasya_test
+      JWT_ACCESS_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
+      TEST_DB: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm install --no-audit
+      - run: npm run migrate
+      - run: npm test            # unit + authorization (IDOR/RBAC/cross-booth) tests
+      - run: npm run build
+      - run: npm audit --audit-level=high
+      - uses: gitleaks/gitleaks-action@v2   # secret scanning
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+  # Staging deploy + manual production approval: configure with GitHub Environments (see docs/deployment).
