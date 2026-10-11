@@ -95,7 +95,10 @@ function extendComplaints(cp) {
 exports.profileRouter = (0, express_1.Router)();
 exports.profileRouter.use(authenticate_1.authenticate);
 exports.profileRouter.get("/", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.getProfile((0, http_1.ctx)(req).user.id))));
-exports.profileRouter.patch("/", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.updateProfile((0, http_1.ctx)(req).user.id, (0, http_1.parse)(zod_1.z.object({ fullName: zod_1.z.string().min(2).max(200).optional(), phone: zod_1.z.string().max(32).nullable().optional() }), req.body)))));
+exports.profileRouter.patch("/", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.updateProfile((0, http_1.ctx)(req).user.id, (0, http_1.parse)(zod_1.z.object({
+    fullName: zod_1.z.string().trim().min(2).max(200).regex(/^[\p{L}\p{M}]+(?:[ .'-’][\p{L}\p{M}]+)*$/u).optional(),
+    phone: zod_1.z.string().regex(/^\+91 \d{5} \d{5}$/).nullable().optional(),
+}), req.body)))));
 /** Short-lived HMAC-signed URLs: the signature IS the authorisation (issued only after an ownership/org check). */
 exports.filesRouter = (0, express_1.Router)();
 exports.filesRouter.get("/:attachmentId", rateLimit_1.limits.search, (0, http_1.h)(async (req, res) => {
