@@ -11,7 +11,7 @@ export default function AuthLayout({ title, subtitle, children }) {
           {media.data?.loginVideoUrl && <video className="absolute inset-0 h-full w-full object-cover opacity-45" src={media.data.loginVideoUrl} autoPlay muted loop playsInline />}
           <div className="absolute inset-0 bg-gradient-to-br from-stone-950/90 via-stone-950/55 to-amber-950/65" />
           <div className="relative z-10 flex items-center gap-3">
-            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-400 text-red-700 shadow-lg"><Bike size={29} /></span>
+            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#ffc400] text-stone-900 shadow-lg"><Bike size={29} /></span>
             <div><p className="auth-brand-name">{APP_NAME}</p><p className="text-xs text-amber-100">Community services</p></div>
           </div>
           <div className="relative z-10 my-8 max-w-xl">
