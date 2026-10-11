@@ -1,4 +1,6 @@
-@tailwind base; @tailwind components; @tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
 @layer components {
   .card { @apply rounded-xl border border-brand-100 bg-white p-4 shadow-sm; }
   .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-stone-950 shadow-sm hover:bg-amber-400 disabled:opacity-50; }

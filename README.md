@@ -3,6 +3,7 @@
 Community issue tracking + booth/household verification platform.
 Folders: `backend/` (Express API, plain JavaScript), `frontend/` (React + Vite + Tailwind), `worker/` (outbox + maintenance), `database/` (migrations), `docs/`.
 
+<<<<<<< HEAD
 ## Local development
 
 Requirements: Node.js 20.6+ and a configured `.env` in the repository root. Install dependencies once from the repository root with `npm install`. The backend and worker load that root `.env` directly; set its database connection and JWT secret for the environment you intend to use.
@@ -14,6 +15,23 @@ On Windows, open separate PowerShell terminals from the repository root:
 3. Run `npm run dev:worker` only when using background imports/exports.
 
 You can also run `npm start` in `frontend/` for the web app or `npm start` in `backend/` for the API. Run `npm run migrate` and `npm run seed` only when the database configured in `.env` is the intended database.
+=======
+## Quick start
+```bash
+cp .env.example .env            # fill DATABASE_*, REDIS_URL, JWT_ACCESS_SECRET, SEED_ADMIN_*
+npm install
+export $(grep -v '^#' .env | xargs)   # or use your own env loader
+npm run migrate                 # creates DB + tables
+npm run seed                    # default organisation + first admin
+npm run dev:backend               # http://localhost:4000
+npm run dev:frontend                 # http://localhost:5173  (proxies /api)
+npm run dev:worker
+```
+Docker (dev): `JWT_ACCESS_SECRET=<32+ chars> docker compose up --build`, then run migrate/seed against TiDB on `127.0.0.1:4001`.
+The frontend calls `/api/v1` on the same origin by default. For local development, Vite proxies `/api` to `http://localhost:4000` (override with `VITE_API_PROXY`). For a separately hosted API, set the frontend build variable `VITE_API_BASE_URL` to the full API base URL ending in `/api/v1`.
+
+Production API, worker and migration processes require `DATABASE_SSL=true`; database TLS certificate validation is enabled and cannot be disabled in production.
+>>>>>>> 7c84e3a72ba364e939c75c462f0947e5fb6475af
 
 ## Tests
 ```bash
@@ -24,7 +42,7 @@ Covers: cross-booth IDOR (T1/T2), citizen dataset denial (T3), other user's comp
 Race tests (T-5.4) and load tests are **not** included yet — see docs/security/threat-model.md.
 
 ## Using it
-1. Admin logs in → creates booths (`/admin/booths`) → creates booth members (`POST /api/v1/admin/users`) → assigns them (`POST /admin/booths/:id/assignments`, optionally `canApproveCrossBooth`).
+1. Admin logs in → creates a booth and can optionally create its first member login in the same form (`/admin/booths`). For existing booths, use Booth details or Users to create a booth-member account and assign it immediately. Share the email and temporary password securely; the member signs in at `/booth/login`. Admins can also assign existing members from Booth details or Assignments.
 2. Booth member searches `G-24`, opens the household, records the 6 verification steps in order.
 3. Cross-booth: a booth member requests verification access using the exact voter ID and a reason. An approver for the target booth approves it for four hours. Only then can the visiting member view the household roster and record the six verification steps; each cross-booth step is linked to the approval and visible in the admin cross-booth report and audit log.
 4. Citizens register, submit complaints, track the timeline.

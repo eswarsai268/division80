@@ -616,6 +616,7 @@
      "admin"
     ],
     "summary": "POST /api/v1/admin/booths",
+    "description": "Creates a booth. Optionally accepts member credentials to create a BOOTH_MEMBER account and assign it to the booth atomically. Passwords are never returned.",
     "responses": {
      "200": {
       "description": "OK: {success,data,requestId}"
@@ -784,6 +785,7 @@
      "admin"
     ],
     "summary": "POST /api/v1/admin/users",
+    "description": "Creates a user. BOOTH_MEMBER accounts require boothId and are assigned to that active booth atomically; USER accounts do not receive booth assignments. Passwords are never returned.",
     "responses": {
      "200": {
       "description": "OK: {success,data,requestId}"

@@ -21,10 +21,24 @@ const audit_1 = require("./audit");
 // Every query below is constrained by c.user.organizationId (admin scope), never by client input.
 const org = (c) => c.user.organizationId;
 async function createBooth(c, i) {
-    const id = (0, crypto_1.randomUUID)();
-    await (0, pool_1.exec)("INSERT INTO booths (id, organization_id, code, name) VALUES (?,?,?,?)", [id, org(c), i.code, i.name]);
-    await (0, audit_1.audit)({ actorId: c.user.id, action: "BOOTH_CREATE", resourceType: "BOOTH", resourceId: id, outcome: "SUCCESS", requestId: c.requestId });
-    return { id };
+    const boothId = (0, crypto_1.randomUUID)();
+    const memberId = i.member ? (0, crypto_1.randomUUID)() : null;
+    const passwordHash = i.member ? await (0, password_1.hashPassword)(i.member.password) : null;
+    try {
+        return await (0, pool_1.tx)(async (conn) => {
+            await (0, pool_1.exec)("INSERT INTO booths (id, organization_id, code, name) VALUES (?,?,?,?)", [boothId, org(c), i.code, i.name], conn);
+            await (0, audit_1.audit)({ actorId: c.user.id, action: "BOOTH_CREATE", resourceType: "BOOTH", resourceId: boothId, outcome: "SUCCESS", requestId: c.requestId }, conn);
+            if (i.member) {
+                await createBoothMemberAccount(c, boothId, i.member, memberId, passwordHash, conn);
+            }
+            return { id: boothId, ...(memberId ? { memberId } : {}) };
+        });
+    }
+    catch (e) {
+        if (e?.code === "ER_DUP_ENTRY")
+            throw (0, errors_1.conflict)(i.member ? "Booth code or member email already exists" : "Booth code already exists");
+        throw e;
+    }
 }
 const listBooths = (c) => (0, pool_1.query)("SELECT id, code, name, status, created_at AS createdAt FROM booths WHERE organization_id = ? ORDER BY code", [org(c)]);
 exports.listBooths = listBooths;
@@ -80,9 +94,36 @@ exports.listUsers = listUsers;
 /** Admins create booth members with a temporary password. Creating ADMINs is deliberately NOT possible via API. */
 async function createUser(c, i) {
     const id = (0, crypto_1.randomUUID)();
-    await (0, pool_1.exec)("INSERT INTO users (id, organization_id, email, password_hash, full_name, role) VALUES (?,?,?,?,?,?)", [id, org(c), i.email.toLowerCase(), await (0, password_1.hashPassword)(i.password), i.fullName, i.role]);
-    await (0, audit_1.audit)({ actorId: c.user.id, action: "ROLE_CHANGE", resourceType: "USER", resourceId: id, reason: `created as ${i.role}`, outcome: "SUCCESS", requestId: c.requestId });
-    return { id };
+    if (i.role === "BOOTH_MEMBER" && !i.boothId)
+        throw new errors_1.AppError(422, "BOOTH_REQUIRED", "Select a booth for this booth member");
+    const passwordHash = await (0, password_1.hashPassword)(i.password);
+    try {
+        return await (0, pool_1.tx)(async (conn) => {
+            if (i.role === "BOOTH_MEMBER") {
+                await createBoothMemberAccount(c, i.boothId, i, id, passwordHash, conn);
+                return { id };
+            }
+            await (0, pool_1.exec)("INSERT INTO users (id, organization_id, email, password_hash, full_name, role) VALUES (?,?,?,?,?,?)", [id, org(c), i.email.toLowerCase(), passwordHash, i.fullName, i.role], conn);
+            await (0, audit_1.audit)({ actorId: c.user.id, action: "ROLE_CHANGE", resourceType: "USER", resourceId: id, reason: `created as ${i.role}`, outcome: "SUCCESS", requestId: c.requestId }, conn);
+            return { id };
+        });
+    }
+    catch (e) {
+        if (e?.code === "ER_DUP_ENTRY")
+            throw (0, errors_1.conflict)("A user with this email already exists");
+        throw e;
+    }
+}
+async function createBoothMemberAccount(c, boothId, member, userId, passwordHash, conn) {
+    const booth = (await (0, pool_1.query)("SELECT id FROM booths WHERE id = ? AND organization_id = ? AND status = 'ACTIVE' FOR UPDATE", [boothId, org(c)], conn))[0];
+    if (!booth)
+        throw (0, errors_1.notFound)();
+    await (0, pool_1.exec)("INSERT INTO users (id, organization_id, email, password_hash, full_name, role) VALUES (?,?,?,?,?,'BOOTH_MEMBER')", [userId, org(c), member.email.toLowerCase(), passwordHash, member.fullName], conn);
+    const assignmentId = (0, crypto_1.randomUUID)();
+    await (0, pool_1.exec)("INSERT INTO booth_assignments (id, booth_id, user_id, can_approve_cross_booth, created_by) VALUES (?,?,?,?,?)", [assignmentId, boothId, userId, member.canApproveCrossBooth ? 1 : 0, c.user.id], conn);
+    await (0, audit_1.audit)({ actorId: c.user.id, action: "ROLE_CHANGE", resourceType: "USER", resourceId: userId, reason: "created as BOOTH_MEMBER", outcome: "SUCCESS", requestId: c.requestId }, conn);
+    await (0, audit_1.audit)({ actorId: c.user.id, action: "BOOTH_ASSIGNMENT", resourceType: "BOOTH", resourceId: boothId, scope: `user:${userId}`, outcome: "SUCCESS", requestId: c.requestId }, conn);
+    return { id: userId, assignmentId };
 }
 async function updateUser(c, id, i) {
     if (id === c.user.id)

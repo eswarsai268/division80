@@ -10,7 +10,7 @@ const env_1 = require("../config/env");
 async function main() {
     const c = await promise_1.default.createConnection({
         host: env_1.env.DATABASE_HOST, port: env_1.env.DATABASE_PORT, user: env_1.env.DATABASE_USER, password: env_1.env.DATABASE_PASSWORD,
-        ssl: env_1.env.DATABASE_SSL === "true" ? { minVersion: "TLSv1.2" } : undefined, multipleStatements: true,
+        ssl: env_1.env.DATABASE_SSL === "true" ? { minVersion: "TLSv1.2", rejectUnauthorized: true } : undefined, multipleStatements: true,
     });
     await c.query(`CREATE DATABASE IF NOT EXISTS \`${env_1.env.DATABASE_NAME.replace(/[^a-zA-Z0-9_]/g, "")}\``);
     await c.query(`USE \`${env_1.env.DATABASE_NAME.replace(/[^a-zA-Z0-9_]/g, "")}\``);

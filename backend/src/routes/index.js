@@ -53,6 +53,12 @@ const audit_1 = require("../services/audit");
 const extra_1 = require("./extra");
 const router = (0, express_1.Router)();
 const password = zod_1.z.string().min(12).max(128);
+const boothMemberCredentials = zod_1.z.object({
+    email: zod_1.z.string().email().max(255),
+    fullName: zod_1.z.string().min(2).max(200),
+    password,
+    canApproveCrossBooth: zod_1.z.boolean().default(false),
+});
 const ACCESS_MS = env_1.env.ACCESS_TOKEN_TTL_SECONDS * 1000;
 const REFRESH_MS = env_1.env.REFRESH_TOKEN_TTL_DAYS * 86_400_000;
 function setCookies(res, t) {
@@ -192,7 +198,11 @@ router.use("/cross-booth", x);
 const ad = (0, express_1.Router)();
 ad.use(authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), rateLimit_1.limits.admin);
 ad.get("/dashboard", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.dashboard((0, http_1.ctx)(req)))));
-ad.post("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.createBooth((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ code: zod_1.z.string().min(1).max(32), name: zod_1.z.string().min(2).max(200) }), req.body)), 201)));
+ad.post("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.createBooth((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
+    code: zod_1.z.string().min(1).max(32),
+    name: zod_1.z.string().min(2).max(200),
+    member: boothMemberCredentials.optional(),
+}), req.body)), 201)));
 ad.get("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.listBooths((0, http_1.ctx)(req)))));
 ad.get("/booths/:boothId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.getBooth((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.boothId)))));
 ad.patch("/booths/:boothId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.updateBooth((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.boothId), (0, http_1.parse)(zod_1.z.object({ name: zod_1.z.string().min(2).max(200).optional(), status: zod_1.z.enum(["ACTIVE", "INACTIVE"]).optional() }), req.body)))));
@@ -200,7 +210,21 @@ ad.post("/booths/:boothId/assignments", (0, http_1.h)(async (req, res) => (0, ht
 ad.get("/booths/:boothId/assignments", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.listAssignments((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.boothId)))));
 ad.delete("/assignments/:assignmentId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.revokeAssignment((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.assignmentId)))));
 ad.get("/users", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.listUsers((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.enum(["ADMIN", "BOOTH_MEMBER", "USER"]).optional(), req.query.role)))));
-ad.post("/users", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.createUser((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ email: zod_1.z.string().email().max(255), fullName: zod_1.z.string().min(2).max(200), password, role: zod_1.z.enum(["BOOTH_MEMBER", "USER"]) }), req.body)), 201)));
+ad.post("/users", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.createUser((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
+    email: zod_1.z.string().email().max(255),
+    fullName: zod_1.z.string().min(2).max(200),
+    password,
+    role: zod_1.z.enum(["BOOTH_MEMBER", "USER"]),
+    boothId: http_1.uuid.optional(),
+    canApproveCrossBooth: zod_1.z.boolean().default(false),
+}).superRefine((value, ctx) => {
+    if (value.role === "BOOTH_MEMBER" && !value.boothId) {
+        ctx.addIssue({ code: zod_1.z.ZodIssueCode.custom, path: ["boothId"], message: "Select a booth for this booth member" });
+    }
+    if (value.role === "USER" && value.boothId) {
+        ctx.addIssue({ code: zod_1.z.ZodIssueCode.custom, path: ["boothId"], message: "Citizens cannot be assigned to a booth" });
+    }
+}), req.body)), 201)));
 ad.patch("/users/:userId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.updateUser((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.userId), (0, http_1.parse)(zod_1.z.object({ status: zod_1.z.enum(["ACTIVE", "SUSPENDED"]).optional(), role: zod_1.z.enum(["BOOTH_MEMBER", "USER"]).optional() }), req.body)))));
 ad.get("/complaints", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await complaints.adminList((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery.extend({ status: zod_1.z.string().max(32).optional() }), req.query)))));
 ad.patch("/complaints/:complaintId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await complaints.adminUpdate((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.complaintId), (0, http_1.parse)(zod_1.z.object({ status: zod_1.z.enum(["UNDER_REVIEW", "ASSIGNED", "IN_VERIFICATION", "RESOLVED", "REJECTED", "REOPENED"]).optional(), assignedBoothId: http_1.uuid.optional(), note: zod_1.z.string().max(500).optional(), expectedVersion: zod_1.z.number().int().optional() }), req.body)))));

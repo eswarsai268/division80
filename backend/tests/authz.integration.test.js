@@ -55,6 +55,27 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         await ag.get("/api/v1/booth/households").expect(403);
         await ag.get("/api/v1/admin/users").expect(403);
     });
+    it("admin can create a booth member login and assign it to the booth in one operation", async () => {
+        const admin = await mkUser("ADMIN", "booth-provision-admin");
+        const agent = await login(admin.email);
+        const email = `new-booth-member-${randomUUID().slice(0, 8)}@test.local`;
+        const created = await agent.post("/api/v1/admin/booths").set(H).send({
+            code: `PROV-${randomUUID().slice(0, 8)}`,
+            name: "Provisioned booth",
+            member: {
+                email,
+                fullName: "Provisioned Member",
+                password: pw,
+                canApproveCrossBooth: true,
+            },
+        }).expect(201);
+        const boothId = created.body.data.id;
+        const member = await login(email);
+        const profile = await member.get("/api/v1/auth/me").expect(200);
+        expect(profile.body.data.role).toBe("BOOTH_MEMBER");
+        expect(profile.body.data.boothIds).toContain(boothId);
+        expect(profile.body.data.approverBoothIds).toContain(boothId);
+    });
     it("T4: user cannot read another user's complaint", async () => {
         const u1 = await login(U.user1.email), u2 = await login(U.user2.email);
         const c = await u1.post("/api/v1/complaints").set(H).send({ title: "Broken light", description: "Street light is broken", category: "LIGHTING" }).expect(201);
@@ -91,7 +112,7 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         await a.get(`/api/v1/cross-booth/requests/${id}/household`).expect(404);
         await b.post(`/api/v1/cross-booth/requests/${id}/approve`).set(H).send({ grantHours: 4 }).expect(200);
         const roster = await a.get(`/api/v1/cross-booth/requests/${id}/household`).expect(200);
-        expect(roster.body.data.citizens[0].voterId).toBe(voterId);
+        expect(roster.body.data.citizens[0].voterId).toBe("****2345");
         for (let step = 1; step <= 6; step++) {
             await a.post("/api/v1/booth/verifications").set(H).set("Idempotency-Key", randomUUID()).send({
                 citizenId, step, result: "PASSED",

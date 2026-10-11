@@ -6,7 +6,6 @@ CREATE TABLE organizations (
   name VARCHAR(200) NOT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 );
-
 CREATE TABLE users (
   id CHAR(36) PRIMARY KEY,
   organization_id CHAR(36) NOT NULL,
@@ -20,7 +19,6 @@ CREATE TABLE users (
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   KEY idx_users_org (organization_id, role)
 );
-
 CREATE TABLE sessions (
   id CHAR(36) PRIMARY KEY,
   user_id CHAR(36) NOT NULL,
