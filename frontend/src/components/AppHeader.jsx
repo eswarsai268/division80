@@ -1,12 +1,13 @@
 import { Bike, LogOut } from "lucide-react";
+import { APP_NAME } from "../utils/constants";
 
 export default function AppHeader({ me, onLogout }) {
   return (
-    <header className="flex items-center justify-between border-b border-amber-300 bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 px-4 py-3 text-stone-950 shadow-sm">
+    <header className="flex items-center justify-between border-b border-amber-300 bg-[#ffc400] px-4 py-3 text-stone-950 shadow-sm">
       <div className="flex items-center gap-2">
-        <Bike className="text-red-700" size={25} />
+        <Bike className="text-slate-800" size={25} />
         <div>
-        <p className="font-extrabold leading-tight">MyTDP</p>
+        <p className="app-brand-name">{APP_NAME}</p>
         <p className="text-xs text-stone-700">{me.fullName} · {me.role.replace("_", " ")}</p>
         </div>
       </div>

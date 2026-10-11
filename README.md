@@ -1,21 +1,8 @@
-# Samasya Medhi – Partskaram Madhi App
+# Samasya Meedi Parishkaram Maadi
 
 Community issue tracking + booth/household verification platform.
 Folders: `backend/` (Express API, plain JavaScript), `frontend/` (React + Vite + Tailwind), `worker/` (outbox + maintenance), `database/` (migrations), `docs/`.
 
-<<<<<<< HEAD
-## Local development
-
-Requirements: Node.js 20.6+ and a configured `.env` in the repository root. Install dependencies once from the repository root with `npm install`. The backend and worker load that root `.env` directly; set its database connection and JWT secret for the environment you intend to use.
-
-On Windows, open separate PowerShell terminals from the repository root:
-
-1. Run `npm run dev:backend` (API at http://localhost:4000).
-2. Run `npm run dev:frontend` (web app at http://localhost:5173).
-3. Run `npm run dev:worker` only when using background imports/exports.
-
-You can also run `npm start` in `frontend/` for the web app or `npm start` in `backend/` for the API. Run `npm run migrate` and `npm run seed` only when the database configured in `.env` is the intended database.
-=======
 ## Quick start
 ```bash
 cp .env.example .env            # fill DATABASE_*, REDIS_URL, JWT_ACCESS_SECRET, SEED_ADMIN_*
@@ -31,7 +18,6 @@ Docker (dev): `JWT_ACCESS_SECRET=<32+ chars> docker compose up --build`, then ru
 The frontend calls `/api/v1` on the same origin by default. For local development, Vite proxies `/api` to `http://localhost:4000` (override with `VITE_API_PROXY`). For a separately hosted API, set the frontend build variable `VITE_API_BASE_URL` to the full API base URL ending in `/api/v1`.
 
 Production API, worker and migration processes require `DATABASE_SSL=true`; database TLS certificate validation is enabled and cannot be disabled in production.
->>>>>>> 7c84e3a72ba364e939c75c462f0947e5fb6475af
 
 ## Tests
 ```bash
