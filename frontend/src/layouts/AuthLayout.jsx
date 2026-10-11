@@ -5,7 +5,7 @@ import { APP_NAME } from "../utils/constants";
 export default function AuthLayout({ title, subtitle, children }) {
   const media = useGet(["public", "login-media"], "/auth/login-media", { staleTime: 60_000 });
   return (
-    <main className="min-h-screen overflow-hidden bg-[#f8f7f2]">
+    <main className="min-h-screen overflow-hidden bg-[#fff7e5]">
       <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
         <section className="relative flex min-h-[34vh] flex-col justify-between overflow-hidden bg-stone-950 p-6 text-white sm:min-h-[42vh] sm:p-10 lg:min-h-screen lg:p-14">
           {media.data?.loginVideoUrl && <video className="absolute inset-0 h-full w-full object-cover opacity-45" src={media.data.loginVideoUrl} autoPlay muted loop playsInline />}
