@@ -3,18 +3,17 @@
 Community issue tracking + booth/household verification platform.
 Folders: `backend/` (Express API, plain JavaScript), `frontend/` (React + Vite + Tailwind), `worker/` (outbox + maintenance), `database/` (migrations), `docs/`.
 
-## Quick start
-```bash
-cp .env.example .env            # fill DATABASE_*, REDIS_URL, JWT_ACCESS_SECRET, SEED_ADMIN_*
-npm install
-export $(grep -v '^#' .env | xargs)   # or use your own env loader
-npm run migrate                 # creates DB + tables
-npm run seed                    # default organisation + first admin
-npm run dev:backend               # http://localhost:4000
-npm run dev:frontend                 # http://localhost:5173  (proxies /api)
-npm run dev:worker
-```
-Docker (dev): `JWT_ACCESS_SECRET=<32+ chars> docker compose up --build`, then run migrate/seed against TiDB on `127.0.0.1:4001`.
+## Local development
+
+Requirements: Node.js 20.6+ and a configured `.env` in the repository root. Install dependencies once from the repository root with `npm install`. The backend and worker load that root `.env` directly; set its database connection and JWT secret for the environment you intend to use.
+
+On Windows, open separate PowerShell terminals from the repository root:
+
+1. Run `npm run dev:backend` (API at http://localhost:4000).
+2. Run `npm run dev:frontend` (web app at http://localhost:5173).
+3. Run `npm run dev:worker` only when using background imports/exports.
+
+You can also run `npm start` in `frontend/` for the web app or `npm start` in `backend/` for the API. Run `npm run migrate` and `npm run seed` only when the database configured in `.env` is the intended database.
 
 ## Tests
 ```bash
