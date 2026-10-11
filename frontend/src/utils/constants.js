@@ -1,4 +1,5 @@
 // Shared constants
+export const APP_NAME = "Samasya Meedi Parishkaram Maadi";
 export const STEPS = ["Record verification", "Voter ID check", "Life status (live / dead)", "T+Live circle", "Verify all details", "Double check"];
 export const FLOW = ["SUBMITTED", "UNDER_REVIEW", "ASSIGNED", "IN_VERIFICATION", "RESOLVED"];
 export const NEXT_STATUS = { SUBMITTED: "UNDER_REVIEW", UNDER_REVIEW: "ASSIGNED", ASSIGNED: "IN_VERIFICATION", IN_VERIFICATION: "RESOLVED" };

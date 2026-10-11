@@ -1,4 +1,4 @@
-# Samasya Medhi – Partskaram Madhi App
+# Samasya Meedi Parishkaram Maadi
 
 Community issue tracking + booth/household verification platform.
 Folders: `backend/` (Express API, plain JavaScript), `frontend/` (React + Vite + Tailwind), `worker/` (outbox + maintenance), `database/` (migrations), `docs/`.

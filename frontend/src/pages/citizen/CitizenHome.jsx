@@ -3,6 +3,8 @@ import Async from "../../components/Async";
 import Badge from "../../components/Badge";
 import Empty from "../../components/Empty";
 import Feed from "../../components/Feed";
+import { ArrowRight, ClipboardList, ImagePlus, MapPin } from "lucide-react";
+import { fmt } from "../../utils/format";
 import { useGet } from "../../hooks/useGet";
 
 export default function CitizenHome() {
@@ -10,10 +12,33 @@ export default function CitizenHome() {
     const an = useGet(["announcements"], "/public/announcements");
     const mine = useGet(["complaints", "mine", 5], "/complaints/mine?limit=5");
     return (<div className="space-y-5">
-      <section><h2 className="mb-2 font-semibold text-brand-900">New issues & resolution updates</h2>
-        <Async q={mine}>{(d) => d.items.length ? <>{d.items.map((c) => <Link key={c.id} to={`/complaints/${c.id}`} className="card mb-2 flex items-center justify-between"><span className="text-sm">{c.title}</span><Badge s={c.status}/></Link>)}</> : <Empty text="No complaints yet."/>}</Async>
-        <Link to="/complaints/new" className="btn mt-2 w-full">Submit a complaint</Link></section>
-      <section><h2 className="mb-2 font-semibold text-brand-900">Announcements</h2><Feed items={an.data} empty="No announcements."/></section>
-      <section><div className="mb-2 flex justify-between"><h2 className="font-semibold text-brand-900">Upcoming events</h2><Link to="/events" className="text-sm text-brand-600 underline">All events</Link></div><Feed items={ev.data?.slice(0, 3)} empty="No upcoming events."/></section>
+      <section className="citizen-hero">
+        <div className="citizen-hero-art" aria-hidden="true"><ImagePlus size={30} strokeWidth={1.5}/></div>
+        <div className="relative z-10">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-amber-100">Your community, in reach</p>
+          <h2 className="max-w-sm text-2xl font-bold leading-tight text-white">Help build a better community.</h2>
+          <p className="mt-2 max-w-sm text-sm leading-5 text-white/85">Report local issues, follow their progress, and stay informed.</p>
+          <Link to="/complaints/new" className="btn mt-4 rounded-full"><ClipboardList size={17}/> Submit a complaint</Link>
+        </div>
+        <div className="citizen-hero-image-placeholder"><ImagePlus size={14}/> Community banner image</div>
+      </section>
+
+      <section className="grid grid-cols-2 gap-3" aria-label="Complaint summary">
+        <div className="data-placeholder"><span className="data-placeholder-value">—</span><span className="data-placeholder-label">My issues</span><span className="data-placeholder-note">Summary data slot</span></div>
+        <div className="data-placeholder"><span className="data-placeholder-value">—</span><span className="data-placeholder-label">Resolved</span><span className="data-placeholder-note">Summary data slot</span></div>
+      </section>
+
+      <section>
+        <div className="section-heading"><h2>Recent issues & updates</h2><Link to="/complaints" className="section-action">View all <ArrowRight size={15}/></Link></div>
+        <Async q={mine}>{(d) => d.items.length ? <div className="space-y-2">{d.items.map((c) => <Link key={c.id} to={`/complaints/${c.id}`} className="card activity-card">
+          <div className="flex min-w-0 items-center gap-2"><Badge s={c.status}/><span className="truncate text-xs text-slate-500">{c.category}</span></div>
+          <p className="mt-2 font-semibold leading-snug">{c.title}</p>
+          <p className="mt-2 flex items-center gap-2 text-xs text-slate-500"><MapPin size={13}/>{c.location || "Location not provided"}<span className="ml-auto">{fmt(c.createdAt)}</span></p>
+        </Link>)}</div> : <Empty text="Your submitted issues will appear here."/>}</Async>
+      </section>
+
+      <section><div className="section-heading"><h2>Latest announcements</h2></div><Async q={an}>{(rows) => <Feed items={rows} empty="Announcements will appear here when published."/>}</Async></section>
+
+      <section><div className="section-heading"><h2>Published events</h2><Link to="/events" className="section-action">All events <ArrowRight size={15}/></Link></div><Async q={ev}>{(d) => <Feed items={d?.slice(0, 3)} empty="Published events will appear here."/>}</Async></section>
     </div>);
 }

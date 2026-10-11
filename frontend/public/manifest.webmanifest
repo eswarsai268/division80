@@ -1,9 +1,9 @@
 {
-  "name": "Samasya Medhi – Partskaram Madhi",
-  "short_name": "Samasya Medhi",
+  "name": "Samasya Meedi Parishkaram Maadi",
+  "short_name": "Samasya Meedi Parishkaram Maadi",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#eff6ff",
-  "theme_color": "#1e40af",
+  "background_color": "#fff7e5",
+  "theme_color": "#efb900",
   "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

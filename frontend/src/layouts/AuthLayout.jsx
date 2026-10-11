@@ -1,5 +1,6 @@
 import { ArrowRight, Bike, ShieldCheck } from "lucide-react";
 import { useGet } from "../hooks/useGet";
+import { APP_NAME } from "../utils/constants";
 
 export default function AuthLayout({ title, subtitle, children }) {
   const media = useGet(["public", "login-media"], "/auth/login-media", { staleTime: 60_000 });
@@ -11,7 +12,7 @@ export default function AuthLayout({ title, subtitle, children }) {
           <div className="absolute inset-0 bg-gradient-to-br from-stone-950/90 via-stone-950/55 to-amber-950/65" />
           <div className="relative z-10 flex items-center gap-3">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-amber-400 text-red-700 shadow-lg"><Bike size={29} /></span>
-            <div><p className="text-xl font-black tracking-tight">MyTDP</p><p className="text-xs text-amber-100">Samasya Medhi</p></div>
+            <div><p className="auth-brand-name">{APP_NAME}</p><p className="text-xs text-amber-100">Community services</p></div>
           </div>
           <div className="relative z-10 my-8 max-w-xl">
             <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-200"><ShieldCheck size={15} /> Community, connected</p>
