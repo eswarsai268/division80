@@ -8,6 +8,7 @@ exports.listAdminRequests = listAdminRequests;
 const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
+const households_1 = require("../repositories/households");
 const audit_1 = require("./audit");
 const REQUEST_VALID_HOURS = 24;
 async function createRequest(c, i) {
@@ -69,7 +70,7 @@ async function getGrantedHousehold(c, requestId) {
             ci.life_status AS lifeStatus,
             (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED') AS passedSteps
        FROM citizens ci WHERE ci.household_id = ? ORDER BY ci.full_name`, [grant.householdId]);
-    return { requestId: grant.id, action: grant.action, household: { id: grant.householdId, houseCode: grant.houseCode, boothCode: grant.boothCode, status: grant.status }, citizens: citizens.map((citizen) => ({ ...citizen, passedSteps: Number(citizen.passedSteps) })) };
+    return { requestId: grant.id, action: grant.action, household: { id: grant.householdId, houseCode: grant.houseCode, boothCode: grant.boothCode, status: grant.status }, citizens: citizens.map((citizen) => ({ ...citizen, voterId: (0, households_1.maskVoter)(citizen.voterId), passedSteps: Number(citizen.passedSteps) })) };
 }
 async function listAdminRequests(c) {
     return (0, pool_1.query)(`SELECT r.id, r.status, r.action, r.reason, r.created_at AS createdAt,

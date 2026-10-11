@@ -21,6 +21,14 @@ const schema = zod_1.z.object({
     TRUST_PROXY_HOPS: zod_1.z.coerce.number().int().min(0).default(0),
     UPLOAD_DIR: zod_1.z.string().default("./uploads"),
     LOG_LEVEL: zod_1.z.string().default("info"),
+}).superRefine((config, ctx) => {
+    if (config.NODE_ENV === "production" && config.DATABASE_SSL !== "true") {
+        ctx.addIssue({
+            code: zod_1.z.ZodIssueCode.custom,
+            path: ["DATABASE_SSL"],
+            message: "DATABASE_SSL=true is required in production",
+        });
+    }
 });
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {

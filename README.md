@@ -15,6 +15,9 @@ npm run dev:frontend                 # http://localhost:5173  (proxies /api)
 npm run dev:worker
 ```
 Docker (dev): `JWT_ACCESS_SECRET=<32+ chars> docker compose up --build`, then run migrate/seed against TiDB on `127.0.0.1:4001`.
+The frontend calls `/api/v1` on the same origin by default. For local development, Vite proxies `/api` to `http://localhost:4000` (override with `VITE_API_PROXY`). For a separately hosted API, set the frontend build variable `VITE_API_BASE_URL` to the full API base URL ending in `/api/v1`.
+
+Production API, worker and migration processes require `DATABASE_SSL=true`; database TLS certificate validation is enabled and cannot be disabled in production.
 
 ## Tests
 ```bash
@@ -25,7 +28,7 @@ Covers: cross-booth IDOR (T1/T2), citizen dataset denial (T3), other user's comp
 Race tests (T-5.4) and load tests are **not** included yet — see docs/security/threat-model.md.
 
 ## Using it
-1. Admin logs in → creates booths (`/admin/booths`) → creates booth members (`POST /api/v1/admin/users`) → assigns them (`POST /admin/booths/:id/assignments`, optionally `canApproveCrossBooth`).
+1. Admin logs in → creates a booth and can optionally create its first member login in the same form (`/admin/booths`). For existing booths, use Booth details or Users to create a booth-member account and assign it immediately. Share the email and temporary password securely; the member signs in at `/booth/login`. Admins can also assign existing members from Booth details or Assignments.
 2. Booth member searches `G-24`, opens the household, records the 6 verification steps in order.
 3. Cross-booth: a booth member requests verification access using the exact voter ID and a reason. An approver for the target booth approves it for four hours. Only then can the visiting member view the household roster and record the six verification steps; each cross-booth step is linked to the approval and visible in the admin cross-booth report and audit log.
 4. Citizens register, submit complaints, track the timeline.

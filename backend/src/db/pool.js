@@ -20,7 +20,7 @@ exports.pool = promise_1.default.createPool({
     user: env_1.env.DATABASE_USER,
     password: env_1.env.DATABASE_PASSWORD,
     database: env_1.env.DATABASE_NAME,
-    ssl: env_1.env.DATABASE_SSL === "true" ? { minVersion: "TLSv1.2" } : undefined,
+    ssl: env_1.env.DATABASE_SSL === "true" ? { minVersion: "TLSv1.2", rejectUnauthorized: true } : undefined,
     connectionLimit: env_1.env.DATABASE_CONNECTION_LIMIT,
     waitForConnections: true,
     queueLimit: 500,
