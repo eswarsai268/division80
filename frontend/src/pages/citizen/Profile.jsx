@@ -38,15 +38,16 @@ function ProfileContent({ profile }) {
       qc.invalidateQueries({ queryKey: ["me"] });
     },
   });
-  // Fetch every page so the activity totals are accurate for accounts with more than 100 complaints.
-  const complaints = useGet(["profile", "complaints"], "/complaints/mine?limit=100", {
+  const isAdmin = profile.role === "ADMIN";
+  // Fetch every page so the activity totals stay accurate for large accounts/organizations.
+  const complaints = useGet(["profile", "complaints", profile.role], isAdmin ? "/admin/complaints?limit=100" : "/complaints/mine?limit=100", {
     queryFn: async ({ signal }) => {
       const items = [];
       let cursor;
       do {
         const query = new URLSearchParams({ limit: "100" });
         if (cursor) query.set("cursor", cursor);
-        const page = await api(`/complaints/mine?${query}`, { signal });
+        const page = await api(`${isAdmin ? "/admin/complaints" : "/complaints/mine"}?${query}`, { signal });
         items.push(...page.items);
         cursor = page.nextCursor;
       } while (cursor);
@@ -121,12 +122,12 @@ function ProfileContent({ profile }) {
       <section>
         <h2 className="profile-section-title">Recent activity</h2>
         <div className="grid grid-cols-2 gap-3">
-          <Link to="/complaints" className="profile-stat-card" aria-label="View submitted complaints">
+          <Link to={isAdmin ? "/admin/complaints" : "/complaints"} className="profile-stat-card" aria-label="View complaints">
             <span className="profile-stat-icon text-amber-700"><CircleAlert size={19} /></span>
             <Async q={complaints}>{(rows) => <strong>{rows.length}</strong>}</Async>
             <span className="profile-stat-label">Complaints</span>
           </Link>
-          <Link to="/complaints" className="profile-stat-card" aria-label="View resolved complaints">
+          <Link to={isAdmin ? "/admin/complaints?status=RESOLVED" : "/complaints"} className="profile-stat-card" aria-label="View resolved complaints">
             <span className="profile-stat-icon bg-emerald-50 text-emerald-800"><CheckCircle2 size={19} /></span>
             <Async q={complaints}>{() => <strong>{resolvedCount}</strong>}</Async>
             <span className="profile-stat-label">Resolved</span>
@@ -143,7 +144,7 @@ function ProfileContent({ profile }) {
           </div>
         </div>
 
-        <Link to="/complaints" className="profile-activity-link">
+        <Link to={isAdmin ? "/admin/complaints" : "/complaints"} className="profile-activity-link">
           <span className="profile-activity-icon"><CircleAlert size={19} /></span>
           <span className="min-w-0 flex-1"><strong>View complaints</strong><small>Track your submitted complaints and updates</small></span>
           <ArrowRight size={18} className="text-slate-400" aria-hidden="true" />
