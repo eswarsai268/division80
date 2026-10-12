@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../i18n";
 
 export default function AttachmentImage({ attachment, index, refresh }) {
   const [failedUrl, setFailedUrl] = useState("");
@@ -8,7 +9,7 @@ export default function AttachmentImage({ attachment, index, refresh }) {
     <div className="relative aspect-square overflow-hidden rounded-xl border border-brand-100 bg-stone-100">
       {isUnavailable
         ? <span className="flex h-full flex-col items-center justify-center gap-1 p-2 text-center text-xs text-slate-600">
-            <span>Photo link expired or unavailable.</span>
+            <span>{t("Photo link expired or unavailable.")}</span>
             <button
               type="button"
               className="font-semibold text-amber-800 underline"
@@ -19,7 +20,7 @@ export default function AttachmentImage({ attachment, index, refresh }) {
                 refresh();
               }}
             >
-              Refresh photo
+              {t("Refresh photo")}
             </button>
           </span>
         : <a href={attachment.url} target="_blank" rel="noreferrer" className="group block h-full w-full focus:outline-none focus:ring-2 focus:ring-brand-600">

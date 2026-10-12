@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { FileSpreadsheet, UploadCloud, X } from "lucide-react";
 import Async from "../../components/Async";
 import Badge from "../../components/Badge";
 import Empty from "../../components/Empty";
@@ -9,30 +10,103 @@ import { fmt } from "../../utils/format";
 import { post } from "../../api/client";
 import { useAct } from "../../hooks/useAct";
 import { useGet } from "../../hooks/useGet";
+import { t } from "../../i18n";
 
 export default function AdminImport() {
     const [csv, setCsv] = useState("");
     const [fileName, setFile] = useState("");
+    const [fileError, setFileError] = useState("");
+    const [isDragging, setIsDragging] = useState(false);
+    const fileInput = useRef(null);
     const jobs = useGet(["admin", "imports"], "/admin/import-jobs", { refetchInterval: 4000 });
     const [preview, setPreview] = useState(null);
     const create = useAct(() => post("/admin/import-jobs", { csv }).then((r) => setPreview(r)));
     const confirmM = useAct((id) => post(`/admin/import-jobs/${id}/confirm`).then(() => setPreview(null)));
-    return <div className="space-y-3"><Title>Import booth voter lists</Title>
-    <div className="card space-y-2"><p className="text-sm text-slate-600">Upload one roster containing all booth members and voter records. Booth members will only see people assigned to their active booths. Required columns: <code>booth_code, house_code, full_name, relation</code>. Optional: <code>voter_id, life_status</code>. Max 50,000 rows. Cells starting with = + - @ are rejected.</p>
-      <button className="btn-ghost" onClick={() => { const u = URL.createObjectURL(new Blob([IMPORT_TEMPLATE], { type: "text/csv" })); const a = document.createElement("a"); a.href = u; a.download = "import-template.csv"; a.click(); URL.revokeObjectURL(u); }}>Download template</button>
-      <input type="file" accept=".csv,text/csv" aria-label="CSV file" className="text-sm" onChange={async (e) => { const f = e.target.files?.[0]; if (f) {
-        setFile(f.name);
-        setCsv(await f.text());
+    const loadCsv = async (file) => {
+        if (!file)
+            return;
+        setFile("");
+        setCsv("");
         setPreview(null);
-    } }}/>
-      {fileName && <p className="text-xs text-slate-500">{fileName} · {csv.length.toLocaleString()} characters</p>}
+        create.reset();
+        if (!file.name.toLowerCase().endsWith(".csv") && file.type !== "text/csv") {
+            setFileError(t("Choose a .csv file. Photos and PDFs cannot be uploaded here."));
+            return;
+        }
+        if (file.size > 8 * 1024 * 1024) {
+            setFileError(t("The CSV file must be smaller than 8 MB."));
+            return;
+        }
+        try {
+            const contents = await file.text();
+            if (!contents.trim()) {
+                setFileError(t("This CSV file is empty. Choose a file that contains roster rows."));
+                return;
+            }
+            setFile(file.name);
+            setCsv(contents);
+            setPreview(null);
+            setFileError("");
+            create.reset();
+        } catch (error) {
+            setFileError(t("Could not read this file. Please choose the CSV file again."));
+            console.error("Could not read selected roster CSV", error);
+        }
+    };
+    const clearFile = () => {
+        setFile("");
+        setCsv("");
+        setPreview(null);
+        setFileError("");
+        create.reset();
+        if (fileInput.current)
+            fileInput.current.value = "";
+    };
+    return <div className="space-y-3"><Title>{t("Import booth voter lists")}</Title>
+    <div className="card space-y-4">
+      <div><h2 className="font-semibold text-slate-900">{t("Add a voter list")}</h2><p className="mt-1 text-sm text-slate-600">{t("Use a CSV spreadsheet file. A photo or scanned voter-list page cannot be read here.")}</p></div>
+      <ol className="space-y-1 rounded-xl bg-white/70 p-3 text-sm text-slate-700">
+        <li><strong>1.</strong> {t("Download the sample CSV template.")}</li>
+        <li><strong>2.</strong> {t("Fill in one person per row and enter the correct booth code.")}</li>
+        <li><strong>3.</strong> {t("Choose your completed CSV file, then review it before importing.")}</li>
+      </ol>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <button type="button" className="btn-ghost justify-center" onClick={() => { const u = URL.createObjectURL(new Blob([IMPORT_TEMPLATE], { type: "text/csv" })); const a = document.createElement("a"); a.href = u; a.download = "import-template.csv"; a.click(); URL.revokeObjectURL(u); }}>{t("Download template")}</button>
+      </div>
+      <div
+        className={`rounded-2xl border-2 border-dashed p-4 transition-colors sm:p-5 ${isDragging ? "border-amber-600 bg-amber-100" : "border-amber-400 bg-white/70 hover:bg-white"}`}
+        onDragOver={(event) => { event.preventDefault(); setIsDragging(true); }}
+        onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setIsDragging(false); }}
+        onDrop={(event) => { event.preventDefault(); setIsDragging(false); void loadCsv(event.dataTransfer.files?.[0]); }}
+      >
+        <input ref={fileInput} type="file" accept=".csv,text/csv" aria-label={t("Choose CSV file")} className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; void loadCsv(file); }}/>
+        {fileName
+          ? <div className="flex items-center gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-800"><FileSpreadsheet size={22}/></span>
+              <div className="min-w-0 flex-1"><p className="break-all text-sm font-semibold text-slate-900">{fileName}</p><p className="text-xs text-slate-500">{t("CSV file selected")} · {csv.length.toLocaleString()} {t("characters")}</p></div>
+              <button type="button" className="btn-ghost shrink-0" onClick={clearFile} aria-label={t("Remove selected file")}><X size={17}/><span className="hidden sm:inline">{t("Remove")}</span></button>
+            </div>
+          : <div className="flex flex-col items-center text-center">
+              <span className="mb-2 grid h-12 w-12 place-items-center rounded-full bg-amber-100 text-amber-800"><UploadCloud size={25}/></span>
+              <p className="font-semibold text-slate-900">{t("Choose your CSV file")}</p>
+              <p className="mt-1 text-xs text-slate-600">{t("or drag and drop it here")} · {t("CSV only")} · {t("Maximum 8 MB")}</p>
+              <button type="button" className="btn mt-3" onClick={() => fileInput.current?.click()}>{t("Choose CSV file")}</button>
+            </div>}
+      </div>
+      <p className="text-xs leading-5 text-slate-600">{t("Required columns:")} <code>booth_code, house_code, full_name, relation</code><br/>{t("Optional CSV columns:")} <code>address, roll_serial, voter_id, age, gender, life_status</code></p>
+      <p className="text-xs leading-5 text-slate-500">{t("Printed voter photos are not imported. Maximum 50,000 rows; formula cells are rejected.")}</p>
+      {fileError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{fileError}</p>}
       {create.error && <ErrorBox error={create.error}/>}
-      <button className="btn w-full" disabled={!csv || create.isPending} onClick={() => create.mutate(undefined)}>Validate & preview</button></div>
-    {preview && <div className="card space-y-2"><h2 className="font-semibold">Preview</h2>
+      <button className="btn w-full" disabled={!csv || create.isPending} onClick={() => create.mutate(undefined)}>{create.isPending ? t("Checking CSV…") : t("Check file before importing")}</button></div>
+    {preview && <div className="card space-y-2"><h2 className="font-semibold">{t("Preview")}</h2>
       <p className="text-sm">{preview.totalRows} rows · <span className="text-green-700">{preview.validRows} valid</span> · <span className="text-red-700">{preview.errorCount} errors</span></p>
-      {preview.errors.length > 0 && <ul className="max-h-40 overflow-auto text-xs text-red-700">{preview.errors.map((e, i) => <li key={i}>Line {e.line}: {e.message}</li>)}</ul>}
+      {preview.errors.length > 0 && <ul className="max-h-40 overflow-auto text-xs text-red-700">{preview.errors.map((e, i) => <li key={i}>{t("Line")} {e.line}: {e.message}</li>)}</ul>}
       {confirmM.error && <ErrorBox error={confirmM.error}/>}
       <button className="btn w-full" disabled={preview.validRows === 0 || confirmM.isPending} onClick={() => confirm(`Import ${preview.validRows} valid rows? Invalid rows are skipped.`) && confirmM.mutate(preview.id)}>Confirm import ({preview.validRows} rows)</button></div>}
-    <h2 className="font-semibold text-brand-900">Recent imports</h2>
-    <Async q={jobs}>{(d) => d.length ? <>{d.map((j) => <div key={j.id} className="card mb-2 text-sm"><div className="flex justify-between"><span>{fmt(j.createdAt)}</span><Badge s={j.status}/></div><p className="text-xs text-slate-500">{j.validRows}/{j.totalRows} valid · {j.errorCount} errors · processed {j.processedRows}{j.lastError ? ` · ${j.lastError}` : ""}</p></div>)}</> : <Empty text="No imports yet."/>}</Async></div>;
+    <h2 className="font-semibold text-brand-900">{t("Recent imports")}</h2>
+    <Async q={jobs}>{(d) => d.length ? <>{d.map((j) => <div key={j.id} className="card mb-2 space-y-2 text-sm"><div className="flex justify-between"><span>{fmt(j.createdAt)}</span><Badge s={j.status}/></div><p className="text-xs text-slate-500">{j.validRows}/{j.totalRows} valid · {j.errorCount} {t("errors · processed")} {j.processedRows}{j.lastError ? ` · ${j.lastError}` : ""}</p>
+      {j.status === "QUEUED" && <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-950"><strong>{t("Upload accepted; waiting for the background worker.")}</strong><p>{t("The booth roster will appear only after the worker processes this job. In production, start the worker service using:")} <code className="break-all">node worker/src/index.js</code></p><p>{t("Make sure the worker uses the same database settings as the API.")}</p></div>}
+      {j.status === "COMMITTING" && <div role="status" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">{t("The worker is importing these rows. This page checks for updates automatically.")}</div>}
+      {j.status === "COMMITTED" && <div role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-900">{t("Import finished. Booth members assigned to the matching booth can now open these households.")}</div>}
+    </div>)}</> : <Empty text="No imports yet."/>}</Async></div>;
 }

@@ -10,6 +10,7 @@ import ErrorBox from "../../components/ErrorBox";
 import { useGet } from "../../hooks/useGet";
 import { api } from "../../api/client";
 import { updateProfile } from "../../services/profileService";
+import { t } from "../../i18n";
 
 const roleLabel = (role) => role === "USER" ? "Citizen" : String(role ?? "").replaceAll("_", " ").toLowerCase();
 const namePattern = /^[\p{L}\p{M}]+(?:[ .'-’][\p{L}\p{M}]+)*$/u;
@@ -62,9 +63,9 @@ function ProfileContent({ profile }) {
 
   return (
     <div className="profile-page space-y-7">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-800">My profile</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-slate-800">{t("My profile")}</h1>
 
-      <section className="profile-summary" aria-label="Profile summary">
+      <section className="profile-summary" aria-label={t("Profile summary")}>
         <div className="profile-avatar" aria-hidden="true">{initials}</div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -77,10 +78,10 @@ function ProfileContent({ profile }) {
       </section>
 
       <section>
-        <h2 className="profile-section-title">Account details</h2>
+        <h2 className="profile-section-title">{t("Account details")}</h2>
         <form className="profile-form" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
           <div>
-            <label className="profile-label" htmlFor="profile-full-name">Full name</label>
+            <label className="profile-label" htmlFor="profile-full-name">{t("Full name")}</label>
             <div className="profile-input-wrap"><UserRound size={18} aria-hidden="true" /><input id="profile-full-name" autoComplete="name" maxLength={200} className="profile-input" {...form.register("fullName", {
               required: "Enter your full name",
               validate: (value) => {
@@ -94,25 +95,25 @@ function ProfileContent({ profile }) {
           </div>
 
           <div>
-            <label className="profile-label" htmlFor="profile-phone">Phone number</label>
+            <label className="profile-label" htmlFor="profile-phone">{t("Phone number")}</label>
             <div className="profile-input-wrap"><Phone size={18} aria-hidden="true" /><span className="profile-phone-prefix" aria-hidden="true">+91</span><Controller control={form.control} name="phone" rules={{ validate: (value) => !value || value.length === 10 || "Enter exactly 10 digits" }} render={({ field }) => <input id="profile-phone" type="tel" inputMode="numeric" autoComplete="tel-national" maxLength={24} aria-describedby="profile-phone-hint" placeholder="98765 43210" className="profile-input" value={formatPhone(field.value ?? "")} onBlur={field.onBlur} onChange={(event) => field.onChange(phoneDigits(event.target.value))} />} /></div>
-            <p id="profile-phone-hint" className="profile-privacy-note">Enter a 10-digit mobile number. +91 is added automatically.</p>
+            <p id="profile-phone-hint" className="profile-privacy-note">{t("Enter a 10-digit mobile number. +91 is added automatically.")}</p>
             {form.formState.errors.phone && <p className="profile-field-error" role="alert">{form.formState.errors.phone.message}</p>}
           </div>
 
           <div>
-            <label className="profile-label profile-label-muted" htmlFor="profile-email">Email address</label>
+            <label className="profile-label profile-label-muted" htmlFor="profile-email">{t("Email address")}</label>
             <div className="profile-email-wrap"><input id="profile-email" className="profile-input" value={profile.email ?? ""} readOnly aria-describedby="profile-email-note" /><LockKeyhole size={18} className="text-slate-500" aria-hidden="true" /></div>
-            <p id="profile-email-note" className="profile-privacy-note">Email is used to sign in and can’t be changed here. Account details are used to manage your citizen profile.</p>
+            <p id="profile-email-note" className="profile-privacy-note">{t("Email is used to sign in and can’t be changed here. Account details are used to manage your citizen profile.")}</p>
           </div>
 
           {mutation.error && <ErrorBox error={mutation.error} />}
-          {mutation.isSuccess && <p className="text-sm font-medium text-emerald-700" role="status">Profile changes saved.</p>}
+          {mutation.isSuccess && <p className="text-sm font-medium text-emerald-700" role="status">{t("Profile changes saved.")}</p>}
           <button className="profile-save" type="submit" disabled={mutation.isPending || !form.formState.isDirty}>
             {mutation.isPending ? "Saving…" : "Save changes"}<Save size={17} aria-hidden="true" />
           </button>
           <button className="profile-cancel" type="button" disabled={!form.formState.isDirty || mutation.isPending} onClick={() => { form.reset({ fullName: profile.fullName ?? "", phone: phoneDigits(profile.phone) }); mutation.reset(); }}>
-            <XCircle size={16} aria-hidden="true" /> Cancel changes
+            <XCircle size={16} aria-hidden="true" /> {t("Cancel changes")}
           </button>
         </form>
       </section>
@@ -120,38 +121,38 @@ function ProfileContent({ profile }) {
       <div className="profile-member-since"><CalendarDays size={16} aria-hidden="true" /><span>Member since: {memberSince(profile.createdAt)}</span></div>
 
       <section>
-        <h2 className="profile-section-title">Recent activity</h2>
+        <h2 className="profile-section-title">{t("Recent activity")}</h2>
         <div className="grid grid-cols-2 gap-3">
-          <Link to={isAdmin ? "/admin/complaints" : "/complaints"} className="profile-stat-card" aria-label="View complaints">
+          <Link to={isAdmin ? "/admin/complaints" : "/complaints"} className="profile-stat-card" aria-label={t("View complaints")}>
             <span className="profile-stat-icon text-amber-700"><CircleAlert size={19} /></span>
             <Async q={complaints}>{(rows) => <strong>{rows.length}</strong>}</Async>
-            <span className="profile-stat-label">Complaints</span>
+            <span className="profile-stat-label">{t("Complaints")}</span>
           </Link>
-          <Link to={isAdmin ? "/admin/complaints?status=RESOLVED" : "/complaints"} className="profile-stat-card" aria-label="View resolved complaints">
+          <Link to={isAdmin ? "/admin/complaints?status=RESOLVED" : "/complaints"} className="profile-stat-card" aria-label={t("View resolved complaints")}>
             <span className="profile-stat-icon bg-emerald-50 text-emerald-800"><CheckCircle2 size={19} /></span>
             <Async q={complaints}>{() => <strong>{resolvedCount}</strong>}</Async>
-            <span className="profile-stat-label">Resolved</span>
+            <span className="profile-stat-label">{t("Resolved")}</span>
           </Link>
-          <Link to="/events" className="profile-stat-card" aria-label="View upcoming events">
+          <Link to="/events" className="profile-stat-card" aria-label={t("View upcoming events")}>
             <span className="profile-stat-icon bg-slate-200 text-slate-700"><Clock3 size={19} /></span>
             <Async q={events}>{() => <strong>{upcomingEvents}</strong>}</Async>
-            <span className="profile-stat-label">Upcoming events</span>
+            <span className="profile-stat-label">{t("Upcoming events")}</span>
           </Link>
-          <div className="profile-stat-card" aria-label="Engagement score unavailable">
+          <div className="profile-stat-card" aria-label={t("Engagement score unavailable")}>
             <span className="profile-stat-icon bg-amber-100 text-amber-700"><ShieldCheck size={19} /></span>
             <strong>—</strong>
-            <span className="profile-stat-label">Engagement unavailable</span>
+            <span className="profile-stat-label">{t("Engagement unavailable")}</span>
           </div>
         </div>
 
         <Link to={isAdmin ? "/admin/complaints" : "/complaints"} className="profile-activity-link">
           <span className="profile-activity-icon"><CircleAlert size={19} /></span>
-          <span className="min-w-0 flex-1"><strong>View complaints</strong><small>Track your submitted complaints and updates</small></span>
+          <span className="min-w-0 flex-1"><strong>{t("View complaints")}</strong><small>{t("Track your submitted complaints and updates")}</small></span>
           <ArrowRight size={18} className="text-slate-400" aria-hidden="true" />
         </Link>
       </section>
 
-      <footer className="profile-footer"><p>{profile.fullName || "Citizen"} · {roleLabel(profile.role)} portal</p><p>Local community impact</p></footer>
+      <footer className="profile-footer"><p>{profile.fullName || "Citizen"} · {roleLabel(profile.role)} portal</p><p>{t("Local community impact")}</p></footer>
     </div>
   );
 }

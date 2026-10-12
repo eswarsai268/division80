@@ -8,6 +8,7 @@ import Title from "../../components/Title";
 import { post } from "../../api/client";
 import { useAct } from "../../hooks/useAct";
 import { useGet } from "../../hooks/useGet";
+import { t } from "../../i18n";
 
 export default function AdminBooths() {
     const [code, setCode] = useState("");
@@ -30,16 +31,16 @@ export default function AdminBooths() {
         return result;
     }));
     const invalidPartialMember = memberStarted && !memberComplete;
-    return <div className="space-y-3"><Title>Booths</Title>
-    <div className="card space-y-2"><h2 className="font-semibold">Create booth</h2>
-      <input className="input" placeholder="Code (e.g. B-12)" value={code} onChange={(e) => setCode(e.target.value)} aria-label="Booth code"/><input className="input" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} aria-label="Booth name"/>
+    return <div className="space-y-3"><Title>{t("Booths")}</Title>
+    <div className="card space-y-2"><h2 className="font-semibold">{t("Create booth")}</h2>
+      <input className="input" placeholder={t("Code (e.g. B-12)")} value={code} onChange={(e) => setCode(e.target.value)} aria-label={t("Booth code")}/><input className="input" placeholder={t("Name")} value={name} onChange={(e) => setName(e.target.value)} aria-label={t("Booth name")}/>
       <div className="mt-3 space-y-2 border-t border-brand-100 pt-3">
-        <div><h3 className="text-sm font-semibold">First booth member login (optional)</h3><p className="mt-1 text-xs text-slate-500">Create and assign the member now. They can sign in at Booth login with this email and password.</p></div>
-        <input className="input" placeholder="Member full name" value={member.fullName} onChange={(e) => setMember({ ...member, fullName: e.target.value })} aria-label="Booth member full name"/>
-        <input className="input" type="email" autoComplete="off" placeholder="Member login email" value={member.email} onChange={(e) => setMember({ ...member, email: e.target.value })} aria-label="Booth member login email"/>
-        <input className="input" type="password" autoComplete="new-password" minLength={12} placeholder="Initial password (at least 12 characters)" value={member.password} onChange={(e) => setMember({ ...member, password: e.target.value })} aria-label="Booth member initial password"/>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={member.canApproveCrossBooth} onChange={(e) => setMember({ ...member, canApproveCrossBooth: e.target.checked })}/> Can approve cross-booth requests</label>
-        {invalidPartialMember && <p className="text-xs text-amber-800">To create a member login, provide a name, valid email, and password of at least 12 characters.</p>}
+        <div><h3 className="text-sm font-semibold">{t("First booth member login (optional)")}</h3><p className="mt-1 text-xs text-slate-500">{t("Create and assign the member now. They can sign in at Booth login with this email and password.")}</p></div>
+        <input className="input" placeholder={t("Member full name")} value={member.fullName} onChange={(e) => setMember({ ...member, fullName: e.target.value })} aria-label={t("Booth member full name")}/>
+        <input className="input" type="email" autoComplete="off" placeholder={t("Member login email")} value={member.email} onChange={(e) => setMember({ ...member, email: e.target.value })} aria-label={t("Booth member login email")}/>
+        <input className="input" type="password" autoComplete="new-password" minLength={12} placeholder={t("Initial password (at least 12 characters)")} value={member.password} onChange={(e) => setMember({ ...member, password: e.target.value })} aria-label={t("Booth member initial password")}/>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={member.canApproveCrossBooth} onChange={(e) => setMember({ ...member, canApproveCrossBooth: e.target.checked })}/> {t("Can approve cross-booth requests")}</label>
+        {invalidPartialMember && <p className="text-xs text-amber-800">{t("To create a member login, provide a name, valid email, and password of at least 12 characters.")}</p>}
       </div>
       {m.error && <ErrorBox error={m.error}/>}
       {m.isSuccess && <p role="status" className="text-sm text-emerald-700">{createdMemberEmail ? `Booth created. ${createdMemberEmail} is assigned and can sign in at Booth login.` : "Booth created."}</p>}

@@ -9,6 +9,7 @@ import ErrorBox from "../components/ErrorBox";
 import { fetchMe, login, logout } from "../services/authService";
 import { PORTALS } from "../utils/constants";
 import { loginSchema } from "./schemas";
+import { t } from "../i18n";
 
 /** One form, three portals. An account used on the wrong portal is signed out again. */
 export default function LoginForm({ portal }) {
@@ -27,8 +28,8 @@ export default function LoginForm({ portal }) {
   });
   return (
     <form onSubmit={submit} className="card space-y-4 rounded-2xl border-amber-200 p-5 shadow-lg shadow-amber-900/5">
-      <div><label className="label" htmlFor="email">Email</label><input id="email" className="input" type="email" autoComplete="username" {...f.register("email")} />{f.formState.errors.email && <p className="text-xs text-red-600">{f.formState.errors.email.message}</p>}</div>
-      <div><label className="label" htmlFor="pw">Password</label><div className="relative"><input id="pw" className="input pr-12" type={showPassword ? "text" : "password"} autoComplete="current-password" {...f.register("password")} /><button type="button" className="password-visibility" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword}>{showPassword ? <EyeOff size={19}/> : <Eye size={19}/>}</button></div></div>
+      <div><label className="label" htmlFor="email">{t("Email")}</label><input id="email" className="input" type="email" autoComplete="username" {...f.register("email")} />{f.formState.errors.email && <p className="text-xs text-red-600">{f.formState.errors.email.message}</p>}</div>
+      <div><label className="label" htmlFor="pw">{t("Password")}</label><div className="relative"><input id="pw" className="input pr-12" type={showPassword ? "text" : "password"} autoComplete="current-password" {...f.register("password")} /><button type="button" className="password-visibility" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword}>{showPassword ? <EyeOff size={19}/> : <Eye size={19}/>}</button></div></div>
       {f.formState.errors.root && <ErrorBox error={f.formState.errors.root} />}
       <button className="btn w-full rounded-xl py-3 text-base" disabled={f.formState.isSubmitting}>{f.formState.isSubmitting ? "Signing in…" : "Sign in"}</button>
     </form>

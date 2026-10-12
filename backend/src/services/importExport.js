@@ -34,11 +34,23 @@ async function createImportJob(c, csv) {
         errors.push({ line, message }); };
     const valid = [];
     const seen = new Set();
+    const householdAddresses = new Map();
     for (let i = 1; i < rows.length; i++) {
         const r = rows[i] ?? [];
         const line = i + 1;
         const get = (n) => { const k = header.indexOf(n); return k < 0 ? "" : (r[k] ?? "").trim(); };
-        const f = { booth: get("booth_code"), house: get("house_code"), name: get("full_name"), rel: get("relation"), voter: get("voter_id").toUpperCase(), life: (get("life_status") || "UNKNOWN").toUpperCase() };
+        const f = {
+            booth: get("booth_code"),
+            house: get("house_code"),
+            address: get("address") || get("address_line"),
+            serial: get("roll_serial") || get("serial_number"),
+            name: get("full_name"),
+            rel: get("relation"),
+            voter: get("voter_id").toUpperCase(),
+            age: get("age"),
+            gender: (get("gender") || "UNKNOWN").trim().toUpperCase(),
+            life: (get("life_status") || "UNKNOWN").toUpperCase(),
+        };
         if (Object.values(f).some((v) => csv_1.FORMULA.test(v))) {
             bad(line, "Cell starts with a formula character (= + - @)");
             continue;
@@ -57,8 +69,31 @@ async function createImportJob(c, csv) {
             continue;
         }
         const rel = f.rel.toUpperCase();
-        if (!/^[A-Z][A-Z _-]{1,31}$/.test(rel)) {
+        if (!/^\p{L}[\p{L}\p{M} _-]{0,31}$/u.test(rel)) {
             bad(line, "Invalid relation");
+            continue;
+        }
+        if (f.address.length > 255) {
+            bad(line, "address must be at most 255 characters");
+            continue;
+        }
+        if (f.serial && !/^[A-Za-z0-9][A-Za-z0-9/-]{0,31}$/.test(f.serial)) {
+            bad(line, "Invalid roll_serial");
+            continue;
+        }
+        const age = f.age ? Number(f.age) : null;
+        if (f.age && (!Number.isInteger(age) || age < 0 || age > 130)) {
+            bad(line, "age must be a whole number from 0 to 130");
+            continue;
+        }
+        const genderAliases = {
+            M: "MALE", MALE: "MALE", "పురుషుడు": "MALE", "పురుష": "MALE",
+            F: "FEMALE", FEMALE: "FEMALE", "మహిళ": "FEMALE", "స్త్రీ": "FEMALE",
+            OTHER: "OTHER", "ఇతర": "OTHER", UNKNOWN: "UNKNOWN", "తెలియదు": "UNKNOWN",
+        };
+        const gender = genderAliases[f.gender];
+        if (!gender) {
+            bad(line, "gender must be MALE, FEMALE, OTHER, or UNKNOWN");
             continue;
         }
         if (!LIFE.includes(f.life)) {
@@ -76,7 +111,27 @@ async function createImportJob(c, csv) {
             }
             seen.add(f.voter);
         }
-        valid.push({ boothId, houseCode: f.house.toUpperCase(), fullName: f.name, relation: rel, voterId: f.voter || null, lifeStatus: f.life, line });
+        const householdKey = `${boothId}|${f.house.toUpperCase()}`;
+        const previousAddress = householdAddresses.get(householdKey);
+        if (f.address && previousAddress && f.address !== previousAddress) {
+            bad(line, "Rows for the same household must use the same address");
+            continue;
+        }
+        if (f.address)
+            householdAddresses.set(householdKey, f.address);
+        valid.push({
+            boothId,
+            houseCode: f.house.toUpperCase(),
+            addressLine: f.address || null,
+            rollSerial: f.serial || null,
+            fullName: f.name,
+            relation: rel,
+            voterId: f.voter || null,
+            age,
+            gender,
+            lifeStatus: f.life,
+            line,
+        });
     }
     const ids = [...seen];
     const existing = new Set();

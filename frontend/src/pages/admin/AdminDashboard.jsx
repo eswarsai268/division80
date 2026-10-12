@@ -5,6 +5,7 @@ import { ArrowRight, CalendarDays, ClipboardList, FileDown, FileUp, Settings, Sh
 import { Link } from "react-router-dom";
 import { fmt } from "../../utils/format";
 import { useGet } from "../../hooks/useGet";
+import { t } from "../../i18n";
 
 const LABELS = { booths: "Total booths", boothMembers: "Active booth members", households: "Households", pendingComplaints: "Pending complaints", inVerification: "In verification", resolved: "Resolved", upcomingEvents: "Upcoming events" };
 const METRICS = [
@@ -23,16 +24,16 @@ export default function AdminDashboard() {
   const audit = useGet(["admin", "audit", "dashboard"], "/admin/audit-logs?limit=5");
   return (
     <div className="space-y-5">
-      <section><div className="section-heading"><h1>Operational pulse</h1></div>
-        <Async q={q}>{(d) => <div className="grid grid-cols-2 gap-3">{METRICS.filter(([key]) => d[key] !== undefined).map(([key, Icon]) => <div key={key} className="metric-card"><span className="metric-icon"><Icon size={20}/></span><strong>{d[key]}</strong><span>{LABELS[key]}</span></div>)}</div>}</Async>
+      <section><div className="section-heading"><h1>{t("Operational pulse")}</h1></div>
+        <Async q={q}>{(d) => <div className="grid grid-cols-2 gap-3">{METRICS.filter(([key]) => d[key] !== undefined).map(([key, Icon]) => <div key={key} className="metric-card"><span className="metric-icon"><Icon size={20}/></span><strong>{d[key]}</strong><span>{t(LABELS[key])}</span></div>)}</div>}</Async>
       </section>
 
-      <section><div className="section-heading"><h2>Management tools</h2></div><div className="grid grid-cols-2 gap-3">
-        {TOOLS.map(([to, label, Icon]) => <Link key={to} to={to} className="tool-card"><span className="tool-icon"><Icon size={21}/></span><strong>{label}</strong><span className="text-xs text-slate-500">Open {label.toLowerCase()}</span></Link>)}
+      <section><div className="section-heading"><h2>{t("Management tools")}</h2></div><div className="grid grid-cols-2 gap-3">
+        {TOOLS.map(([to, label, Icon]) => <Link key={to} to={to} className="tool-card"><span className="tool-icon"><Icon size={21}/></span><strong>{t(label)}</strong><span className="text-xs text-slate-500">{t("Open")} {t(label)}</span></Link>)}
       </div></section>
 
       <section>
-        <div className="section-heading"><h2>Recent activity</h2><Link to="/admin/audit-logs" className="section-action">View all <ArrowRight size={15}/></Link></div>
+        <div className="section-heading"><h2>{t("Recent activity")}</h2><Link to="/admin/audit-logs" className="section-action">{t("View all")} <ArrowRight size={15}/></Link></div>
         <Async q={audit}>{(rows) => rows.length ? <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">{rows.map((a) => <Link key={a.id} to="/admin/audit-logs" className="audit-activity-row text-inherit no-underline">
           <span className="tool-icon shrink-0"><ScrollText size={18}/></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{a.action.replaceAll("_", " ")}</strong><Badge s={a.outcome}/></div><p className="mt-1 text-xs text-slate-500">{a.resourceType}{a.reason ? ` · ${a.reason}` : ""}</p><p className="mt-1 text-xs text-slate-400">{fmt(a.createdAt)}</p></div><ArrowRight size={16} className="text-slate-400"/>
         </Link>)}</div> : <Empty text="Recorded administrative activity will appear here."/>}</Async>

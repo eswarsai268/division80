@@ -21,7 +21,7 @@ async function recordVerification(c, input, idempotencyKey) {
         throw (0, errors_1.forbidden)();
     return (0, pool_1.tx)(async (conn) => {
         // Lock the citizen row: serialises concurrent verifications of the same person.
-        const cit = (await (0, pool_1.query)("SELECT id, household_id, booth_id FROM citizens WHERE id = ? FOR UPDATE", [input.citizenId], conn))[0];
+        const cit = (await (0, pool_1.query)("SELECT id, household_id, booth_id FROM citizens WHERE id = ? AND deleted_at IS NULL FOR UPDATE", [input.citizenId], conn))[0];
         if (!cit)
             throw (0, errors_1.notFound)();
         let crossRequestId = null;
@@ -55,7 +55,7 @@ async function recordVerification(c, input, idempotencyKey) {
         await (0, pool_1.exec)(`INSERT INTO verifications (id, citizen_id, household_id, booth_id, step, result, verifier_id, notes, idempotency_key, cross_booth_request_id)
        VALUES (?,?,?,?,?,?,?,?,?,?)`, [id, cit.id, cit.household_id, cit.booth_id, input.step, input.result, c.user.id, input.notes ?? null, idempotencyKey ?? null, crossRequestId], conn);
         // Household rollup (derived state, computed server-side only)
-        const open = (await (0, pool_1.query)(`SELECT COUNT(*) AS n FROM citizens ci WHERE ci.household_id = ?
+        const open = (await (0, pool_1.query)(`SELECT COUNT(*) AS n FROM citizens ci WHERE ci.household_id = ? AND ci.deleted_at IS NULL
          AND (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED') < 6`, [cit.household_id], conn))[0].n;
         await (0, pool_1.exec)("UPDATE households SET verification_status = ? WHERE id = ?", [Number(open) === 0 ? "RESOLVED" : "IN_VERIFICATION", cit.household_id], conn);
         await (0, audit_1.audit)({ actorId: c.user.id, action: "CITIZEN_VERIFICATION", resourceType: "CITIZEN", resourceId: cit.id,

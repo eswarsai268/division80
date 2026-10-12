@@ -61,7 +61,13 @@ public/      manifest.webmanifest, sw.js (never caches /api), favicon.svg
 **Admin** `/admin/login /admin/dashboard /admin/booths /admin/booths/:boothId /admin/assignments /admin/users /admin/complaints /admin/complaints/:id /admin/citizens /admin/import /admin/exports /admin/events /admin/audit-logs /admin/cross-booth /admin/settings`
 
 ## Loading your data
-Admin → Import → download the CSV template → upload booth voter rows → review the preview → Confirm. The worker (`npm run dev:worker`) must be running to commit imports and generate exports. Booth members see only rosters for booths assigned to them. Voters in another booth use the approved cross-booth workflow.
+Admin → Import → download the CSV template → upload booth voter rows → review the preview → Confirm. The worker (`npm run dev:worker`) must be running to commit imports and generate exports. On Render, deploy a separate Background Worker from the repository root, build with `npm ci`, and start it with `node worker/src/index.js`. Configure its database environment variables to match the API (including `DATABASE_SSL=true`). A job left at `QUEUED` with zero processed rows means the worker has not claimed it. After it reaches `COMMITTED`, booth members see only rosters for booths to which their account is actively assigned. Voters in another booth use the approved cross-booth workflow.
+
+The roster CSV requires one row per person and these exact headers: `booth_code,house_code,full_name,relation`. Optional headers are `address,roll_serial,voter_id,age,gender,life_status`. `booth_code` must match an active booth. Reuse the same `house_code` and address for all people in one household. Age is a whole number from 0 to 130; gender is `MALE`, `FEMALE`, `OTHER`, or `UNKNOWN`; life status is `ALIVE`, `DECEASED`, or `UNKNOWN`. Leave unavailable optional values blank rather than guessing. Voter IDs must be unique. Do not include voter portraits or images in the CSV. The import preview validates rows before confirmation.
+
+Admins can add a single person from Admin → Citizens & households without re-uploading a CSV. “Remove from active roster” archives that person: they disappear from booth work and new exports, while verification history and the voter ID record remain stored for audit/history. The original uploaded CSV file is not retained as a downloadable document after processing; imported roster rows are database records.
+
+Admin → Exports provides three verification roster exports: no passed steps, 1–5 passed steps, and all 6 passed steps. Exports can be limited to a booth; voter IDs are masked and generated files expire after 24 hours.
 
 Admins can optionally set a login welcome video in Settings by pasting an HTTPS Cloudinary `res.cloudinary.com/<cloud>/video/upload/...` delivery URL. The video is public, muted and looping on sign-in pages; no Cloudinary secret is stored in the app.
 

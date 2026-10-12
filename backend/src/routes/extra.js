@@ -52,7 +52,20 @@ const auth = __importStar(require("../services/auth"));
 function extendAdmin(ad) {
     const idp = (req, n) => (0, http_1.parse)(http_1.uuid, req.params[n]);
     ad.get("/citizens", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listCitizens((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery.extend({ search: zod_1.z.string().max(100).optional(), boothId: http_1.uuid.optional() }), req.query)))));
+    ad.post("/citizens", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.createCitizen((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
+        boothId: http_1.uuid,
+        houseCode: zod_1.z.string().regex(/^[A-Za-z0-9][A-Za-z0-9\-/]{0,31}$/),
+        address: zod_1.z.string().max(255).optional(),
+        rollSerial: zod_1.z.string().max(32).optional(),
+        fullName: zod_1.z.string().min(1).max(200),
+        relation: zod_1.z.string().regex(/^\p{L}[\p{L}\p{M} _-]{0,31}$/u),
+        voterId: zod_1.z.string().regex(/^[A-Za-z0-9]{6,20}$/).optional(),
+        age: zod_1.z.number().int().min(0).max(130).nullable().optional(),
+        gender: zod_1.z.enum(["MALE", "FEMALE", "OTHER", "UNKNOWN"]).default("UNKNOWN"),
+        lifeStatus: zod_1.z.enum(["ALIVE", "DECEASED", "UNKNOWN"]).default("UNKNOWN"),
+    }), req.body)), 201)));
     ad.patch("/citizens/:citizenId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.updateCitizen((0, http_1.ctx)(req), idp(req, "citizenId"), (0, http_1.parse)(zod_1.z.object({ fullName: zod_1.z.string().min(1).max(200).optional(), lifeStatus: zod_1.z.enum(["ALIVE", "DECEASED", "UNKNOWN"]).optional() }), req.body)))));
+    ad.delete("/citizens/:citizenId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.archiveCitizen((0, http_1.ctx)(req), idp(req, "citizenId")))));
     ad.get("/households", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listHouseholds((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery.extend({ search: zod_1.z.string().max(32).optional(), boothId: http_1.uuid.optional(), status: zod_1.z.enum(["PENDING", "IN_VERIFICATION", "RESOLVED"]).optional() }), req.query)))));
     ad.delete("/households/:householdId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.deleteHousehold((0, http_1.ctx)(req), idp(req, "householdId")))));
     ad.get("/assignments", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listAllAssignments((0, http_1.ctx)(req)))));
@@ -71,7 +84,7 @@ function extendAdmin(ad) {
     ad.get("/import-jobs", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.listImportJobs((0, http_1.ctx)(req)))));
     ad.get("/import-jobs/:jobId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.getImportJob((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.post("/import-jobs/:jobId/confirm", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.confirmImport((0, http_1.ctx)(req), idp(req, "jobId")))));
-    ad.post("/export-jobs", rateLimit_1.limits.exportJobs, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.createExport((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ kind: zod_1.z.enum(["CITIZENS", "HOUSEHOLDS", "COMPLAINTS"]), boothId: http_1.uuid.optional() }), req.body)), 201)));
+    ad.post("/export-jobs", rateLimit_1.limits.exportJobs, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.createExport((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ kind: zod_1.z.enum(["CITIZENS", "HOUSEHOLDS", "COMPLAINTS", "PENDING_VERIFICATION", "IN_PROGRESS_VERIFICATION", "VERIFIED_CITIZENS"]), boothId: http_1.uuid.optional() }), req.body)), 201)));
     ad.get("/export-jobs", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.listExports((0, http_1.ctx)(req)))));
     ad.get("/export-jobs/:jobId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.getExport((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.get("/export-jobs/:jobId/download", (0, http_1.h)(async (req, res) => {

@@ -20,7 +20,7 @@ async function createRequest(c, i) {
             ? (await (0, pool_1.query)(`SELECT h.id, h.booth_id FROM households h JOIN booths b ON b.id = h.booth_id
                 WHERE h.id = ? AND h.deleted_at IS NULL AND b.organization_id = ?`, [i.householdId, u.organizationId], conn))[0]
             : (await (0, pool_1.query)(`SELECT h.id, h.booth_id FROM citizens ci JOIN households h ON h.id = ci.household_id
-                JOIN booths b ON b.id = h.booth_id WHERE ci.voter_id = ? AND h.deleted_at IS NULL AND b.organization_id = ?`, [i.voterId.toUpperCase(), u.organizationId], conn))[0];
+                JOIN booths b ON b.id = h.booth_id WHERE ci.voter_id = ? AND ci.deleted_at IS NULL AND h.deleted_at IS NULL AND b.organization_id = ?`, [i.voterId.toUpperCase(), u.organizationId], conn))[0];
         if (!h)
             throw (0, errors_1.notFound)();
         if (u.boothIds.includes(h.booth_id))
@@ -69,7 +69,7 @@ async function getGrantedHousehold(c, requestId) {
     const citizens = await (0, pool_1.query)(`SELECT ci.id, ci.full_name AS fullName, ci.relation, ci.voter_id AS voterId,
             ci.life_status AS lifeStatus,
             (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED') AS passedSteps
-       FROM citizens ci WHERE ci.household_id = ? ORDER BY ci.full_name`, [grant.householdId]);
+       FROM citizens ci WHERE ci.household_id = ? AND ci.deleted_at IS NULL ORDER BY ci.full_name`, [grant.householdId]);
     return { requestId: grant.id, action: grant.action, household: { id: grant.householdId, houseCode: grant.houseCode, boothCode: grant.boothCode, status: grant.status }, citizens: citizens.map((citizen) => ({ ...citizen, voterId: (0, households_1.maskVoter)(citizen.voterId), passedSteps: Number(citizen.passedSteps) })) };
 }
 async function listAdminRequests(c) {

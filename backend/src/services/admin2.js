@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.listEvents = exports.listAllAssignments = void 0;
 exports.listCitizens = listCitizens;
+exports.createCitizen = createCitizen;
+exports.archiveCitizen = archiveCitizen;
 exports.updateCitizen = updateCitizen;
 exports.listHouseholds = listHouseholds;
 exports.deleteHousehold = deleteHousehold;
@@ -25,21 +27,23 @@ const page = (rows, limit) => {
 };
 const esc = (s) => s.replace(/[\\%_]/g, (m) => "\\" + m);
 async function listCitizens(c, f) {
-    const where = ["b.organization_id = ?", "h.deleted_at IS NULL"];
+    const where = ["b.organization_id = ?", "h.deleted_at IS NULL", "ci.deleted_at IS NULL"];
     const p = [org(c)];
     if (f.boothId) {
         where.push("ci.booth_id = ?");
         p.push(f.boothId);
     }
     if (f.search) {
-        where.push("ci.full_name LIKE ?");
-        p.push(esc(f.search) + "%");
+        where.push("(ci.full_name LIKE ? OR ci.voter_id LIKE ? OR h.house_code LIKE ?)");
+        const term = esc(f.search) + "%";
+        p.push(term, term, term.toUpperCase());
     }
     if (f.cursor) {
         where.push("ci.id > ?");
         p.push(f.cursor);
     }
-    const rows = await (0, pool_1.query)(`SELECT ci.id, ci.full_name AS fullName, ci.relation, ci.voter_id AS voterId, ci.life_status AS lifeStatus, h.house_code AS houseCode, b.code AS boothCode,
+    const rows = await (0, pool_1.query)(`SELECT ci.id, ci.full_name AS fullName, ci.relation, ci.voter_id AS voterId, ci.life_status AS lifeStatus,
+            ci.roll_serial AS rollSerial, ci.age, ci.gender, h.address_line AS address, h.house_code AS houseCode, b.code AS boothCode,
             (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED') AS passedSteps
        FROM citizens ci JOIN households h ON h.id = ci.household_id JOIN booths b ON b.id = ci.booth_id
       WHERE ${where.join(" AND ")} ORDER BY ci.id LIMIT ${f.limit + 1}`, p);
@@ -53,6 +57,53 @@ async function updateCitizen(c, id, i) {
         throw (0, errors_1.notFound)();
     await (0, audit_1.audit)({ actorId: c.user.id, action: "HOUSEHOLD_UPDATE", resourceType: "CITIZEN", resourceId: id, outcome: "SUCCESS", reason: Object.keys(i).join(","), requestId: c.requestId });
     return { id };
+}
+async function createCitizen(c, input) {
+    const id = require("crypto").randomUUID();
+    return (0, pool_1.tx)(async (conn) => {
+        const booth = (await (0, pool_1.query)("SELECT id FROM booths WHERE id = ? AND organization_id = ? AND status = 'ACTIVE'", [input.boothId, org(c)], conn))[0];
+        if (!booth)
+            throw (0, errors_1.notFound)();
+        const voterId = input.voterId?.toUpperCase() ?? null;
+        const houseCode = input.houseCode.toUpperCase();
+        if (voterId) {
+            const existing = (await (0, pool_1.query)("SELECT id FROM citizens WHERE voter_id = ?", [voterId], conn))[0];
+            if (existing)
+                throw (0, errors_1.conflict)("Voter ID already exists");
+        }
+        let household = (await (0, pool_1.query)("SELECT id, deleted_at AS deletedAt FROM households WHERE booth_id = ? AND house_code = ?", [input.boothId, houseCode], conn))[0];
+        if (household?.deletedAt)
+            throw (0, errors_1.conflict)("This household is archived and cannot accept new members");
+        if (!household) {
+            household = { id: require("crypto").randomUUID() };
+            await (0, pool_1.exec)("INSERT INTO households (id, organization_id, booth_id, house_code, address_line) VALUES (?,?,?,?,?)", [household.id, org(c), input.boothId, houseCode, input.address ?? null], conn);
+        }
+        else if (input.address) {
+            await (0, pool_1.exec)("UPDATE households SET address_line = COALESCE(address_line, ?) WHERE id = ?", [input.address, household.id], conn);
+        }
+        await (0, pool_1.exec)(`INSERT INTO citizens (id, household_id, booth_id, full_name, relation, voter_id, life_status, roll_serial, age, gender)
+            VALUES (?,?,?,?,?,?,?,?,?,?)`, [id, household.id, input.boothId, input.fullName, input.relation, voterId, input.lifeStatus, input.rollSerial ?? null, input.age ?? null, input.gender]);
+        await (0, pool_1.exec)("UPDATE households SET verification_status = 'IN_VERIFICATION' WHERE id = ?", [household.id], conn);
+        await (0, audit_1.audit)({ actorId: c.user.id, action: "CITIZEN_CREATE", resourceType: "CITIZEN", resourceId: id, reason: "admin-added roster member", requestId: c.requestId }, conn);
+        return { id, householdId: household.id };
+    });
+}
+async function archiveCitizen(c, id) {
+    return (0, pool_1.tx)(async (conn) => {
+        const citizen = (await (0, pool_1.query)(`SELECT ci.household_id AS householdId
+            FROM citizens ci JOIN booths b ON b.id = ci.booth_id
+            WHERE ci.id = ? AND b.organization_id = ? AND ci.deleted_at IS NULL FOR UPDATE`, [id, org(c)], conn))[0];
+        if (!citizen)
+            throw (0, errors_1.notFound)();
+        await (0, pool_1.exec)("UPDATE citizens SET deleted_at = NOW(3) WHERE id = ? AND deleted_at IS NULL", [id], conn);
+        const remaining = (await (0, pool_1.query)(`SELECT COUNT(*) AS activeCount,
+                SUM((SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED') < 6) AS openCount
+            FROM citizens ci WHERE ci.household_id = ? AND ci.deleted_at IS NULL`, [citizen.householdId], conn))[0];
+        const status = Number(remaining.activeCount) === 0 ? "PENDING" : Number(remaining.openCount) === 0 ? "RESOLVED" : "IN_VERIFICATION";
+        await (0, pool_1.exec)("UPDATE households SET verification_status = ? WHERE id = ?", [status, citizen.householdId], conn);
+        await (0, audit_1.audit)({ actorId: c.user.id, action: "CITIZEN_ARCHIVE", resourceType: "CITIZEN", resourceId: id, reason: "removed from active roster; verification history retained", requestId: c.requestId }, conn);
+        return { id, archived: true };
+    });
 }
 async function listHouseholds(c, f) {
     const where = ["b.organization_id = ?", "h.deleted_at IS NULL"];
@@ -73,8 +124,8 @@ async function listHouseholds(c, f) {
         where.push("h.id > ?");
         p.push(f.cursor);
     }
-    const rows = await (0, pool_1.query)(`SELECT h.id, h.house_code AS houseCode, h.verification_status AS status, b.code AS boothCode,
-            (SELECT COUNT(*) FROM citizens ci WHERE ci.household_id = h.id) AS members
+    const rows = await (0, pool_1.query)(`SELECT h.id, h.house_code AS houseCode, h.address_line AS address, h.verification_status AS status, b.code AS boothCode,
+            (SELECT COUNT(*) FROM citizens ci WHERE ci.household_id = h.id AND ci.deleted_at IS NULL) AS members
        FROM households h JOIN booths b ON b.id = h.booth_id WHERE ${where.join(" AND ")} ORDER BY h.id LIMIT ${f.limit + 1}`, p);
     return page(rows.map((r) => ({ ...r, members: Number(r.members) })), f.limit);
 }

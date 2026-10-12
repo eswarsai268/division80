@@ -1,8 +1,60 @@
-node_modules
-dist
+node_modules/
+dist/
+build/
+coverage/
+
+# Local environment and credentials
 .env
 .env.*
 !.env.example
+
+# Package manager and build caches
+.npm/
+.cache/
+.vite/
+.parcel-cache/
+.turbo/
+*.tsbuildinfo
 *.log
-coverage
+npm-debug.log*
+
+# Local uploads and generated archives
 /backend/uploads/
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Android local/generated files (keep Gradle wrapper and source assets)
+android/.gradle/
+android/local.properties
+android/**/build/
+android/captures/
+android/.idea/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/capacitor-cordova-android-plugins/
+
+# Signing keys and built apps - never commit these
+*.jks
+*.keystore
+key.properties
+*.apk
+*.aab
+android/app/release/
+
+# Voter data (personal data) - keep out of the repo
+*.xlsx
+*.xls
+VOTERS_LIST*
+data/
+!backend/**/import-template*.csv
+
+# Tool and OS files
+.vercel/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

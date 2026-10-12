@@ -67,8 +67,9 @@ async function getHouseholdForUser(u, householdId) {
 async function listCitizensForUser(u, householdId) {
     const house = await getHouseholdForUser(u, householdId); // authorisation first
     const rows = await (0, pool_1.query)(`SELECT c.id, c.full_name AS fullName, c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus,
+            c.roll_serial AS rollSerial, c.age, c.gender,
             (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = c.id AND v.result = 'PASSED') AS passedSteps
-       FROM citizens c WHERE c.household_id = ? ORDER BY c.relation, c.full_name`, [householdId]);
+       FROM citizens c WHERE c.household_id = ? AND c.deleted_at IS NULL ORDER BY c.relation, c.full_name`, [householdId]);
     return {
         household: house,
         citizens: rows.map((r) => ({ ...r, voterId: (0, exports.maskVoter)(r.voterId), passedSteps: Number(r.passedSteps) })),

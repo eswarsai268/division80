@@ -6,10 +6,12 @@ import { loginFor } from "../auth/paths";
 import { NAV } from "../auth/navConfig";
 import { useMe } from "../auth/useMe";
 import { logout } from "../services/authService";
+import { useLanguage } from "../i18n";
 
 /** Shell for signed-in pages: header + content + bottom navigation (mobile first). */
 export default function AppLayout() {
   const { data: me } = useMe();
+  const { language } = useLanguage();
   const qc = useQueryClient();
   const nav = useNavigate();
   if (!me) return null;
@@ -17,7 +19,7 @@ export default function AppLayout() {
   return (
     <div className="app-shell mx-auto min-h-screen max-w-3xl">
       <AppHeader me={me} onLogout={onLogout} />
-      <main className="p-4"><Outlet /></main>
+      <main key={language} className="p-4"><Outlet /></main>
       <BottomNav {...NAV[me.role]} />
     </div>
   );

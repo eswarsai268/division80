@@ -10,6 +10,7 @@ import { post } from "../../api/client";
 import { useGet } from "../../hooks/useGet";
 import { useMe } from "../../auth/useMe";
 import { STEPS } from "../../utils/constants";
+import { t } from "../../i18n";
 
 function GrantedRoster({ request, canVerify, onChange }) {
     const query = useGet(["booth", "cross-household", request.id], `/cross-booth/requests/${request.id}/household`);
@@ -24,12 +25,12 @@ function GrantedRoster({ request, canVerify, onChange }) {
         <p className="mt-1 text-xs text-slate-500">{citizen.lifeStatus} · {citizen.passedSteps}/6 steps complete</p>
         {canVerify && action === "VERIFY" && citizen.passedSteps < STEPS.length && <div className="mt-2 flex flex-wrap items-center gap-2">
           <span className="min-w-0 flex-1 text-xs text-slate-600">Next: {STEPS[citizen.passedSteps]}</span>
-          <button className="btn" disabled={verify.isPending} onClick={() => verify.mutate({ citizenId: citizen.id, step: citizen.passedSteps + 1, result: "PASSED" })}>Pass step</button>
-          <button className="btn-ghost" disabled={verify.isPending} onClick={() => confirm("Record the current verification step as failed?") && verify.mutate({ citizenId: citizen.id, step: citizen.passedSteps + 1, result: "FAILED" })}>Fail</button>
+          <button className="btn" disabled={verify.isPending} onClick={() => verify.mutate({ citizenId: citizen.id, step: citizen.passedSteps + 1, result: "PASSED" })}>{t("Pass step")}</button>
+          <button className="btn-ghost" disabled={verify.isPending} onClick={() => confirm("Record the current verification step as failed?") && verify.mutate({ citizenId: citizen.id, step: citizen.passedSteps + 1, result: "FAILED" })}>{t("Fail")}</button>
         </div>}
       </div>)}
       {verify.error && <ErrorBox error={verify.error}/>}
-      {action === "VERIFY" && <p className="text-xs text-emerald-900">Verification is recorded against this temporary grant and is visible in the admin cross-booth report.</p>}
+      {action === "VERIFY" && <p className="text-xs text-emerald-900">{t("Verification is recorded against this temporary grant and is visible in the admin cross-booth report.")}</p>}
     </div>}</Async>;
 }
 
@@ -53,19 +54,19 @@ export default function CrossBooth() {
         qc.invalidateQueries({ queryKey: ["booth", "cross-household"] });
         qc.invalidateQueries({ queryKey: ["booth", "verifications"] });
     };
-    return <div className="space-y-4"><Title>Cross-booth coordination</Title>
+    return <div className="space-y-4"><Title>{t("Cross-booth coordination")}</Title>
     <div className="card space-y-3">
-      <div><h2 className="font-semibold">Request voter verification</h2><p className="mt-1 text-sm text-slate-600">Enter the exact voter ID from your booth visit. The target booth must approve before member details or verification steps are accessible.</p></div>
-      {(me?.boothIds.length ?? 0) > 1 && <select className="input" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Source booth"><option value="">Select your booth…</option>{me.boothIds.map((b) => <option key={b} value={b}>{b.slice(0, 8)}</option>)}</select>}
-      <label className="label" htmlFor="cross-voter-id">Voter ID</label>
-      <input id="cross-voter-id" className="input" placeholder="Enter voter ID" autoCapitalize="characters" value={voterId} onChange={(e) => setVoterId(e.target.value.toUpperCase())} aria-label="Voter ID"/>
-      <label className="label" htmlFor="cross-reason">Why is cross-booth verification needed?</label>
-      <textarea id="cross-reason" className="input min-h-20" placeholder="Add a short reason for the target booth approver" value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Reason"/>
+      <div><h2 className="font-semibold">{t("Request voter verification")}</h2><p className="mt-1 text-sm text-slate-600">{t("Enter the exact voter ID from your booth visit. The target booth must approve before member details or verification steps are accessible.")}</p></div>
+      {(me?.boothIds.length ?? 0) > 1 && <select className="input" value={source} onChange={(e) => setSource(e.target.value)} aria-label={t("Source booth")}><option value="">{t("Select your booth…")}</option>{me.boothIds.map((b) => <option key={b} value={b}>{b.slice(0, 8)}</option>)}</select>}
+      <label className="label" htmlFor="cross-voter-id">{t("Voter ID")}</label>
+      <input id="cross-voter-id" className="input" placeholder={t("Enter voter ID")} autoCapitalize="characters" value={voterId} onChange={(e) => setVoterId(e.target.value.toUpperCase())} aria-label={t("Voter ID")}/>
+      <label className="label" htmlFor="cross-reason">{t("Why is cross-booth verification needed?")}</label>
+      <textarea id="cross-reason" className="input min-h-20" placeholder={t("Add a short reason for the target booth approver")} value={reason} onChange={(e) => setReason(e.target.value)} aria-label={t("Reason")}/>
       {create.error && <ErrorBox error={create.error}/>}
       <button className="btn w-full" disabled={create.isPending || voterId.trim().length < 6 || reason.trim().length < 5 || (me?.boothIds.length ?? 0) === 0}>{create.isPending ? "Sending request…" : "Request verification approval"}</button>
     </div>
     {decide.error && <ErrorBox error={decide.error}/>}
-    <section><h2 className="mb-2 font-semibold text-brand-900">Requests and approvals</h2>
+    <section><h2 className="mb-2 font-semibold text-brand-900">{t("Requests and approvals")}</h2>
     <Async q={list}>{(requests) => requests.length ? <>{requests.map((r) => {
       const activeGrant = r.mine && r.status === "APPROVED" && r.grantExpiresAt && new Date(r.grantExpiresAt).getTime() > Date.now();
       return <article key={r.id} className="card mb-3 space-y-2">
@@ -73,7 +74,7 @@ export default function CrossBooth() {
         <p className="text-sm text-slate-600">{r.mine ? "Your request" : `From ${r.requesterName}`} · {r.action === "VERIFY" ? "Verification access" : "Read only"}</p>
         <p className="text-sm text-slate-600">{r.reason}</p>
         <p className="text-xs text-slate-500">{r.grantExpiresAt ? "Access until" : "Request expires"} {fmt(r.grantExpiresAt ?? r.expiresAt)}</p>
-        {r.canDecide && <div className="flex gap-2"><button className="btn flex-1" disabled={decide.isPending} onClick={() => decide.mutate({ id: r.id, d: "approve" })}>Approve · 4 hours</button><button className="btn-ghost flex-1" disabled={decide.isPending} onClick={() => decide.mutate({ id: r.id, d: "reject" })}>Reject</button></div>}
+        {r.canDecide && <div className="flex gap-2"><button className="btn flex-1" disabled={decide.isPending} onClick={() => decide.mutate({ id: r.id, d: "approve" })}>{t("Approve · 4 hours")}</button><button className="btn-ghost flex-1" disabled={decide.isPending} onClick={() => decide.mutate({ id: r.id, d: "reject" })}>{t("Reject")}</button></div>}
         {activeGrant && <GrantedRoster request={r} canVerify onChange={refresh}/>}
       </article>;
     })}</> : <Empty text="No cross-booth requests yet."/>}</Async></section></div>;

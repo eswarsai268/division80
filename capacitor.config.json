@@ -1,0 +1,9 @@
+{
+  "appId": "com.yourname.samasyamedhi",
+  "appName": "Samasya Medhi",
+  "webDir": "dist",
+  "server": {
+    "url": "https://samysa-medhi-project.vercel.app",
+    "cleartext": false
+  }
+}

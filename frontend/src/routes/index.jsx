@@ -34,6 +34,7 @@ import AdminEvents from "../pages/admin/AdminEvents";
 import AdminAudit from "../pages/admin/AdminAudit";
 import AdminSettings from "../pages/admin/AdminSettings";
 import AdminCrossBooth from "../pages/admin/AdminCrossBooth";
+import { t } from "../i18n";
 
 const Redirect = ({ to }) => <Navigate to={to} replace />;
 
@@ -42,10 +43,10 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
-      <Route path="/login" element={<LoginPage portal="USER" />} />
+      <Route path="/login" element={<LoginPage portal={t("USER")} />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/booth/login" element={<LoginPage portal="BOOTH_MEMBER" />} />
-      <Route path="/admin/login" element={<LoginPage portal="ADMIN" />} />
+      <Route path="/admin/login" element={<LoginPage portal={t("ADMIN")} />} />
 
       <Route element={<RoleRoute roles={["USER"]} />}>
         <Route element={<AppLayout />}>
