@@ -17,7 +17,14 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm install --no-audit
-      - run: npm run migrate
+      - name: Wait for database
+        run: |
+          for i in $(seq 1 30); do
+            (echo > /dev/tcp/127.0.0.1/4000) >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "database not ready" && exit 1
+      - run: node backend/src/scripts/migrate.js
       - run: npm test            # unit + authorization (IDOR/RBAC/cross-booth) tests
       - run: npm run build
       - run: npm audit --audit-level=high
