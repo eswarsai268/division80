@@ -1,6 +1,8 @@
 import { Bike, LogOut } from "lucide-react";
 import { APP_NAME } from "../utils/constants";
 import { t, useLanguage } from "../i18n";
+import BackButton from "./BackButton";
+import { homeFor } from "../auth/paths";
 
 export default function AppHeader({ me, onLogout }) {
   const { language, setLanguage } = useLanguage();
@@ -8,6 +10,7 @@ export default function AppHeader({ me, onLogout }) {
     <header className="app-top-nav">
       <div className="app-top-nav-inner">
         <div className="flex min-w-0 items-center gap-2">
+          <BackButton fallback={homeFor(me.role)} />
           <Bike className="shrink-0 text-stone-900" size={25} />
           <div className="min-w-0">
             <p className="app-brand-name">{APP_NAME}</p>

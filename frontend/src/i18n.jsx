@@ -26,6 +26,8 @@ const te = {
   "Create account": "ఖాతా సృష్టించండి",
   "Booth logins are created and assigned by an administrator. Use the email and temporary password they provided.": "బూత్ లాగిన్‌లను నిర్వాహకుడు సృష్టించి కేటాయిస్తారు. వారు ఇచ్చిన ఇమెయిల్ మరియు తాత్కాలిక పాస్‌వర్డ్‌తో సైన్ ఇన్ చేయండి.",
   "Back to sign in": "సైన్ ఇన్‌కు తిరిగి వెళ్లండి",
+  "Go back": "వెనక్కి వెళ్లండి",
+  "Downloading…": "డౌన్‌లోడ్ అవుతోంది…",
   "Name": "పేరు",
   "Phone": "ఫోన్",
   "Password": "పాస్‌వర్డ్",

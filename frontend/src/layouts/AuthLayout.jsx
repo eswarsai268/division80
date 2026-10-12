@@ -2,10 +2,14 @@ import { ArrowRight, Bike, ShieldCheck } from "lucide-react";
 import { useGet } from "../hooks/useGet";
 import { APP_NAME } from "../utils/constants";
 import { t, useLanguage } from "../i18n";
+import { useLocation } from "react-router-dom";
+import BackButton from "../components/BackButton";
 
 export default function AuthLayout({ title, subtitle, children }) {
   const { language, setLanguage } = useLanguage();
+  const location = useLocation();
   const media = useGet(["public", "login-media"], "/auth/login-media", { staleTime: 60_000 });
+  const backFallback = location.pathname === "/login" ? "/register" : "/login";
   return (
     <main className="min-h-screen overflow-hidden bg-[#fff7e5]">
       <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
@@ -25,7 +29,8 @@ export default function AuthLayout({ title, subtitle, children }) {
         </section>
         <section className="flex items-center justify-center px-5 py-10 sm:px-10 lg:px-14">
           <div className="w-full max-w-md">
-            <div className="mb-4 flex justify-end">
+            <div className="mb-4 flex items-center justify-between">
+              <BackButton fallback={backFallback} />
               <label className="sr-only" htmlFor="auth-language">{t("Language")}</label>
               <select id="auth-language" value={language} onChange={(event) => setLanguage(event.target.value)} className="rounded-full border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-stone-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600" aria-label={t("Language")}>
                 <option value="en">{t("English")}</option>

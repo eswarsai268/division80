@@ -99,12 +99,21 @@ export async function download(path, filename) {
         throw new ApiError(res.status, "DOWNLOAD_FAILED", `Download failed with HTTP ${res.status}`, undefined, res.headers.get("x-request-id") ?? undefined, url);
     }
     const blob = await res.blob();
+    if (!blob.size) {
+        throw new ApiError(res.status, "EMPTY_DOWNLOAD", "The export file is empty.", undefined, res.headers.get("x-request-id") ?? undefined, url);
+    }
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = objectUrl;
     a.download = filename;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    a.hidden = true;
+    document.body.appendChild(a);
+    try {
+        a.click();
+    } finally {
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    }
 }
 
 export const patch = (path, body) => api(path, {
