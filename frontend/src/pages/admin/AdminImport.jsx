@@ -12,6 +12,8 @@ import { useAct } from "../../hooks/useAct";
 import { useGet } from "../../hooks/useGet";
 import { t } from "../../i18n";
 
+const MAX_IMPORT_BYTES = 50 * 1024 * 1024;
+
 export default function AdminImport() {
     const [csv, setCsv] = useState("");
     const [fileName, setFile] = useState("");
@@ -33,8 +35,8 @@ export default function AdminImport() {
             setFileError(t("Choose a .csv file. Photos and PDFs cannot be uploaded here."));
             return;
         }
-        if (file.size > 8 * 1024 * 1024) {
-            setFileError(t("The CSV file must be smaller than 8 MB."));
+        if (file.size > MAX_IMPORT_BYTES) {
+            setFileError(t("The CSV file must be 50 MB or smaller."));
             return;
         }
         try {
@@ -89,7 +91,7 @@ export default function AdminImport() {
           : <div className="flex flex-col items-center text-center">
               <span className="mb-2 grid h-12 w-12 place-items-center rounded-full bg-amber-100 text-amber-800"><UploadCloud size={25}/></span>
               <p className="font-semibold text-slate-900">{t("Choose your CSV file")}</p>
-              <p className="mt-1 text-xs text-slate-600">{t("or drag and drop it here")} · {t("CSV only")} · {t("Maximum 8 MB")}</p>
+              <p className="mt-1 text-xs text-slate-600">{t("or drag and drop it here")} · {t("CSV only")} · {t("Maximum 50 MB")}</p>
               <button type="button" className="btn mt-3" onClick={() => fileInput.current?.click()}>{t("Choose CSV file")}</button>
             </div>}
       </div>

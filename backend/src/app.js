@@ -42,7 +42,7 @@ function createApp() {
         }
     });
     app.use(rateLimit_1.limits.global);
-    app.use("/api/v1/admin/import-jobs", express_1.default.json({ limit: "9mb" })); // CSV imports
+    app.use("/api/v1/admin/import-jobs", express_1.default.json({ limit: "102mb" })); // 50 MiB CSV plus JSON escaping
     app.use("/api/v1/complaints", express_1.default.raw({ type: ["image/jpeg", "image/png"], limit: "5mb" })); // photo uploads
     app.use(express_1.default.json({ limit: "100kb" }));
     app.use((0, cookie_parser_1.default)());

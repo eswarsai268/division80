@@ -80,7 +80,7 @@ function extendAdmin(ad) {
         newPassword: zod_1.z.string().min(12).max(128),
     }), req.body), String(req.id)))));
     ad.get("/cross-booth", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await xb.listAdminRequests((0, http_1.ctx)(req)))));
-    ad.post("/import-jobs", rateLimit_1.limits.importJobs, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.createImportJob((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ csv: zod_1.z.string().min(10).max(8_000_000) }), req.body).csv), 201)));
+    ad.post("/import-jobs", rateLimit_1.limits.importJobs, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.createImportJob((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ csv: zod_1.z.string().min(10).max(50 * 1024 * 1024) }), req.body).csv), 201)));
     ad.get("/import-jobs", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.listImportJobs((0, http_1.ctx)(req)))));
     ad.get("/import-jobs/:jobId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.getImportJob((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.post("/import-jobs/:jobId/confirm", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.confirmImport((0, http_1.ctx)(req), idp(req, "jobId")))));
