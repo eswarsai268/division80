@@ -11,6 +11,7 @@ import { useGet } from "../../hooks/useGet";
 import { t } from "../../i18n";
 
 const EXPORT_LABELS = {
+    CITIZENS: "D2D voter visit roster",
     PENDING_VERIFICATION: "Pending verification (no steps passed)",
     IN_PROGRESS_VERIFICATION: "In progress (1–5 steps passed)",
     VERIFIED_CITIZENS: "Fully verified (6 steps passed)",

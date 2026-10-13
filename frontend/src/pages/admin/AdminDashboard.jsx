@@ -13,7 +13,7 @@ const METRICS = [
   ["pendingComplaints", ClipboardList], ["inVerification", ShieldCheck], ["resolved", ClipboardList], ["upcomingEvents", CalendarDays],
 ];
 const TOOLS = [
-  ["/admin/booths", "Booths", Building2], ["/admin/users", "Users", UserCog],
+  ["/admin/citizens", "Citizens", Users], ["/admin/booths", "Booths", Building2], ["/admin/users", "Users", UserCog],
   ["/admin/events", "Events", CalendarDays], ["/admin/import", "Import", FileUp],
   ["/admin/exports", "Exports", FileDown], ["/admin/complaints", "Complaints", ClipboardList],
   ["/admin/audit-logs", "Audit logs", ScrollText], ["/admin/settings", "Settings", Settings],
@@ -24,11 +24,17 @@ export default function AdminDashboard() {
   const audit = useGet(["admin", "audit", "dashboard"], "/admin/audit-logs?limit=5");
   return (
     <div className="space-y-5">
-      <section><div className="section-heading"><h1>{t("Operational pulse")}</h1></div>
+      <section className="rounded-3xl bg-[#ffc400] p-5 text-stone-950 shadow-sm">
+        <p className="text-xs font-bold uppercase tracking-wider">{t("Admin home")}</p>
+        <h1 className="mt-1 text-2xl font-extrabold">{t("All booths and houses")}</h1>
+        <p className="mt-2 text-sm">{t("Use the buttons below to manage every booth, house and voter in your organisation.")}</p>
+        <Link to="/admin/citizens" className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 font-bold text-slate-950 no-underline shadow-sm"><Users size={19}/>{t("Open voter list")}<ArrowRight size={18}/></Link>
+      </section>
+      <section><div className="section-heading"><h2>{t("Organisation overview")}</h2></div>
         <Async q={q}>{(d) => <div className="grid grid-cols-2 gap-3">{METRICS.filter(([key]) => d[key] !== undefined).map(([key, Icon]) => <div key={key} className="metric-card"><span className="metric-icon"><Icon size={20}/></span><strong>{d[key]}</strong><span>{t(LABELS[key])}</span></div>)}</div>}</Async>
       </section>
 
-      <section><div className="section-heading"><h2>{t("Management tools")}</h2></div><div className="grid grid-cols-2 gap-3">
+      <section><div className="section-heading"><h2>{t("What do you want to do?")}</h2></div><div className="grid grid-cols-2 gap-3">
         {TOOLS.map(([to, label, Icon]) => <Link key={to} to={to} className="tool-card"><span className="tool-icon"><Icon size={21}/></span><strong>{t(label)}</strong><span className="text-xs text-slate-500">{t("Open")} {t(label)}</span></Link>)}
       </div></section>
 
