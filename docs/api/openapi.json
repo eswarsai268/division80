@@ -1201,7 +1201,7 @@
      "admin"
     ],
     "summary": "POST /api/v1/admin/settings/password/change",
-    "description": "Requires the active admin's current password and a new password with at least 12 characters. Keeps the current session active and revokes all other sessions.",
+    "description": "Requires the active admin's current password and a new password with at least 8 characters. Keeps the current session active and revokes all other sessions.",
     "responses": {
      "200": {
       "description": "Password changed"

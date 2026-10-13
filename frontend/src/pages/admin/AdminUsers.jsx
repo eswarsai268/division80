@@ -29,7 +29,7 @@ export default function AdminUsers() {
     <div className="card space-y-2"><h2 className="font-semibold">{t("Create booth member / user")}</h2>
       <input className="input" placeholder={t("Full name")} value={f.fullName} onChange={(e) => setF({ ...f, fullName: e.target.value })} aria-label={t("Full name")}/>
       <input className="input" type="email" placeholder={t("Email")} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} aria-label={t("Email")}/>
-      <input className="input" type="password" placeholder={t("Initial password (12+ chars)")} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} aria-label={t("Initial password")} autoComplete="new-password"/>
+      <input className="input" type="password" placeholder={t("Initial password (8+ chars)")} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} aria-label={t("Initial password")} autoComplete="new-password"/>
       <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value, boothId: "" })} aria-label={t("Role")}><option value="BOOTH_MEMBER">{t("Booth member")}</option><option value={t("USER")}>{t("Citizen")}</option></select>
       {f.role === "BOOTH_MEMBER" && <>
         <select className="input" value={f.boothId} onChange={(e) => setF({ ...f, boothId: e.target.value })} aria-label={t("Assign member to booth")}><option value="">{t("Select booth (required)")}</option>{booths.data?.filter((b) => b.status === "ACTIVE").map((b) => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}</select>
@@ -37,7 +37,7 @@ export default function AdminUsers() {
       </>}
       {(create.error || upd.error) && <ErrorBox error={create.error ?? upd.error}/>}
       {create.isSuccess && <p role="status" className="text-sm text-emerald-700">{f.role === "BOOTH_MEMBER" ? `Member ${createdEmail} created and assigned. They can sign in at Booth login.` : `Citizen account ${createdEmail} created.`}</p>}
-      <button className="btn w-full" disabled={create.isPending || f.password.length < 12 || !f.email.includes("@") || f.fullName.trim().length < 2 || (f.role === "BOOTH_MEMBER" && !f.boothId)} onClick={() => create.mutate(undefined)}>{create.isPending ? "Creating…" : f.role === "BOOTH_MEMBER" ? "Create and assign booth login" : "Create citizen"}</button></div>
+      <button className="btn w-full" disabled={create.isPending || f.password.length < 8 || !f.email.includes("@") || f.fullName.trim().length < 2 || (f.role === "BOOTH_MEMBER" && !f.boothId)} onClick={() => create.mutate(undefined)}>{create.isPending ? "Creating…" : f.role === "BOOTH_MEMBER" ? "Create and assign booth login" : "Create citizen"}</button></div>
     <Async q={q}>{(d) => <>{d.map((u) => <div key={u.id} className="card mb-2 flex items-center justify-between text-sm"><div><p className="font-medium">{u.fullName}</p><p className="text-xs text-slate-500">{u.email} · {String(u.role).replace("_", " ")}</p></div>
       <div className="flex items-center gap-2"><Badge s={u.status}/>{u.role !== "ADMIN" && <button className="btn-ghost" onClick={() => confirm(u.status === "ACTIVE" ? "Suspend this account?" : "Reactivate?") && upd.mutate({ id: u.id, status: u.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE" })}>{u.status === "ACTIVE" ? "Suspend" : "Activate"}</button>}</div></div>)}</>}</Async></div>;
 }

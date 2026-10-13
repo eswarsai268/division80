@@ -71,7 +71,7 @@ Admin → Exports provides three verification roster exports: no passed steps, 1
 
 Admins can optionally set a login welcome video in Settings by pasting an HTTPS Cloudinary `res.cloudinary.com/<cloud>/video/upload/...` delivery URL. The video is public, muted and looping on sign-in pages; no Cloudinary secret is stored in the app.
 
-Admins can change their own password in Settings by entering their current password and confirming a new password (at least 12 characters). The current session stays active and all other sessions for that account are revoked. Password changes are rate-limited and written to the audit log without storing password values.
+Admins can change their own password in Settings by entering their current password and confirming a new password (at least 8 characters). The current session stays active and all other sessions for that account are revoked. Password changes are rate-limited and written to the audit log without storing password values.
 Endpoint index: `docs/api/openapi.json`.
 
 ## Status

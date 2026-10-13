@@ -18,7 +18,7 @@ export default function AdminSettings() {
     const passwordForm = useForm({
         resolver: zodResolver(z.object({
             currentPassword: z.string().min(1, "Enter your current password"),
-            newPassword: z.string().min(12, "Use at least 12 characters").max(128),
+            newPassword: z.string().min(8, "Use at least 8 characters").max(128),
             confirmPassword: z.string().min(1, "Re-enter your new password"),
         }).refine((value) => value.newPassword === value.confirmPassword, {
             path: ["confirmPassword"],
@@ -45,7 +45,7 @@ export default function AdminSettings() {
     <form className="card space-y-3" onSubmit={passwordForm.handleSubmit((values) => changePassword.mutate(values))}>
       <div><h2 className="font-semibold">{t("Change admin password")}</h2><p className="mt-1 text-sm text-slate-600">{t("Confirm your current password, then enter and re-enter a new password. Other signed-in sessions will be logged out.")}</p></div>
       <div><label className="label" htmlFor="admin-current-password">{t("Current password")}</label><input id="admin-current-password" className="input" type="password" autoComplete="current-password" {...passwordForm.register("currentPassword")} />{passwordForm.formState.errors.currentPassword && <p className="mt-1 text-xs text-red-600">{passwordForm.formState.errors.currentPassword.message}</p>}</div>
-      <div><label className="label" htmlFor="admin-new-password">{t("New password")}</label><input id="admin-new-password" className="input" type="password" autoComplete="new-password" {...passwordForm.register("newPassword")} />{passwordForm.formState.errors.newPassword && <p className="mt-1 text-xs text-red-600">{passwordForm.formState.errors.newPassword.message}</p>}<p className="mt-1 text-xs text-slate-500">{t("At least 12 characters.")}</p></div>
+      <div><label className="label" htmlFor="admin-new-password">{t("New password")}</label><input id="admin-new-password" className="input" type="password" autoComplete="new-password" {...passwordForm.register("newPassword")} />{passwordForm.formState.errors.newPassword && <p className="mt-1 text-xs text-red-600">{passwordForm.formState.errors.newPassword.message}</p>}<p className="mt-1 text-xs text-slate-500">{t("At least 8 characters.")}</p></div>
       <div><label className="label" htmlFor="admin-confirm-password">{t("Re-enter new password")}</label><input id="admin-confirm-password" className="input" type="password" autoComplete="new-password" {...passwordForm.register("confirmPassword")} />{passwordForm.formState.errors.confirmPassword && <p className="mt-1 text-xs text-red-600">{passwordForm.formState.errors.confirmPassword.message}</p>}</div>
       {changePassword.error && <ErrorBox error={changePassword.error}/>}
       {changePassword.isSuccess && <p role="status" className="text-sm font-medium text-emerald-700">{t("Password updated. Other sessions have been signed out.")}</p>}
