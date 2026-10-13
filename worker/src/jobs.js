@@ -13,8 +13,10 @@ const mask = (v) => (v ? `****${v.slice(-4)}` : "");
 const errMsg = (e) => String(e?.message ?? "error").slice(0, 250);
 /** IMPORT_CITIZENS: claims one QUEUED job (or resumes a stale one), commits in atomic batches with progress tracking. */
 async function processImports() {
-    const [claim] = await db_1.pool.execute(`UPDATE import_jobs SET status = 'COMMITTING', locked_by = ?, locked_at = NOW(3)
-      WHERE status = 'QUEUED' OR (status = 'COMMITTING' AND locked_at < DATE_SUB(NOW(3), INTERVAL 10 MINUTE))
+    await db_1.pool.execute(`UPDATE import_jobs SET status = 'FAILED', last_error = 'Import stopped before roster tracking was enabled', locked_by = NULL
+      WHERE status = 'COMMITTING' AND data_tracked = 0 AND locked_at < DATE_SUB(NOW(3), INTERVAL 10 MINUTE)`);
+    const [claim] = await db_1.pool.execute(`UPDATE import_jobs SET status = 'COMMITTING', data_tracked = 1, locked_by = ?, locked_at = NOW(3)
+      WHERE status = 'QUEUED' OR (status = 'COMMITTING' AND data_tracked = 1 AND locked_at < DATE_SUB(NOW(3), INTERVAL 10 MINUTE))
       ORDER BY created_at LIMIT 1`, [db_1.WORKER_ID]);
     if (!claim.affectedRows)
         return 0;
@@ -41,12 +43,12 @@ async function processImports() {
                             houseMap.set(key, row);
                     }
                     const houses = [...houseMap.values()];
-                    await conn.execute(`INSERT INTO households (id, organization_id, booth_id, house_code, address_line) VALUES ${houses.map(() => "(?,?,?,?,?)").join(",")} ON DUPLICATE KEY UPDATE address_line = COALESCE(VALUES(address_line), address_line)`, houses.flatMap((r) => [(0, crypto_1.randomUUID)(), job.organization_id, r.boothId, r.houseCode, r.addressLine ?? null]));
+                    await conn.execute(`INSERT INTO households (id, organization_id, booth_id, house_code, address_line, source_import_job_id) VALUES ${houses.map(() => "(?,?,?,?,?,?)").join(",")} ON DUPLICATE KEY UPDATE address_line = COALESCE(VALUES(address_line), address_line)`, houses.flatMap((r) => [(0, crypto_1.randomUUID)(), job.organization_id, r.boothId, r.houseCode, r.addressLine ?? null, job.id]));
                     const [hid] = await conn.execute(`SELECT id, booth_id, house_code FROM households WHERE deleted_at IS NULL AND (booth_id, house_code) IN (${houses.map(() => "(?,?)").join(",")})`, houses.flatMap((r) => [r.boothId, r.houseCode]));
                     const map = new Map(hid.map((h) => [`${h.booth_id}|${h.house_code}`, h.id]));
                     const people = slice.filter((r) => map.has(`${r.boothId}|${r.houseCode}`));
                     if (people.length)
-                        await conn.execute(`INSERT INTO citizens (id, household_id, booth_id, full_name, relation, voter_id, life_status, roll_serial, age, gender) VALUES ${people.map(() => "(?,?,?,?,?,?,?,?,?,?)").join(",")} ON DUPLICATE KEY UPDATE id = id`, people.flatMap((r) => [(0, crypto_1.randomUUID)(), map.get(`${r.boothId}|${r.houseCode}`), r.boothId, r.fullName, r.relation, r.voterId, r.lifeStatus, r.rollSerial ?? null, r.age ?? null, r.gender ?? "UNKNOWN"]));
+                        await conn.execute(`INSERT INTO citizens (id, household_id, booth_id, full_name, relation, voter_id, life_status, roll_serial, age, gender, d2d_verified, not_here, address_changed, new_address, visit_notes, source_import_job_id) VALUES ${people.map(() => "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").join(",")} ON DUPLICATE KEY UPDATE id = id`, people.flatMap((r) => [(0, crypto_1.randomUUID)(), map.get(`${r.boothId}|${r.houseCode}`), r.boothId, r.fullName, r.relation, r.voterId, r.lifeStatus, r.rollSerial ?? null, r.age ?? null, r.gender ?? "UNKNOWN", r.verificationDone ? 1 : 0, r.notHere ? 1 : 0, r.addressChanged ? 1 : 0, r.newAddress ?? null, r.visitNotes ?? null, job.id]));
                     await conn.execute(`UPDATE households SET verification_status = 'IN_VERIFICATION'
                         WHERE (booth_id, house_code) IN (${houses.map(() => "(?,?)").join(",")})`, houses.flatMap((r) => [r.boothId, r.houseCode]));
                     done += slice.length;
@@ -74,16 +76,16 @@ async function processImports() {
     return jobs.length;
 }
 const ROSTER_SQL = `SELECT ci.id, b.code AS booth_code, h.house_code, h.address_line AS address, ci.roll_serial, ci.full_name, ci.relation, ci.voter_id, ci.age, ci.gender, ci.life_status,
+            ci.d2d_verified AS d2d_visit_done, ci.not_here, ci.address_changed, ci.new_address, ci.visit_notes,
             COALESCE(vp.passed_steps, 0) AS verification_steps, h.verification_status AS household_status
             FROM citizens ci JOIN households h ON h.id = ci.household_id JOIN booths b ON b.id = ci.booth_id
             LEFT JOIN (SELECT citizen_id, COUNT(*) AS passed_steps FROM verifications WHERE result = 'PASSED' GROUP BY citizen_id) vp ON vp.citizen_id = ci.id
            WHERE b.organization_id = ? AND h.deleted_at IS NULL AND ci.deleted_at IS NULL`;
-const VERIFICATION_COLS = ["booth_code", "house_code", "address", "roll_serial", "full_name", "relation", "voter_id", "age", "gender", "life_status", "verification_steps", "household_status"];
+const VERIFICATION_COLS = ["booth_code", "house_code", "address", "roll_serial", "full_name", "relation", "voter_id", "age", "gender", "life_status", "d2d_visit_done", "not_here", "address_changed", "new_address", "visit_notes", "verification_steps", "household_status"];
 const EXPORTS = {
-    CITIZENS: { cols: ["booth_code", "house_code", "full_name", "relation", "voter_id", "life_status"],
-        sql: `SELECT ci.id, b.code AS booth_code, h.house_code, ci.full_name, ci.relation, ci.voter_id, ci.life_status
-            FROM citizens ci JOIN households h ON h.id = ci.household_id JOIN booths b ON b.id = ci.booth_id
-           WHERE b.organization_id = ? AND h.deleted_at IS NULL AND ci.deleted_at IS NULL`, booth: "ci.booth_id" },
+    CITIZENS: { headers: ["SN", "SERIAL NO", "DOOR NO", "ADDRESS", "NAME", "VOTER ID", "GENDER", "BOOTH NO", "DEAD", "NOT HERE", "VERIFICATION DONE", "ADDRESS CHANGED", "NEW ADDRESS", "ADDITIONAL NOTES"],
+        cols: ["sn", "serial_no", "door_no", "address", "name", "voter_id", "gender", "booth_no", "dead", "not_here", "d2d_visit_done", "address_changed", "new_address", "visit_notes"],
+        sql: ROSTER_SQL, booth: "ci.booth_id" },
     HOUSEHOLDS: { cols: ["booth_code", "house_code", "status"],
         sql: `SELECT h.id, b.code AS booth_code, h.house_code, h.verification_status AS status
             FROM households h JOIN booths b ON b.id = h.booth_id WHERE b.organization_id = ? AND h.deleted_at IS NULL`, booth: "h.booth_id" },
@@ -104,7 +106,7 @@ async function processExports() {
             const def = EXPORTS[job.kind];
             if (!def)
                 throw new Error("unknown export kind");
-            const lines = [def.cols.join(",")];
+            const lines = [(def.headers ?? def.cols).join(",")];
             let last = "", n = 0;
             for (;;) {
                 const params = [job.organization_id];
@@ -122,7 +124,16 @@ async function processExports() {
                 if (!rows.length)
                     break;
                 for (const r of rows) {
-                    lines.push(def.cols.map((c) => cell(c === "voter_id" ? mask(r[c]) : r[c] instanceof Date ? r[c].toISOString() : r[c])).join(","));
+                    lines.push(def.cols.map((c) => {
+                        const value = c === "sn" ? n + 1
+                            : c === "serial_no" ? r.roll_serial
+                            : c === "door_no" ? r.house_code
+                            : c === "name" ? r.full_name
+                            : c === "booth_no" ? r.booth_code
+                            : c === "dead" ? Number(r.life_status === "DECEASED")
+                            : r[c];
+                        return cell(c === "voter_id" ? mask(value) : value instanceof Date ? value.toISOString() : value);
+                    }).join(","));
                     n++;
                 }
                 last = rows[rows.length - 1].id;

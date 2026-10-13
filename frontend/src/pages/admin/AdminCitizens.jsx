@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import Async from "../../components/Async";
 import Badge from "../../components/Badge";
 import Empty from "../../components/Empty";
@@ -14,8 +15,22 @@ export default function AdminCitizens() {
     const [search, setSearch] = useState("");
     const [boothId, setBooth] = useState("");
     const [person, setPerson] = useState({ boothId: "", houseCode: "", address: "", rollSerial: "", fullName: "", relation: "", voterId: "", age: "", gender: "UNKNOWN", lifeStatus: "UNKNOWN" });
-    const qs = `?limit=50${search ? `&search=${encodeURIComponent(search)}` : ""}${boothId ? `&boothId=${boothId}` : ""}`;
-    const q = useGet(["admin", tab, search, boothId], `/admin/${tab}${qs}`);
+    const q = useInfiniteQuery({
+        queryKey: ["admin", tab, search, boothId],
+        initialPageParam: null,
+        queryFn: ({ pageParam, signal }) => {
+            const params = new URLSearchParams({ limit: "50" });
+            if (search.trim())
+                params.set("search", search.trim());
+            if (boothId)
+                params.set("boothId", boothId);
+            if (pageParam)
+                params.set("cursor", pageParam);
+            return api(`/admin/${tab}?${params}`, { signal });
+        },
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    });
+    const records = q.data?.pages.flatMap((page) => page.items) ?? [];
     const booths = useGet(["admin", "booths"], "/admin/booths");
     const upd = useAct((v) => patch(`/admin/citizens/${v.id}`, { lifeStatus: v.lifeStatus }));
     const del = useAct((id) => api(`/admin/households/${id}`, { method: "DELETE" }));
@@ -43,11 +58,13 @@ export default function AdminCitizens() {
       <button className="btn w-full" disabled={addPerson.isPending}>{t("Add member")}</button>
     </form>}
     {(upd.error || del.error || archive.error) && <ErrorBox error={upd.error ?? del.error ?? archive.error}/>}
-    <Async q={q}>{(d) => d.items.length ? <>{d.items.map((r) => tab === "citizens"
+    <Async q={q}>{() => records.length ? <>{records.map((r) => tab === "citizens"
                 ? <div key={r.id} className="card mb-2 text-sm"><div className="flex justify-between gap-2"><span className="font-medium">{r.fullName}</span><span className="text-xs text-slate-500">{r.boothCode} · {r.houseCode}</span></div>
           <p className="text-xs text-slate-500">{r.relation} · Voter {r.voterId ?? "—"} · {t("Roll serial")} {r.rollSerial ?? "—"} · {r.age ?? "—"} {t("years")} · {t(r.gender)}</p>
           {r.address && <p className="text-xs text-slate-500">{r.address}</p>}
           <div className="flex items-center justify-between gap-2"><p className="text-xs text-slate-500">{t("Life status")}: {t(r.lifeStatus)} · {t("Verification steps")}: {r.passedSteps}/6</p><button type="button" className="btn-ghost text-xs text-red-700" disabled={archive.isPending} onClick={() => confirm(`${t("Archive")} ${r.fullName}? ${t("Their verification history will be retained.")}`) && archive.mutate(r.id)}>{t("Remove from active roster")}</button></div>
           <select className="input mt-2" value={r.lifeStatus} aria-label={t("Life status")} onChange={(e) => upd.mutate({ id: r.id, lifeStatus: e.target.value })}>{["ALIVE", "DECEASED", "UNKNOWN"].map((s) => <option key={s} value={s}>{t(s)}</option>)}</select></div>
-                : <div key={r.id} className="card mb-2 flex items-center justify-between gap-2 text-sm"><div><span>{r.boothCode} · {r.houseCode} · {r.members} {t("members")}</span>{r.address && <p className="text-xs text-slate-500">{r.address}</p>}</div><div className="flex items-center gap-2"><Badge s={r.status}/><button className="btn-ghost" onClick={() => confirm(`Delete house ${r.houseCode}? It will be hidden from all booth members.`) && del.mutate(r.id)}>{t("Delete")}</button></div></div>)}</> : <Empty text="No records found."/>}</Async></div>;
+                : <div key={r.id} className="card mb-2 flex items-center justify-between gap-2 text-sm"><div><span>{r.boothCode} · {r.houseCode} · {r.members} {t("members")}</span>{r.address && <p className="text-xs text-slate-500">{r.address}</p>}</div><div className="flex items-center gap-2"><Badge s={r.status}/><button className="btn-ghost" onClick={() => confirm(`Delete house ${r.houseCode}? It will be hidden from all booth members.`) && del.mutate(r.id)}>{t("Delete")}</button></div></div>)}
+      {q.hasNextPage && <button type="button" className="btn w-full" disabled={q.isFetchingNextPage} onClick={() => q.fetchNextPage()}>{t(q.isFetchingNextPage ? "Loading…" : "Show more records")}</button>}
+    </> : <Empty text="No records found."/>}</Async></div>;
 }

@@ -34,8 +34,6 @@ import AdminEvents from "../pages/admin/AdminEvents";
 import AdminAudit from "../pages/admin/AdminAudit";
 import AdminSettings from "../pages/admin/AdminSettings";
 import AdminCrossBooth from "../pages/admin/AdminCrossBooth";
-import { t } from "../i18n";
-
 const Redirect = ({ to }) => <Navigate to={to} replace />;
 
 /** Route guards are UX only — every API call is authorised again on the server. */
@@ -43,10 +41,10 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
-      <Route path="/login" element={<LoginPage portal={t("USER")} />} />
+      <Route path="/login" element={<LoginPage portal="USER" />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/booth/login" element={<LoginPage portal="BOOTH_MEMBER" />} />
-      <Route path="/admin/login" element={<LoginPage portal={t("ADMIN")} />} />
+      <Route path="/admin/login" element={<LoginPage portal="ADMIN" />} />
 
       <Route element={<RoleRoute roles={["USER"]} />}>
         <Route element={<AppLayout />}>
@@ -60,7 +58,7 @@ export default function AppRoutes() {
 
       <Route element={<RoleRoute roles={["BOOTH_MEMBER"]} />}>
         <Route element={<AppLayout />}>
-          <Route path="/booth" element={<Redirect to="/booth/dashboard" />} />
+          <Route path="/booth" element={<Redirect to="/booth/households" />} />
           <Route path="/booth/dashboard" element={<BoothDashboard />} />
           <Route path="/booth/households" element={<Households />} />
           <Route path="/booth/households/:id" element={<HouseholdDetail />} />

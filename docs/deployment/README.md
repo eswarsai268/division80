@@ -6,6 +6,6 @@
 - **Render Worker**: create a separate Background Worker from the repository root, build with `npm ci`, and start with `npm run start -w worker`. Supply the same database environment settings as the API, with `DATABASE_SSL=true`. The worker processes queued imports/exports. A job that remains `QUEUED` with zero processed rows indicates the worker is not running against that database. Scale API replicas, then size `DATABASE_CONNECTION_LIMIT` = floor(DB max conns × 0.7 / replicas).
 - **TiDB**: use TLS (`DATABASE_SSL=true`), a least-privilege DB user (no DDL at runtime), daily backups + PITR, and **test restores** quarterly.
 - **Redis**: required in production (rate limits); protect with auth + TLS.
-- **Migrations**: `npm run migrate` from a release job after staging verification; never auto-apply untested migrations to production.
+- **Migrations**: `npm run migrate` from a release job after staging verification; never auto-apply untested migrations to production. Deploy migration `006_import_roster_deletion.sql` before the updated API and worker, and deploy the API and worker together so new imports receive record-tracking IDs required by the admin delete action.
 - **Secrets**: inject via your platform's secret manager; rotate `JWT_ACCESS_SECRET` by deploying a new value (all access tokens expire in ≤10 min).
 - **Load testing**: do not claim capacity until measured. Seed 30k synthetic citizens / 10k+ households, then record p50/p95/p99, RPS, error rate, DB latency, pool utilisation.

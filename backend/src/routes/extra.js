@@ -44,6 +44,7 @@ const rateLimit_1 = require("../middleware/rateLimit");
 const errors_1 = require("../errors");
 const http_1 = require("../utils/http");
 const a2 = __importStar(require("../services/admin2"));
+const households = __importStar(require("../repositories/households"));
 const ie = __importStar(require("../services/importExport"));
 const files = __importStar(require("../services/files"));
 const xb = __importStar(require("../services/crossBooth"));
@@ -82,6 +83,7 @@ function extendAdmin(ad) {
     ad.get("/cross-booth", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await xb.listAdminRequests((0, http_1.ctx)(req)))));
     ad.post("/import-jobs", rateLimit_1.limits.importJobs, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.createImportJob((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ csv: zod_1.z.string().min(10).max(50 * 1024 * 1024) }), req.body).csv), 201)));
     ad.get("/import-jobs", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.listImportJobs((0, http_1.ctx)(req)))));
+    ad.delete("/import-jobs/:jobId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.deleteImportJob((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.get("/import-jobs/:jobId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.getImportJob((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.post("/import-jobs/:jobId/confirm", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.confirmImport((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.post("/export-jobs", rateLimit_1.limits.exportJobs, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.createExport((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ kind: zod_1.z.enum(["CITIZENS", "HOUSEHOLDS", "COMPLAINTS", "PENDING_VERIFICATION", "IN_PROGRESS_VERIFICATION", "VERIFIED_CITIZENS"]), boothId: http_1.uuid.optional() }), req.body)), 201)));
@@ -95,7 +97,17 @@ function extendAdmin(ad) {
     }));
 }
 function extendBooth(b) {
+    const idp = (req, name) => (0, http_1.parse)(http_1.uuid, req.params[name]);
+    b.get("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await households.listAssignedBoothsForUser((0, http_1.ctx)(req).user))));
     b.get("/verifications", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listVerificationsForBooths((0, http_1.ctx)(req)))));
+    b.patch("/citizens/:citizenId/visit", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await households.updateVisitForUser((0, http_1.ctx)(req), idp(req, "citizenId"), (0, http_1.parse)(zod_1.z.object({
+        lifeStatus: zod_1.z.enum(["ALIVE", "DECEASED", "UNKNOWN"]),
+        verificationDone: zod_1.z.boolean(),
+        notHere: zod_1.z.boolean(),
+        addressChanged: zod_1.z.boolean(),
+        newAddress: zod_1.z.string().max(255),
+        visitNotes: zod_1.z.string().max(1000),
+    }), req.body)))));
 }
 /** Citizen (USER) complaint attachments. Raw image body is parsed in app.ts (JPEG/PNG only, 5 MB). */
 function extendComplaints(cp) {

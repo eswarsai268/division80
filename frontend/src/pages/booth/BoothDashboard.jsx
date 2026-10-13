@@ -14,9 +14,19 @@ export default function BoothDashboard() {
   const events = useGet(["public", "events"], "/public/events");
   return (
     <div className="space-y-5">
-      <section className="quick-retrieval">
-        <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-700">{t("Field workspace")}</p><h1 className="mt-1 text-2xl font-bold text-slate-900">{t("Quick retrieval")}</h1><p className="text-sm text-slate-500">{t("Search by house code or citizen ID")}</p></div>
-        <Link to="/booth/households" className="search-launch"><Search size={19}/><span>{t("Search households")}</span><ArrowRight className="ml-auto" size={18}/></Link>
+      <section className="rounded-3xl bg-[#ffc400] p-5 text-stone-950 shadow-sm">
+        <p className="text-xs font-bold uppercase tracking-[0.14em]">{t("Booth member home")}</p>
+        <h1 className="mt-1 text-2xl font-extrabold">{t("Door-to-door visit")}</h1>
+        <p className="mt-2 text-sm">{t("Start with your assigned houses. Your saved work stays in the system.")}</p>
+        <Link to="/booth/households" className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 font-bold text-slate-950 no-underline shadow-sm"><Search size={19}/>{t("Open my houses")}<ArrowRight size={18}/></Link>
+      </section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="font-bold text-slate-900">{t("How to use")}</h2>
+        <ol className="mt-3 space-y-3 text-sm text-slate-700">
+          <li className="flex gap-3"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-amber-100 font-bold">1</span><span>{t("Choose your booth and find the house.")}</span></li>
+          <li className="flex gap-3"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-amber-100 font-bold">2</span><span>{t("Open the house and check each person.")}</span></li>
+          <li className="flex gap-3"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-amber-100 font-bold">3</span><span>{t("Save the visit details before leaving.")}</span></li>
+        </ol>
       </section>
       <section>
         <div className="section-heading"><h2>{t("Booth summary")}</h2><Link to="/booth/households" className="section-action">{t("View households")} <ArrowRight size={15}/></Link></div>

@@ -12,9 +12,29 @@ const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
 const audit_1 = require("./audit");
 const csv_1 = require("./csv");
-const REQUIRED = ["booth_code", "house_code", "full_name", "relation"];
+const REQUIRED = ["booth_code", "house_code", "full_name"];
 const MAX_ROWS = 50_000;
 const LIFE = ["ALIVE", "DECEASED", "UNKNOWN"];
+const HEADER_ALIASES = {
+    booth: "booth_code", booth_n: "booth_code", booth_no: "booth_code", booth_number: "booth_code",
+    door_no: "house_code", door_number: "house_code",
+    name: "full_name", serial: "roll_serial", serial_n: "roll_serial",
+    serial_no: "roll_serial", serial_number: "roll_serial",
+    additional_notes: "visit_notes", shifted: "address_changed",
+    no_here: "not_here",
+};
+const normalizeHeader = (value) => {
+    const key = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    return HEADER_ALIASES[key] ?? key;
+};
+const parseBoolean = (value) => {
+    const normalized = value.trim().toLowerCase();
+    if (["", "0", "false", "no", "n", "కాదు"].includes(normalized))
+        return false;
+    if (["1", "true", "yes", "y", "అవును"].includes(normalized))
+        return true;
+    return null;
+};
 /** Steps 1-5 of the import flow: validate -> parse -> validate rows -> store preview. Nothing is committed here. */
 async function createImportJob(c, csv) {
     const rows = (0, csv_1.parseCsv)(csv.replace(/^\uFEFF/, ""));
@@ -22,7 +42,7 @@ async function createImportJob(c, csv) {
         throw new errors_1.AppError(422, "EMPTY_FILE", "File has no data rows");
     if (rows.length - 1 > MAX_ROWS)
         throw new errors_1.AppError(422, "TOO_MANY_ROWS", `Max ${MAX_ROWS} rows per import`);
-    const header = (rows[0] ?? []).map((x) => x.trim().toLowerCase());
+    const header = (rows[0] ?? []).map(normalizeHeader);
     const missing = REQUIRED.filter((r) => !header.includes(r));
     if (missing.length)
         throw new errors_1.AppError(422, "MISSING_COLUMNS", `Missing columns: ${missing.join(", ")}`);
@@ -49,7 +69,13 @@ async function createImportJob(c, csv) {
             voter: get("voter_id").toUpperCase(),
             age: get("age"),
             gender: (get("gender") || "UNKNOWN").trim().toUpperCase(),
-            life: (get("life_status") || "UNKNOWN").toUpperCase(),
+            dead: get("dead"),
+            life: get("life_status").toUpperCase(),
+            verificationDone: get("verification_done"),
+            notHere: get("not_here"),
+            addressChanged: get("address_changed"),
+            newAddress: get("new_address"),
+            visitNotes: get("visit_notes"),
         };
         if (Object.values(f).some((v) => csv_1.FORMULA.test(v))) {
             bad(line, "Cell starts with a formula character (= + - @)");
@@ -68,6 +94,8 @@ async function createImportJob(c, csv) {
             bad(line, "Invalid full_name");
             continue;
         }
+        if (!f.rel)
+            f.rel = "RESIDENT";
         const rel = f.rel.toUpperCase();
         if (!/^\p{L}[\p{L}\p{M} _-]{0,31}$/u.test(rel)) {
             bad(line, "Invalid relation");
@@ -75,6 +103,27 @@ async function createImportJob(c, csv) {
         }
         if (f.address.length > 255) {
             bad(line, "address must be at most 255 characters");
+            continue;
+        }
+        const dead = f.dead ? parseBoolean(f.dead) : null;
+        if (f.dead && dead === null) {
+            bad(line, "dead must be 0/1, true/false, or yes/no");
+            continue;
+        }
+        const lifeStatus = f.life || (dead === null ? "UNKNOWN" : dead ? "DECEASED" : "ALIVE");
+        if (!LIFE.includes(lifeStatus)) {
+            bad(line, "Invalid life_status");
+            continue;
+        }
+        const notHere = parseBoolean(f.notHere);
+        const addressChanged = parseBoolean(f.addressChanged);
+        const verificationDone = parseBoolean(f.verificationDone);
+        if (notHere === null || addressChanged === null || verificationDone === null) {
+            bad(line, "verification_done, not_here and address_changed must be 0/1, true/false, or yes/no");
+            continue;
+        }
+        if (f.newAddress.length > 255 || f.visitNotes.length > 1000) {
+            bad(line, "new_address must be at most 255 characters and visit_notes at most 1000 characters");
             continue;
         }
         if (f.serial && !/^[A-Za-z0-9][A-Za-z0-9/-]{0,31}$/.test(f.serial)) {
@@ -94,10 +143,6 @@ async function createImportJob(c, csv) {
         const gender = genderAliases[f.gender];
         if (!gender) {
             bad(line, "gender must be MALE, FEMALE, OTHER, or UNKNOWN");
-            continue;
-        }
-        if (!LIFE.includes(f.life)) {
-            bad(line, "Invalid life_status");
             continue;
         }
         if (f.voter) {
@@ -129,7 +174,12 @@ async function createImportJob(c, csv) {
             voterId: f.voter || null,
             age,
             gender,
-            lifeStatus: f.life,
+            lifeStatus,
+            verificationDone,
+            notHere,
+            addressChanged,
+            newAddress: f.newAddress || null,
+            visitNotes: f.visitNotes || null,
             line,
         });
     }
@@ -148,20 +198,57 @@ async function createImportJob(c, csv) {
     await (0, audit_1.audit)({ actorId: c.user.id, action: "IMPORT", resourceType: "IMPORT_JOB", resourceId: id, outcome: "SUCCESS", reason: "preview created", requestId: c.requestId });
     return { id, status: "PREVIEW", totalRows: rows.length - 1, validRows: final.length, errorCount, errors: errors.slice(0, 50) };
 }
-const IMPORT_COLS = `id, status, total_rows AS totalRows, valid_rows AS validRows, error_count AS errorCount, processed_rows AS processedRows, result, last_error AS lastError, created_at AS createdAt`;
+const IMPORT_COLS = `id, status, total_rows AS totalRows, valid_rows AS validRows, error_count AS errorCount, processed_rows AS processedRows, result, last_error AS lastError, created_at AS createdAt, data_tracked AS dataTracked, (status = 'PREVIEW' OR (status NOT IN ('QUEUED','COMMITTING') AND data_tracked = 1)) AS canDelete`;
 async function getImportJob(c, id) {
-    const j = (await (0, pool_1.query)(`SELECT ${IMPORT_COLS}, errors FROM import_jobs WHERE id = ? AND organization_id = ?`, [id, c.user.organizationId]))[0];
+    const j = (await (0, pool_1.query)(`SELECT ${IMPORT_COLS}, errors FROM import_jobs WHERE id = ? AND organization_id = ? AND deleted_at IS NULL`, [id, c.user.organizationId]))[0];
     if (!j)
         throw (0, errors_1.notFound)();
     if (typeof j.errors === "string")
         j.errors = JSON.parse(j.errors);
     return j;
 }
-const listImportJobs = (c) => (0, pool_1.query)(`SELECT ${IMPORT_COLS} FROM import_jobs WHERE organization_id = ? ORDER BY created_at DESC LIMIT 20`, [c.user.organizationId]);
+const listImportJobs = (c) => (0, pool_1.query)(`SELECT ${IMPORT_COLS} FROM import_jobs WHERE organization_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 20`, [c.user.organizationId]);
 exports.listImportJobs = listImportJobs;
+async function deleteImportJob(c, id) {
+    return (0, pool_1.tx)(async (conn) => {
+        const job = (await (0, pool_1.query)(`SELECT status, data_tracked AS dataTracked FROM import_jobs
+            WHERE id = ? AND organization_id = ? AND deleted_at IS NULL FOR UPDATE`, [id, c.user.organizationId], conn))[0];
+        if (!job)
+            throw (0, errors_1.notFound)();
+        if (job.status === "QUEUED" || job.status === "COMMITTING")
+            throw (0, errors_1.conflict)("Wait until the import finishes before deleting it");
+        const tracked = Number(job.dataTracked) === 1;
+        if (job.status !== "PREVIEW" && !tracked)
+            throw new errors_1.AppError(409, "IMPORT_NOT_TRACKED", "This older import has no safe record mapping and cannot be deleted here");
+        if (tracked) {
+            await (0, pool_1.exec)("UPDATE citizens SET deleted_at = NOW(3) WHERE source_import_job_id = ? AND deleted_at IS NULL", [id], conn);
+            await (0, pool_1.exec)(`UPDATE households h SET deleted_at = NOW(3)
+                WHERE h.deleted_at IS NULL
+                  AND (h.source_import_job_id = ? OR EXISTS (
+                    SELECT 1 FROM citizens ci WHERE ci.household_id = h.id AND ci.source_import_job_id = ?
+                  ))
+                  AND NOT EXISTS (
+                    SELECT 1 FROM citizens active WHERE active.household_id = h.id AND active.deleted_at IS NULL
+                  )`, [id, id], conn);
+        }
+        await (0, pool_1.exec)(`UPDATE import_jobs SET deleted_at = NOW(3), payload = NULL, errors = NULL
+            WHERE id = ? AND organization_id = ? AND deleted_at IS NULL`, [id, c.user.organizationId], conn);
+        await (0, audit_1.audit)({
+            actorId: c.user.id,
+            action: "IMPORT_DELETE",
+            resourceType: "IMPORT_JOB",
+            resourceId: id,
+            outcome: "SUCCESS",
+            reason: tracked ? "import and roster records archived" : "preview deleted",
+            requestId: c.requestId,
+        }, conn);
+        return { id, deleted: true };
+    });
+}
+exports.deleteImportJob = deleteImportJob;
 /** Admin confirmation -> queued for the background worker (atomic PREVIEW -> QUEUED, cannot be confirmed twice). */
 async function confirmImport(c, id) {
-    const r = await (0, pool_1.exec)("UPDATE import_jobs SET status = 'QUEUED' WHERE id = ? AND organization_id = ? AND status = 'PREVIEW' AND valid_rows > 0", [id, c.user.organizationId]);
+    const r = await (0, pool_1.exec)("UPDATE import_jobs SET status = 'QUEUED' WHERE id = ? AND organization_id = ? AND deleted_at IS NULL AND status = 'PREVIEW' AND valid_rows > 0", [id, c.user.organizationId]);
     if (r.affectedRows === 0) {
         await getImportJob(c, id);
         throw (0, errors_1.conflict)("Import is not in a confirmable state");

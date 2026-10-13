@@ -7,7 +7,7 @@ import ErrorBox from "../../components/ErrorBox";
 import Title from "../../components/Title";
 import { IMPORT_TEMPLATE } from "../../utils/constants";
 import { fmt } from "../../utils/format";
-import { post } from "../../api/client";
+import { api, post } from "../../api/client";
 import { useAct } from "../../hooks/useAct";
 import { useGet } from "../../hooks/useGet";
 import { t } from "../../i18n";
@@ -24,6 +24,7 @@ export default function AdminImport() {
     const [preview, setPreview] = useState(null);
     const create = useAct(() => post("/admin/import-jobs", { csv }).then((r) => setPreview(r)));
     const confirmM = useAct((id) => post(`/admin/import-jobs/${id}/confirm`).then(() => setPreview(null)));
+    const deleteImport = useAct((id) => api(`/admin/import-jobs/${id}`, { method: "DELETE" }));
     const loadCsv = async (file) => {
         if (!file)
             return;
@@ -95,7 +96,7 @@ export default function AdminImport() {
               <button type="button" className="btn mt-3" onClick={() => fileInput.current?.click()}>{t("Choose CSV file")}</button>
             </div>}
       </div>
-      <p className="text-xs leading-5 text-slate-600">{t("Required columns:")} <code>booth_code, house_code, full_name, relation</code><br/>{t("Optional CSV columns:")} <code>address, roll_serial, voter_id, age, gender, life_status</code></p>
+      <p className="text-xs leading-5 text-slate-600">{t("Use one person per row. These screenshot-style headings are accepted:")} <code>SN, SERIAL NO, DOOR NO, NAME, VOTER ID, GENDER, BOOTH NO</code><br/>{t("Optional visit headings:")} <code>VERIFICATION DONE, DEAD, NOT HERE, ADDRESS CHANGED, NEW ADDRESS, ADDITIONAL NOTES</code></p>
       <p className="text-xs leading-5 text-slate-500">{t("Printed voter photos are not imported. Maximum 50,000 rows; formula cells are rejected.")}</p>
       {fileError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{fileError}</p>}
       {create.error && <ErrorBox error={create.error}/>}
@@ -106,9 +107,13 @@ export default function AdminImport() {
       {confirmM.error && <ErrorBox error={confirmM.error}/>}
       <button className="btn w-full" disabled={preview.validRows === 0 || confirmM.isPending} onClick={() => confirm(`Import ${preview.validRows} valid rows? Invalid rows are skipped.`) && confirmM.mutate(preview.id)}>Confirm import ({preview.validRows} rows)</button></div>}
     <h2 className="font-semibold text-brand-900">{t("Recent imports")}</h2>
+    {deleteImport.error && <ErrorBox error={deleteImport.error}/>}
     <Async q={jobs}>{(d) => d.length ? <>{d.map((j) => <div key={j.id} className="card mb-2 space-y-2 text-sm"><div className="flex justify-between"><span>{fmt(j.createdAt)}</span><Badge s={j.status}/></div><p className="text-xs text-slate-500">{j.validRows}/{j.totalRows} valid · {j.errorCount} {t("errors · processed")} {j.processedRows}{j.lastError ? ` · ${j.lastError}` : ""}</p>
       {j.status === "QUEUED" && <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-950"><strong>{t("Upload accepted; waiting for the background worker.")}</strong><p>{t("The booth roster will appear only after the worker processes this job. In production, start the worker service using:")} <code className="break-all">node worker/src/index.js</code></p><p>{t("Make sure the worker uses the same database settings as the API.")}</p></div>}
       {j.status === "COMMITTING" && <div role="status" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">{t("The worker is importing these rows. This page checks for updates automatically.")}</div>}
       {j.status === "COMMITTED" && <div role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-900">{t("Import finished. Booth members assigned to the matching booth can now open these households.")}</div>}
+      {j.canDelete
+        ? <button type="button" className="btn-ghost text-red-700" disabled={deleteImport.isPending} onClick={() => confirm(t("Delete this import and archive the roster records created by it? Verification history will be kept.")) && deleteImport.mutate(j.id)}>{t("Delete import")}</button>
+        : (j.status === "COMMITTED" || j.status === "FAILED") && <p className="text-xs text-amber-800">{t("This older import cannot be safely deleted because its records were not linked to the import.")}</p>}
     </div>)}</> : <Empty text="No imports yet."/>}</Async></div>;
 }
