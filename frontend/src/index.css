@@ -425,3 +425,8 @@ body {
     transition: none;
   }
 }
+/* Hide browser's built-in password reveal buttons */
+.password-input::-ms-reveal,
+.password-input::-ms-clear {
+  display: none;
+}
