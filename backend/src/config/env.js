@@ -2,11 +2,24 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.env = void 0;
 const zod_1 = require("zod");
+const corsOrigin = zod_1.z.string().url().default("http://localhost:5173").superRefine((value, ctx) => {
+    let parsed;
+    try {
+        parsed = new URL(value);
+    }
+    catch {
+        ctx.addIssue({ code: zod_1.z.ZodIssueCode.custom, message: "CORS_ORIGIN must be one exact HTTP(S) origin" });
+        return;
+    }
+    if (!["http:", "https:"].includes(parsed.protocol) || parsed.origin !== value || parsed.username || parsed.password) {
+        ctx.addIssue({ code: zod_1.z.ZodIssueCode.custom, message: "CORS_ORIGIN must be one exact HTTP(S) origin without credentials, path, or trailing slash" });
+    }
+});
 const schema = zod_1.z.object({
     NODE_ENV: zod_1.z.enum(["development", "test", "production"]).default("development"),
-    PORT: zod_1.z.coerce.number().default(4000),
+    PORT: zod_1.z.coerce.number().int().min(1).max(65535).default(4000),
     DATABASE_HOST: zod_1.z.string().min(1),
-    DATABASE_PORT: zod_1.z.coerce.number().default(4000),
+    DATABASE_PORT: zod_1.z.coerce.number().int().min(1).max(65535).default(4000),
     DATABASE_NAME: zod_1.z.string().default("samasya_medhi"),
     DATABASE_USER: zod_1.z.string().min(1),
     DATABASE_PASSWORD: zod_1.z.string().default(""),
@@ -14,11 +27,11 @@ const schema = zod_1.z.object({
     DATABASE_CONNECTION_LIMIT: zod_1.z.coerce.number().int().min(1).max(100).default(20),
     REDIS_URL: zod_1.z.string().optional(),
     JWT_ACCESS_SECRET: zod_1.z.string().min(32, "JWT_ACCESS_SECRET must be >= 32 chars"),
-    ACCESS_TOKEN_TTL_SECONDS: zod_1.z.coerce.number().int().default(600),
-    REFRESH_TOKEN_TTL_DAYS: zod_1.z.coerce.number().int().default(7),
-    CORS_ORIGIN: zod_1.z.string().default("http://localhost:5173"),
+    ACCESS_TOKEN_TTL_SECONDS: zod_1.z.coerce.number().int().min(60).max(1800).default(600),
+    REFRESH_TOKEN_TTL_DAYS: zod_1.z.coerce.number().int().min(1).max(30).default(7),
+    CORS_ORIGIN: corsOrigin,
     DEFAULT_ORG_SLUG: zod_1.z.string().default("default"),
-    TRUST_PROXY_HOPS: zod_1.z.coerce.number().int().min(0).default(0),
+    TRUST_PROXY_HOPS: zod_1.z.coerce.number().int().min(0).max(5).default(0),
     UPLOAD_DIR: zod_1.z.string().default("./uploads"),
     LOG_LEVEL: zod_1.z.string().default("info"),
 }).superRefine((config, ctx) => {
@@ -28,6 +41,9 @@ const schema = zod_1.z.object({
             path: ["DATABASE_SSL"],
             message: "DATABASE_SSL=true is required in production",
         });
+    }
+    if (config.NODE_ENV === "production" && !config.CORS_ORIGIN.startsWith("https://")) {
+        ctx.addIssue({ code: zod_1.z.ZodIssueCode.custom, path: ["CORS_ORIGIN"], message: "CORS_ORIGIN must use HTTPS in production" });
     }
 });
 const parsed = schema.safeParse(process.env);

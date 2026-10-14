@@ -5,7 +5,7 @@ exports.processExports = processExports;
 exports.maintenance = maintenance;
 const crypto_1 = require("crypto");
 const db_1 = require("./db");
-const BATCH = 500, PAGE = 2000, MAX_EXPORT_ROWS = 200_000;
+const BATCH = 1000, PAGE = 2000, MAX_EXPORT_ROWS = 200_000;
 const FORMULA = /^[=+\-@\t\r]/;
 const cell = (v) => { let s = v == null ? "" : String(v); if (FORMULA.test(s))
     s = "'" + s; return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
@@ -24,10 +24,30 @@ async function processImports() {
     for (const job of jobs) {
         try {
             const rows = JSON.parse(job.payload);
-            // Re-verify booth authorisation at commit time (booths may have been deactivated since preview)
-            const [b] = await db_1.pool.execute("SELECT id FROM booths WHERE organization_id = ? AND status = 'ACTIVE'", [job.organization_id]);
-            const allowed = new Set(b.map((x) => x.id));
-            if (rows.some((r) => !allowed.has(r.boothId)))
+            // CSV booth codes that are not configured yet become active booth records
+            // at commit time. Admins can then assign booth members from the portal.
+            const codes = [...new Set(rows.map((r) => r.boothCode).filter(Boolean))];
+            const [existingBooths] = await db_1.pool.execute("SELECT id, code, status FROM booths WHERE organization_id = ?", [job.organization_id]);
+            const existingCodes = new Set(existingBooths.map((b) => String(b.code).toUpperCase()));
+            const inactiveCodes = new Set(existingBooths.filter((b) => b.status !== "ACTIVE").map((b) => String(b.code).toUpperCase()));
+            if (rows.some((r) => inactiveCodes.has(String(r.boothCode).toUpperCase())))
+                throw new Error("Import references an inactive booth; activate it in the admin portal and re-import");
+            const missingCodes = codes.filter((code) => !existingCodes.has(String(code).toUpperCase()));
+            for (let offset = 0; offset < missingCodes.length; offset += 5000) {
+                const boothBatch = missingCodes.slice(offset, offset + 5000);
+                await db_1.pool.execute(
+                    `INSERT IGNORE INTO booths (id, organization_id, code, name) VALUES ${boothBatch.map(() => "(?,?,?,?)").join(",")}`,
+                    boothBatch.flatMap((code) => [(0, crypto_1.randomUUID)(), job.organization_id, code, `Booth ${code}`])
+                );
+            }
+            const [b] = await db_1.pool.execute("SELECT id, code FROM booths WHERE organization_id = ? AND status = 'ACTIVE'", [job.organization_id]);
+            const boothIds = new Map(b.map((x) => [String(x.code).toUpperCase(), x.id]));
+            for (const row of rows) {
+                row.boothId ??= boothIds.get(String(row.boothCode).toUpperCase());
+            }
+            const allowedIds = new Set(boothIds.values());
+            if (rows.some((r) => !r.boothId || !allowedIds.has(r.boothId)
+                || (r.boothCode && boothIds.get(String(r.boothCode).toUpperCase()) !== r.boothId)))
                 throw new Error("Import references a booth outside the organisation or inactive");
             let done = job.processed_rows;
             while (done < rows.length) {
@@ -82,10 +102,14 @@ const ROSTER_SQL = `SELECT ci.id, b.code AS booth_code, h.house_code, h.address_
             LEFT JOIN (SELECT citizen_id, COUNT(*) AS passed_steps FROM verifications WHERE result = 'PASSED' GROUP BY citizen_id) vp ON vp.citizen_id = ci.id
            WHERE b.organization_id = ? AND h.deleted_at IS NULL AND ci.deleted_at IS NULL`;
 const VERIFICATION_COLS = ["booth_code", "house_code", "address", "roll_serial", "full_name", "relation", "voter_id", "age", "gender", "life_status", "d2d_visit_done", "not_here", "address_changed", "new_address", "visit_notes", "verification_steps", "household_status"];
+const D2D_EXPORT = { headers: ["SN", "SERIAL NO", "DOOR NO", "ADDRESS", "NAME", "VOTER ID", "GENDER", "BOOTH NO", "DEAD", "NOT HERE", "VERIFICATION DONE", "ADDRESS CHANGED", "NEW ADDRESS", "ADDITIONAL NOTES"],
+    cols: ["sn", "serial_no", "door_no", "address", "name", "voter_id", "gender", "booth_no", "dead", "not_here", "d2d_visit_done", "address_changed", "new_address", "visit_notes"],
+    sql: ROSTER_SQL, booth: "ci.booth_id" };
 const EXPORTS = {
-    CITIZENS: { headers: ["SN", "SERIAL NO", "DOOR NO", "ADDRESS", "NAME", "VOTER ID", "GENDER", "BOOTH NO", "DEAD", "NOT HERE", "VERIFICATION DONE", "ADDRESS CHANGED", "NEW ADDRESS", "ADDITIONAL NOTES"],
-        cols: ["sn", "serial_no", "door_no", "address", "name", "voter_id", "gender", "booth_no", "dead", "not_here", "d2d_visit_done", "address_changed", "new_address", "visit_notes"],
-        sql: ROSTER_SQL, booth: "ci.booth_id" },
+    CITIZENS: D2D_EXPORT,
+    SHIFTED_CITIZENS: { ...D2D_EXPORT, sql: `${ROSTER_SQL} AND ci.address_changed = 1` },
+    DECEASED_CITIZENS: { ...D2D_EXPORT, sql: `${ROSTER_SQL} AND ci.life_status = 'DECEASED'` },
+    PENDING_D2D: { ...D2D_EXPORT, sql: `${ROSTER_SQL} AND ci.d2d_verified = 0` },
     HOUSEHOLDS: { cols: ["booth_code", "house_code", "status"],
         sql: `SELECT h.id, b.code AS booth_code, h.house_code, h.verification_status AS status
             FROM households h JOIN booths b ON b.id = h.booth_id WHERE b.organization_id = ? AND h.deleted_at IS NULL`, booth: "h.booth_id" },

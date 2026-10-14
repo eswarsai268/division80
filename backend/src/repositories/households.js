@@ -36,7 +36,7 @@ async function listHouseholdsForUser(u, f) {
     const where = [`h.booth_id IN (${(0, pool_1.placeholders)(booths.length)})`, "h.deleted_at IS NULL"];
     const params = [...booths];
     if (f.search) {
-        const search = escLike(f.search.trim().toUpperCase()) + "%";
+        const search = `%${escLike(f.search.trim().toUpperCase())}%`;
         where.push(`(UPPER(h.house_code) LIKE ? OR EXISTS (
             SELECT 1 FROM citizens c WHERE c.household_id = h.id AND c.deleted_at IS NULL
               AND (UPPER(c.full_name) LIKE ? OR UPPER(COALESCE(c.voter_id, '')) LIKE ?
@@ -59,6 +59,14 @@ async function listHouseholdsForUser(u, f) {
             params.push(f.status);
         }
     }
+    let totals = { totalHouseholds: 0, totalPeople: 0 };
+    if (!f.cursor) {
+        const [row] = await (0, pool_1.query)(`SELECT COUNT(DISTINCT h.id) AS totalHouseholds, COUNT(c.id) AS totalPeople
+            FROM households h JOIN booths b ON b.id = h.booth_id
+            LEFT JOIN citizens c ON c.household_id = h.id AND c.deleted_at IS NULL
+            WHERE ${where.join(" AND ")}`, params);
+        totals = { totalHouseholds: Number(row.totalHouseholds), totalPeople: Number(row.totalPeople) };
+    }
     if (f.cursor) {
         const cursor = (await (0, pool_1.query)(`SELECT b.code AS boothCode, h.house_code AS houseCode
             FROM households h JOIN booths b ON b.id = h.booth_id
@@ -75,11 +83,11 @@ async function listHouseholdsForUser(u, f) {
             h.house_code AS houseCode, h.verification_status AS status,
             (SELECT COUNT(*) FROM citizens c WHERE c.household_id = h.id AND c.deleted_at IS NULL) AS citizenCount,
             (SELECT COUNT(*) FROM citizens c WHERE c.household_id = h.id AND c.deleted_at IS NULL AND c.d2d_verified = 1) AS visitedCount
-       FROM households h JOIN booths b ON b.id = h.booth_id
+       FROM households h JOIN booths b ON b.id = h.booth_id AND b.status = 'ACTIVE'
       WHERE ${where.join(" AND ")} ORDER BY b.code, h.house_code, h.id LIMIT ${f.limit + 1}`, params);
     const more = rows.length > f.limit;
     const items = more ? rows.slice(0, f.limit) : rows;
-    return { items, nextCursor: more ? items[items.length - 1].id : null };
+    return { items, nextCursor: more ? items[items.length - 1].id : null, ...totals };
 }
 /**
  * Access = household is in one of the caller's ACTIVE booths, OR the caller holds an
@@ -92,7 +100,7 @@ async function getHouseholdForUser(u, householdId) {
     const n = u.boothIds.length;
     const rows = await (0, pool_1.query)(`SELECT h.id, h.booth_id AS boothId, b.code AS boothCode, h.house_code AS houseCode, h.address_line AS address,
             h.verification_status AS status
-       FROM households h JOIN booths b ON b.id = h.booth_id
+       FROM households h JOIN booths b ON b.id = h.booth_id AND b.status = 'ACTIVE'
       WHERE h.id = ? AND h.deleted_at IS NULL
         AND ( h.booth_id IN (${(0, pool_1.placeholders)(n)})
               OR EXISTS (SELECT 1 FROM cross_booth_requests r

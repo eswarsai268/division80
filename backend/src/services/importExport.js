@@ -7,6 +7,7 @@ exports.confirmImport = confirmImport;
 exports.createExport = createExport;
 exports.getExport = getExport;
 exports.downloadExport = downloadExport;
+exports.deleteExport = deleteExport;
 const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
@@ -46,8 +47,9 @@ async function createImportJob(c, csv) {
     const missing = REQUIRED.filter((r) => !header.includes(r));
     if (missing.length)
         throw new errors_1.AppError(422, "MISSING_COLUMNS", `Missing columns: ${missing.join(", ")}`);
-    const booths = new Map((await (0, pool_1.query)("SELECT id, code FROM booths WHERE organization_id = ? AND status = 'ACTIVE'", [c.user.organizationId]))
-        .map((b) => [String(b.code).toUpperCase(), b.id]));
+    const boothRows = await (0, pool_1.query)("SELECT id, code, status FROM booths WHERE organization_id = ?", [c.user.organizationId]);
+    const activeBooths = new Map(boothRows.filter((b) => b.status === "ACTIVE").map((b) => [String(b.code).toUpperCase(), b.id]));
+    const knownBoothCodes = new Set(boothRows.map((b) => String(b.code).toUpperCase()));
     const errors = [];
     let errorCount = 0;
     const bad = (line, message) => { errorCount++; if (errors.length < 200)
@@ -81,8 +83,13 @@ async function createImportJob(c, csv) {
             bad(line, "Cell starts with a formula character (= + - @)");
             continue;
         }
-        const boothId = booths.get(f.booth.toUpperCase());
-        if (!boothId) {
+        const boothCode = f.booth.toUpperCase();
+        if (!/^[A-Z0-9][A-Z0-9\-/]{0,31}$/.test(boothCode)) {
+            bad(line, "Invalid booth_code");
+            continue;
+        }
+        const boothId = activeBooths.get(boothCode);
+        if (!boothId && knownBoothCodes.has(boothCode)) {
             bad(line, "Unknown or inactive booth_code");
             continue;
         }
@@ -165,7 +172,8 @@ async function createImportJob(c, csv) {
         if (f.address)
             householdAddresses.set(householdKey, f.address);
         valid.push({
-            boothId,
+            boothId: boothId ?? null,
+            boothCode,
             houseCode: f.house.toUpperCase(),
             addressLine: f.address || null,
             rollSerial: f.serial || null,
@@ -185,18 +193,22 @@ async function createImportJob(c, csv) {
     }
     const ids = [...seen];
     const existing = new Set();
-    for (let i = 0; i < ids.length; i += 500) {
-        const chunk = ids.slice(i, i + 500);
+    // Keep each lookup comfortably below MySQL's placeholder/packet limits while
+    // avoiding dozens of sequential network round trips for large voter lists.
+    const voterLookupBatchSize = 5000;
+    for (let i = 0; i < ids.length; i += voterLookupBatchSize) {
+        const chunk = ids.slice(i, i + voterLookupBatchSize);
         (await (0, pool_1.query)(`SELECT voter_id FROM citizens WHERE voter_id IN (${(0, pool_1.placeholders)(chunk.length)})`, chunk)).forEach((r) => existing.add(String(r.voter_id).toUpperCase()));
     }
     const final = valid.filter((v) => { if (v.voterId && existing.has(v.voterId)) {
         bad(v.line, "voter_id already exists");
         return false;
     } return true; });
+    const pendingBoothCodes = [...new Set(final.filter((v) => !v.boothId).map((v) => v.boothCode))].sort();
     const id = (0, crypto_1.randomUUID)();
     await (0, pool_1.exec)(`INSERT INTO import_jobs (id, organization_id, created_by, total_rows, valid_rows, error_count, errors, payload) VALUES (?,?,?,?,?,?,?,?)`, [id, c.user.organizationId, c.user.id, rows.length - 1, final.length, errorCount, JSON.stringify(errors), JSON.stringify(final)]);
     await (0, audit_1.audit)({ actorId: c.user.id, action: "IMPORT", resourceType: "IMPORT_JOB", resourceId: id, outcome: "SUCCESS", reason: "preview created", requestId: c.requestId });
-    return { id, status: "PREVIEW", totalRows: rows.length - 1, validRows: final.length, errorCount, errors: errors.slice(0, 50) };
+    return { id, status: "PREVIEW", totalRows: rows.length - 1, validRows: final.length, errorCount, errors: errors.slice(0, 50), pendingBoothCodes };
 }
 const IMPORT_COLS = `id, status, total_rows AS totalRows, valid_rows AS validRows, error_count AS errorCount, processed_rows AS processedRows, result, last_error AS lastError, created_at AS createdAt, data_tracked AS dataTracked, (status = 'PREVIEW' OR (status NOT IN ('QUEUED','COMMITTING') AND data_tracked = 1)) AS canDelete`;
 async function getImportJob(c, id) {
@@ -282,4 +294,16 @@ async function downloadExport(c, id) {
         throw (0, errors_1.notFound)();
     await (0, audit_1.audit)({ actorId: c.user.id, action: "EXPORT", resourceType: "EXPORT_JOB", resourceId: id, outcome: "SUCCESS", reason: "downloaded", requestId: c.requestId });
     return { kind: String(j.kind).toLowerCase(), content: String(j.content) };
+}
+async function deleteExport(c, id) {
+    return (0, pool_1.tx)(async (conn) => {
+        const job = (await (0, pool_1.query)("SELECT status, kind FROM export_jobs WHERE id = ? AND organization_id = ? FOR UPDATE", [id, c.user.organizationId], conn))[0];
+        if (!job)
+            throw (0, errors_1.notFound)();
+        if (job.status === "PROCESSING")
+            throw (0, errors_1.conflict)("Wait until the export finishes before deleting it");
+        await (0, pool_1.exec)("DELETE FROM export_jobs WHERE id = ? AND organization_id = ?", [id, c.user.organizationId], conn);
+        await (0, audit_1.audit)({ actorId: c.user.id, action: "EXPORT_DELETE", resourceType: "EXPORT_JOB", resourceId: id, outcome: "SUCCESS", reason: `deleted ${job.kind} export from history`, requestId: c.requestId }, conn);
+        return { id, deleted: true };
+    });
 }

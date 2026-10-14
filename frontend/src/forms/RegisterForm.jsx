@@ -20,25 +20,37 @@ export default function RegisterForm() {
       <div><label className="label" htmlFor="e">{t("Email")}</label><input id="e" className="input" type="email" {...f.register("email")} /></div>
      
 <div>
-  <label className="label" htmlFor="p">{t("Password")}</label>
+  <label className="label" htmlFor="p">
+    {t("Password")}
+  </label>
+
   <div className="relative">
     <input
       id="p"
-      className="input"
+     className="input pr-10 password-input"
       type={showPassword ? "text" : "password"}
       autoComplete="new-password"
+      maxLength={128}
       {...f.register("password")}
     />
+
     <button
       type="button"
-      onClick={() => setShowPassword(!showPassword)}
-      aria-label="Toggle password visibility"
+      onClick={() => setShowPassword((prev) => !prev)}
+      className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center"
+      aria-label={showPassword ? "Hide password" : "Show password"}
     >
       {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
     </button>
   </div>
-  {err.password && <p className="text-xs text-red-600">{err.password.message}</p>}
+
+  {err.password && (
+    <p className="text-xs text-red-600">
+      {err.password.message}
+    </p>
+  )}
 </div>
+
 
       {err.root && <ErrorBox error={err.root} />}
       <button className="btn w-full" disabled={f.formState.isSubmitting}>{t("Register")}</button>
