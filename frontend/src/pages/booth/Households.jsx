@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ArrowRight, Building2, ChevronDown, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -16,18 +16,23 @@ const FILTERS = [
 
 export default function Households() {
     const [search, setSearch] = useState("");
-    const [status, setStatus] = useState("UNVERIFIED");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [status, setStatus] = useState("");
     const [boothId, setBoothId] = useState("");
     const booths = useGet(["booth", "assigned-booths"], "/booth/booths");
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+        return () => clearTimeout(timer);
+    }, [search]);
     const query = useInfiniteQuery({
-        queryKey: ["booth", "households", boothId, search, status],
+        queryKey: ["booth", "households", boothId, debouncedSearch, status],
         initialPageParam: null,
         queryFn: ({ pageParam, signal }) => {
-            const params = new URLSearchParams({ limit: "50" });
+            const params = new URLSearchParams({ limit: "1000" });
             if (boothId)
                 params.set("boothId", boothId);
-            if (search.trim())
-                params.set("search", search.trim());
+            if (debouncedSearch)
+                params.set("search", debouncedSearch);
             if (status)
                 params.set("status", status);
             if (pageParam)
@@ -37,6 +42,7 @@ export default function Households() {
         getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     });
     const items = query.data?.pages.flatMap((page) => page.items) ?? [];
+    const totals = query.data?.pages[0];
 
     return <div className="space-y-4">
       <header className="rounded-3xl bg-[#ffc400] p-5 text-stone-950 shadow-sm">
@@ -68,6 +74,7 @@ export default function Households() {
           placeholder={t("Search house, serial, name or voter ID")} aria-label={t("Search house, serial, name or voter ID")}/>
       </label>
 
+      {totals && <p role="status" className="rounded-xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">Database results for these filters: <strong className="text-slate-900">{totals.totalHouseholds.toLocaleString()} houses</strong> with <strong className="text-slate-900">{totals.totalPeople.toLocaleString()} people</strong>. Loaded {items.length.toLocaleString()} house cards.</p>}
       <Async q={query}>{() => items.length ? <section className="space-y-3" aria-label={t("House list")}>
         {items.map((house) => <Link key={house.id} to={`/booth/households/${house.id}`} className="flex min-h-24 items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 text-inherit no-underline shadow-sm transition hover:border-amber-300 hover:shadow-md">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-amber-100 bg-amber-50 text-amber-700"><Users size={23}/></span>

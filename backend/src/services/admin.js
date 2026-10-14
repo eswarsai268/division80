@@ -63,13 +63,20 @@ async function assignMember(c, boothId, i) {
         const u = (await (0, pool_1.query)("SELECT id FROM users WHERE id = ? AND organization_id = ? AND role = 'BOOTH_MEMBER' AND status = 'ACTIVE'", [i.userId, org(c)], conn))[0];
         if (!b || !u)
             throw (0, errors_1.notFound)();
+        const existing = (await (0, pool_1.query)("SELECT id FROM booth_assignments WHERE booth_id = ? AND user_id = ? AND revoked_at IS NULL FOR UPDATE", [boothId, i.userId], conn))[0];
+        if (existing)
+            return { id: existing.id, alreadyAssigned: true };
         const id = (0, crypto_1.randomUUID)();
         try {
             await (0, pool_1.exec)("INSERT INTO booth_assignments (id, booth_id, user_id, can_approve_cross_booth, created_by) VALUES (?,?,?,?,?)", [id, boothId, i.userId, i.canApproveCrossBooth ? 1 : 0, c.user.id], conn);
         }
         catch (e) { // unique(active_key) makes concurrent duplicate assignment impossible
-            if (e?.code === "ER_DUP_ENTRY")
+            if (e?.code === "ER_DUP_ENTRY") {
+                const duplicate = (await (0, pool_1.query)("SELECT id FROM booth_assignments WHERE booth_id = ? AND user_id = ? AND revoked_at IS NULL", [boothId, i.userId], conn))[0];
+                if (duplicate)
+                    return { id: duplicate.id, alreadyAssigned: true };
                 throw (0, errors_1.conflict)("Member already assigned to this booth");
+            }
             throw e;
         }
         await (0, audit_1.audit)({ actorId: c.user.id, action: "BOOTH_ASSIGNMENT", resourceType: "BOOTH", resourceId: boothId, scope: `user:${i.userId}`, outcome: "SUCCESS", requestId: c.requestId }, conn);

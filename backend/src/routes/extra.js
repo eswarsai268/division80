@@ -81,12 +81,17 @@ function extendAdmin(ad) {
         newPassword: zod_1.z.string().min(12).max(128),
     }), req.body), String(req.id)))));
     ad.get("/cross-booth", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await xb.listAdminRequests((0, http_1.ctx)(req)))));
-    ad.post("/import-jobs", rateLimit_1.limits.importJobs, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.createImportJob((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ csv: zod_1.z.string().min(10).max(50 * 1024 * 1024) }), req.body).csv), 201)));
+    ad.post("/import-jobs", rateLimit_1.limits.importJobs, (0, http_1.h)(async (req, res) => {
+        const csv = typeof req.body === "string"
+            ? (0, http_1.parse)(zod_1.z.string().min(10).max(50 * 1024 * 1024), req.body)
+            : (0, http_1.parse)(zod_1.z.object({ csv: zod_1.z.string().min(10).max(50 * 1024 * 1024) }), req.body).csv;
+        (0, http_1.ok)(req, res, await ie.createImportJob((0, http_1.ctx)(req), csv), 201);
+    }));
     ad.get("/import-jobs", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.listImportJobs((0, http_1.ctx)(req)))));
     ad.delete("/import-jobs/:jobId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.deleteImportJob((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.get("/import-jobs/:jobId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.getImportJob((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.post("/import-jobs/:jobId/confirm", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.confirmImport((0, http_1.ctx)(req), idp(req, "jobId")))));
-    ad.post("/export-jobs", rateLimit_1.limits.exportJobs, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.createExport((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ kind: zod_1.z.enum(["CITIZENS", "HOUSEHOLDS", "COMPLAINTS", "PENDING_VERIFICATION", "IN_PROGRESS_VERIFICATION", "VERIFIED_CITIZENS"]), boothId: http_1.uuid.optional() }), req.body)), 201)));
+    ad.post("/export-jobs", rateLimit_1.limits.exportJobs, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.createExport((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ kind: zod_1.z.enum(["CITIZENS", "SHIFTED_CITIZENS", "DECEASED_CITIZENS", "PENDING_D2D", "HOUSEHOLDS", "COMPLAINTS", "PENDING_VERIFICATION", "IN_PROGRESS_VERIFICATION", "VERIFIED_CITIZENS"]), boothId: http_1.uuid.optional() }), req.body)), 201)));
     ad.get("/export-jobs", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.listExports((0, http_1.ctx)(req)))));
     ad.get("/export-jobs/:jobId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.getExport((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.get("/export-jobs/:jobId/download", (0, http_1.h)(async (req, res) => {

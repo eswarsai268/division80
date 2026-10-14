@@ -34,7 +34,16 @@ export default function HouseholdDetail() {
       const draft = drafts[c.id] ?? saved;
       const setDraft = (field, value) => setDrafts((current) => ({ ...current, [c.id]: { ...draft, [field]: value } }));
       return <div key={c.id} className="card space-y-3">
-      <div><p className="font-medium">{t("Serial number")} {c.rollSerial ?? "—"} · {t("Door number")} {household.houseCode} · {c.fullName}</p><p className="text-xs text-slate-500">{c.relation} · {t("Voter ID")} {c.voterId ?? "—"} · {c.age ?? "—"} {t("years")} · {t(c.gender)}</p></div>
+      <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+          <div><dt className="text-xs font-medium text-slate-500">{t("S.No.")}</dt><dd className="mt-0.5 text-lg font-bold text-slate-900">{c.rollSerial ?? "—"}</dd></div>
+          <div className="col-span-2 sm:col-span-2"><dt className="text-xs font-medium text-slate-500">{t("Name")}</dt><dd className="mt-0.5 break-words text-lg font-bold text-slate-900">{c.fullName}</dd></div>
+          <div><dt className="text-xs font-medium text-slate-500">{t("Door number")}</dt><dd className="mt-0.5 text-base font-semibold text-slate-900">{household.houseCode}</dd></div>
+          <div><dt className="text-xs font-medium text-slate-500">{t("Voter ID")}</dt><dd className="mt-0.5 break-all text-base font-semibold text-slate-900">{c.voterId ?? "—"}</dd></div>
+          <div><dt className="text-xs font-medium text-slate-500">{t("Booth number")}</dt><dd className="mt-0.5 text-base font-semibold text-slate-900">{household.boothCode}</dd></div>
+        </dl>
+        <p className="mt-3 border-t border-amber-200 pt-2 text-sm text-slate-600">{t(c.relation)} · {c.age ?? "—"} {t("years")} · {t(c.gender)}</p>
+      </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.verificationDone} disabled={!household.ownBooth} onChange={(event) => setDraft("verificationDone", event.target.checked)}/>{t("Verification done")}</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.lifeStatus === "DECEASED"} disabled={!household.ownBooth} onChange={(event) => setDraft("lifeStatus", event.target.checked ? "DECEASED" : "ALIVE")}/>{t("Dead")}</label>

@@ -11,7 +11,10 @@ import { useGet } from "../../hooks/useGet";
 import { t } from "../../i18n";
 
 const EXPORT_LABELS = {
-    CITIZENS: "D2D voter visit roster",
+    CITIZENS: "All people (D2D roster)",
+    SHIFTED_CITIZENS: "Shifted people (address changed)",
+    DECEASED_CITIZENS: "Deceased people",
+    PENDING_D2D: "Pending D2D visit",
     PENDING_VERIFICATION: "Pending verification (no steps passed)",
     IN_PROGRESS_VERIFICATION: "In progress (1–5 steps passed)",
     VERIFIED_CITIZENS: "Fully verified (6 steps passed)",
@@ -38,6 +41,7 @@ export default function AdminExports() {
     };
     return <div className="space-y-3"><Title>{t("Data exports")}</Title>
     <div className="card space-y-2"><p className="text-xs text-slate-500">{t("Exports are generated in the background, voter IDs are masked, files expire after 24 hours, and every export/download is audited.")}</p>
+      <p className="text-xs text-slate-500">{t("People-list exports use the same spreadsheet columns for all people, shifted people, deceased people, and pending D2D visits.")}</p>
       <p className="text-xs text-slate-500">{t("Verification export groups are based on passed steps: zero, one to five, or all six.")}</p>
       <select className="input" value={kind} onChange={(e) => setKind(e.target.value)} aria-label={t("Export type")}>{Object.entries(EXPORT_LABELS).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select>
       <select className="input" value={boothId} onChange={(e) => setBooth(e.target.value)} aria-label={t("Booth scope")}><option value="">{t("Whole organisation")}</option>{booths.data?.map((b) => <option key={b.id} value={b.id}>{b.code}</option>)}</select>
