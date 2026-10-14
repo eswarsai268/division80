@@ -1,0 +1,6 @@
+projectKey=samysa-medhi-project
+serverUrl=http://localhost:9000
+serverVersion=26.10.0.133078
+dashboardUrl=http://localhost:9000/dashboard?id=samysa-medhi-project
+ceTaskId=183e2d1c-d085-4964-a866-4351ff4f2ec6
+ceTaskUrl=http://localhost:9000/api/ce/task?id=183e2d1c-d085-4964-a866-4351ff4f2ec6
