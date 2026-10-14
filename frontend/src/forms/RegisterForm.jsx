@@ -30,6 +30,7 @@ export default function RegisterForm() {
      className="input pr-10 password-input"
       type={showPassword ? "text" : "password"}
       autoComplete="new-password"
+      maxLength={128}
       {...f.register("password")}
     />
 

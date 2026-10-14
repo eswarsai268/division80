@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ArrowRight, Building2, ChevronDown, Search, Users } from "lucide-react";
+import { ArrowRight, Building2, ChevronDown, Search, Users, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../../api/client";
 import Async from "../../components/Async";
@@ -13,12 +13,27 @@ const FILTERS = [
     ["RESOLVED", "Verified"],
     ["", "All houses"],
 ];
+const FILTER_STORAGE_KEY = "boothHouseholdFilters";
+function readFilters() {
+    try {
+        return JSON.parse(sessionStorage.getItem(FILTER_STORAGE_KEY) ?? "{}") ?? {};
+    } catch {
+        return {};
+    }
+}
+function saveFilters(filters) {
+    try {
+        sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+    } catch {
+        // Search still works when browser storage is unavailable.
+    }
+}
 
 export default function Households() {
-    const [search, setSearch] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
-    const [status, setStatus] = useState("");
-    const [boothId, setBoothId] = useState("");
+    const [search, setSearch] = useState(() => readFilters().search ?? "");
+    const [debouncedSearch, setDebouncedSearch] = useState(() => (readFilters().search ?? "").trim());
+    const [status, setStatus] = useState(() => readFilters().status ?? "");
+    const [boothId, setBoothId] = useState(() => readFilters().boothId ?? "");
     const booths = useGet(["booth", "assigned-booths"], "/booth/booths");
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -55,7 +70,7 @@ export default function Households() {
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700"><Building2 size={23}/></span>
         <span className="min-w-0 flex-1">
           <span className="block text-xs text-slate-500">{t("Assigned booths")}</span>
-          <select className="mt-1 w-full bg-transparent text-base font-bold text-slate-900 focus:outline-none" value={boothId} onChange={(event) => setBoothId(event.target.value)} aria-label={t("Choose booth")}>
+        <select className="mt-1 w-full bg-transparent text-base font-bold text-slate-900 focus:outline-none" value={boothId} onChange={(event) => { const value = event.target.value; setBoothId(value); saveFilters({ search, status, boothId: value }); }} aria-label={t("Choose booth")}>
             <option value="">{t("All my assigned booths")}</option>
             {assigned.map((booth) => <option key={booth.id} value={booth.id}>{booth.name} · {t("Booth")} {booth.code}</option>)}
           </select>
@@ -64,15 +79,17 @@ export default function Households() {
       </label> : <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">{t("No booth is assigned to your account yet. Please ask your administrator for help.")}</div>}</Async>
 
       <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white p-1.5 shadow-sm" role="tablist" aria-label={t("Filter houses")}>
-        {FILTERS.map(([value, label]) => <button key={value || "all"} type="button" role="tab" aria-selected={status === value} onClick={() => setStatus(value)}
+        {FILTERS.map(([value, label]) => <button key={value || "all"} type="button" role="tab" aria-selected={status === value} onClick={() => { setStatus(value); saveFilters({ search, status: value, boothId }); }}
           className={`min-h-11 rounded-xl px-2 text-sm font-semibold ${status === value ? "bg-[#ffc400] text-stone-950 shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}>{t(label)}</button>)}
       </div>
 
-      <label className="flex min-h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm">
+      <div className="flex min-h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm">
         <Search className="shrink-0 text-slate-500" size={21}/>
-        <input className="w-full bg-transparent text-base outline-none placeholder:text-slate-400" value={search} onChange={(event) => setSearch(event.target.value)}
+        <input className="w-full bg-transparent text-base outline-none placeholder:text-slate-400" value={search} maxLength={100}
+          onChange={(event) => { const value = event.target.value; setSearch(value); saveFilters({ search: value, status, boothId }); }}
           placeholder={t("Search house, serial, name or voter ID")} aria-label={t("Search house, serial, name or voter ID")}/>
-      </label>
+        {search && <button type="button" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 hover:bg-slate-100" onClick={() => { setSearch(""); saveFilters({ search: "", status, boothId }); }} aria-label={t("Clear search")} title={t("Clear search")}><X size={18}/></button>}
+      </div>
 
       {totals && <p role="status" className="rounded-xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">Database results for these filters: <strong className="text-slate-900">{totals.totalHouseholds.toLocaleString()} houses</strong> with <strong className="text-slate-900">{totals.totalPeople.toLocaleString()} people</strong>. Loaded {items.length.toLocaleString()} house cards.</p>}
       <Async q={query}>{() => items.length ? <section className="space-y-3" aria-label={t("House list")}>

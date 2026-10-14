@@ -121,3 +121,5 @@ export const patch = (path, body) => api(path, {
     body: JSON.stringify(body),
     headers: { "Content-Type": "application/json" },
 });
+
+export const del = (path) => api(path, { method: "DELETE" });
