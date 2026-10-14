@@ -83,7 +83,7 @@ async function listHouseholdsForUser(u, f) {
             h.house_code AS houseCode, h.verification_status AS status,
             (SELECT COUNT(*) FROM citizens c WHERE c.household_id = h.id AND c.deleted_at IS NULL) AS citizenCount,
             (SELECT COUNT(*) FROM citizens c WHERE c.household_id = h.id AND c.deleted_at IS NULL AND c.d2d_verified = 1) AS visitedCount
-       FROM households h JOIN booths b ON b.id = h.booth_id
+       FROM households h JOIN booths b ON b.id = h.booth_id AND b.status = 'ACTIVE'
       WHERE ${where.join(" AND ")} ORDER BY b.code, h.house_code, h.id LIMIT ${f.limit + 1}`, params);
     const more = rows.length > f.limit;
     const items = more ? rows.slice(0, f.limit) : rows;
@@ -100,7 +100,7 @@ async function getHouseholdForUser(u, householdId) {
     const n = u.boothIds.length;
     const rows = await (0, pool_1.query)(`SELECT h.id, h.booth_id AS boothId, b.code AS boothCode, h.house_code AS houseCode, h.address_line AS address,
             h.verification_status AS status
-       FROM households h JOIN booths b ON b.id = h.booth_id
+       FROM households h JOIN booths b ON b.id = h.booth_id AND b.status = 'ACTIVE'
       WHERE h.id = ? AND h.deleted_at IS NULL
         AND ( h.booth_id IN (${(0, pool_1.placeholders)(n)})
               OR EXISTS (SELECT 1 FROM cross_booth_requests r

@@ -21,7 +21,9 @@ const MIN = 60_000, HOUR = 60 * MIN;
 exports.limits = {
     global: (0, exports.limiter)("global", 600, MIN),
     login: (0, exports.limiter)("login", 10, 15 * MIN, (r) => `${r.ip}:${String(r.body?.email ?? "").toLowerCase().slice(0, 100)}`),
-    loginEmail: (0, exports.limiter)("loginEmail", 20, HOUR, (r) => String(r.body?.email ?? "").toLowerCase().slice(0, 100)),
+    // Include the source IP so a remote attacker cannot lock a known account out
+    // merely by exhausting an email-only bucket.
+    loginEmail: (0, exports.limiter)("loginEmail", 20, HOUR, (r) => `${r.ip ?? "unknown"}:${String(r.body?.email ?? "").toLowerCase().slice(0, 100)}`),
     passwordChange: (0, exports.limiter)("passwordChange", 5, HOUR, byUser),
     register: (0, exports.limiter)("register", 5, HOUR),
     refresh: (0, exports.limiter)("refresh", 60, 15 * MIN),

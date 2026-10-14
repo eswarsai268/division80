@@ -67,7 +67,7 @@ Upload one CSV or `.xlsx` Excel worksheet at a time, up to 50 MiB and 50,000 dat
 
 Admins can add a single person from Admin → Citizens & households without re-uploading a CSV. “Remove from active roster” archives that person: they disappear from booth work and new exports, while verification history and the voter ID record remain stored for audit/history. The original uploaded CSV file is not retained as a downloadable document after processing; imported roster rows are database records.
 
-Admin → Exports provides spreadsheet-column people lists for all active people, shifted people, deceased people, and people whose D2D visit is still pending. It also provides verification roster exports for no passed steps, 1–5 passed steps, and all 6 passed steps. Exports can be limited to a booth; voter IDs are masked and generated files expire after 24 hours.
+Admin → Exports provides spreadsheet-column people lists for all active people, shifted people, and people whose D2D visit is still pending. It also provides a verification roster export for people with no passed steps. Exports can be limited to a booth; voter IDs are masked and generated files expire after 24 hours.
 
 Admins can optionally set a login welcome video in Settings by pasting an HTTPS Cloudinary `res.cloudinary.com/<cloud>/video/upload/...` delivery URL. The video is public, muted and looping on sign-in pages; no Cloudinary secret is stored in the app.
 

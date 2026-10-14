@@ -93,6 +93,7 @@ function extendAdmin(ad) {
     ad.post("/import-jobs/:jobId/confirm", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.confirmImport((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.post("/export-jobs", rateLimit_1.limits.exportJobs, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.createExport((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ kind: zod_1.z.enum(["CITIZENS", "SHIFTED_CITIZENS", "DECEASED_CITIZENS", "PENDING_D2D", "HOUSEHOLDS", "COMPLAINTS", "PENDING_VERIFICATION", "IN_PROGRESS_VERIFICATION", "VERIFIED_CITIZENS"]), boothId: http_1.uuid.optional() }), req.body)), 201)));
     ad.get("/export-jobs", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.listExports((0, http_1.ctx)(req)))));
+    ad.delete("/export-jobs/:jobId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.deleteExport((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.get("/export-jobs/:jobId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await ie.getExport((0, http_1.ctx)(req), idp(req, "jobId")))));
     ad.get("/export-jobs/:jobId/download", (0, http_1.h)(async (req, res) => {
         const f = await ie.downloadExport((0, http_1.ctx)(req), idp(req, "jobId"));

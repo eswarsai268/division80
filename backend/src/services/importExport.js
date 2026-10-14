@@ -7,6 +7,7 @@ exports.confirmImport = confirmImport;
 exports.createExport = createExport;
 exports.getExport = getExport;
 exports.downloadExport = downloadExport;
+exports.deleteExport = deleteExport;
 const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
@@ -293,4 +294,16 @@ async function downloadExport(c, id) {
         throw (0, errors_1.notFound)();
     await (0, audit_1.audit)({ actorId: c.user.id, action: "EXPORT", resourceType: "EXPORT_JOB", resourceId: id, outcome: "SUCCESS", reason: "downloaded", requestId: c.requestId });
     return { kind: String(j.kind).toLowerCase(), content: String(j.content) };
+}
+async function deleteExport(c, id) {
+    return (0, pool_1.tx)(async (conn) => {
+        const job = (await (0, pool_1.query)("SELECT status, kind FROM export_jobs WHERE id = ? AND organization_id = ? FOR UPDATE", [id, c.user.organizationId], conn))[0];
+        if (!job)
+            throw (0, errors_1.notFound)();
+        if (job.status === "PROCESSING")
+            throw (0, errors_1.conflict)("Wait until the export finishes before deleting it");
+        await (0, pool_1.exec)("DELETE FROM export_jobs WHERE id = ? AND organization_id = ?", [id, c.user.organizationId], conn);
+        await (0, audit_1.audit)({ actorId: c.user.id, action: "EXPORT_DELETE", resourceType: "EXPORT_JOB", resourceId: id, outcome: "SUCCESS", reason: `deleted ${job.kind} export from history`, requestId: c.requestId }, conn);
+        return { id, deleted: true };
+    });
 }
