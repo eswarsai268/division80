@@ -1,0 +1,13 @@
+
+version = "1.0"
+
+[commands.codex_bridge]
+description = "Qodo coding assistant callable from Codex"
+instructions = """
+Help Codex analyze this project's code.
+Use the available filesystem and git tools when useful.
+Explain findings clearly and suggest fixes.
+Do not modify files or execute commands unless explicitly requested.
+"""
+available_tools = ["filesystem", "git"]
+execution_strategy = "plan"
