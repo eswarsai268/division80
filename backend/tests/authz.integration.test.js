@@ -99,6 +99,22 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         await b.post(`/api/v1/cross-booth/requests/${id}/approve`).set(H).send({ grantHours: 1 }).expect(409); // replay
         await a.get(`/api/v1/booth/households/${ids.houseB}`).expect(200); // granted, resource-specific
     });
+    it("expired cross-booth requests stay expired and cannot be approved or rejected", async () => {
+        const a = await login(U.a1.email), b = await login(U.b1.email);
+        const created = await a.post("/api/v1/cross-booth/requests").set(H).send({
+            sourceBoothId: ids.boothA, householdId: ids.houseB, reason: "Expired request regression",
+        }).expect(201);
+        const id = created.body.data.id;
+        await q.exec("UPDATE cross_booth_requests SET expires_at = DATE_SUB(NOW(3), INTERVAL 1 MINUTE) WHERE id = ?", [id]);
+
+        await b.post(`/api/v1/cross-booth/requests/${id}/approve`).set(H).send({}).expect(409);
+        let [row] = await q.query("SELECT status FROM cross_booth_requests WHERE id = ?", [id]);
+        expect(row.status).toBe("EXPIRED");
+
+        await b.post(`/api/v1/cross-booth/requests/${id}/reject`).set(H).send({}).expect(409);
+        [row] = await q.query("SELECT status FROM cross_booth_requests WHERE id = ?", [id]);
+        expect(row.status).toBe("EXPIRED");
+    });
     it("approved VERIFY grants expose a roster and link each verification to the cross-booth request", async () => {
         const voterId = "XTEST12345";
         const citizenId = randomUUID();

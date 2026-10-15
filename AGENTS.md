@@ -392,3 +392,92 @@ already satisfied.
     concrete evidence. State remaining gaps and measured limitations
     honestly; never promise zero vulnerabilities, perfect security, or
     zero latency.
+
+## Audit Execution Rules and Safety Boundaries
+
+These rules apply to every phase of the repository audit. Follow them in addition to all existing security, quality, testing, and production-readiness requirements in this file.
+
+### 1. Read-Only Baseline Before Execution
+
+- Begin with repository inventory, source inspection, configuration review, and analysis of the supplied reports.
+- Do not modify, create, delete, rename, or reformat repository files during the initial baseline phase.
+- Do not install or update tools or dependencies, run tests or builds, execute scans, or run database operations during the initial baseline phase.
+- Record the existing Git status and preserve all pre-existing user changes. Never discard, overwrite, or revert unrelated work.
+- Identify what has been inspected, what remains unreviewed, and what could not be verified.
+
+### 2. Evidence-Based Findings
+
+- Every finding must include its location, relevant code evidence, realistic impact, severity or priority, confidence, and recommended remediation.
+- Distinguish confirmed defects, potential risks, false positives, and items requiring further investigation.
+- Verify scanner findings against the actual source code and execution context wherever possible.
+- Do not invent vulnerabilities, exaggerate impacts, or claim that a vulnerability is exploitable without sufficient evidence.
+- Treat the supplied SonarQube JSON as the authoritative source for the supplied findings. Use accompanying PDF and CSV reports as supporting views.
+
+### 3. Coverage Ledger and Audit Tracking
+
+Maintain a coverage ledger throughout the audit. Track:
+
+- Files, directories, components, and workflows reviewed.
+- Files and components not yet reviewed, excluded, or blocked, including the reason.
+- Findings discovered, validated, fixed, rejected, or awaiting investigation.
+- Commands and checks attempted, their exact outcomes, and relevant failure reasons.
+- Tests added, tests executed, and outstanding validation requirements.
+
+Do not declare the audit complete merely because all currently known findings have been addressed. Clearly identify unreviewed areas and remaining limitations.
+
+### 4. Existing Tools First
+
+- Inspect existing manifests, lockfiles, scripts, tests, configuration, and available local tools before recommending installations.
+- Prefer existing repository scripts and locally available tools.
+- Introduce a new tool only when it addresses a specific, meaningful gap that existing tools do not adequately cover.
+- Explain the purpose, setup requirements, limitations, and expected benefit before adding a new dependency or tool.
+- Do not introduce Docker as a requirement when an equivalent safe local workflow is practical.
+- Do not install, remove, update, or upgrade dependencies without authorization.
+
+### 5. Safe Command Execution
+
+- During the initial baseline phase, remain strictly read-only and do not execute tests, builds, scans, migrations, seeds, or application-changing commands.
+- After the baseline is reviewed and execution is authorized, run checks in small, logical stages and record their results.
+- Before any command that changes data, modifies the environment, installs packages, or affects external services, establish its purpose, scope, and safety.
+- Never run migrations, seed scripts, destructive operations, or database-backed tests against production resources.
+- Do not guess database connection strings, credentials, environment variables, or service configuration.
+- If a prerequisite is missing or a command may cause unintended changes, stop and explain the issue instead of improvising.
+- Use synthetic test data. Never expose real citizen data, passwords, access tokens, API keys, or other secrets in logs or reports.
+
+### 6. Baseline Before Fixes
+
+- Complete and document the initial read-only baseline before modifying application code.
+- Establish existing test, build, dependency, and static-analysis results before treating later failures as regressions.
+- Prioritize findings according to verified risk, exploitability, impact, and dependencies rather than scanner severity alone.
+- Fix related issues in small, traceable batches. Avoid broad rewrites, unrelated refactoring, and unnecessary changes.
+- Do not silently change business rules, authorization policies, database schemas, or externally visible behavior.
+
+### 7. Verification After Every Fix Batch
+
+- Run the relevant regression tests and other appropriate checks after each authorized fix batch.
+- Run the production build, dependency checks, and applicable security scans at the appropriate stages.
+- Repeat SonarQube analysis using consistent project scope and configuration, then compare the results with the baseline.
+- Inspect the final Git diff for unintended modifications, exposed secrets, accidental deletions, and unrelated changes.
+- A successful command does not establish that the application is secure; validate the affected behavior and security boundaries.
+- Do not claim a fix is verified unless the required validation has actually been performed.
+
+### 8. Honest Reporting
+
+For every check, report one of the following outcomes as appropriate:
+
+- **Passed:** executed successfully and met the stated expectation.
+- **Failed:** executed and did not meet the expectation.
+- **Blocked:** could not execute because a prerequisite or permission was missing.
+- **Skipped:** intentionally not executed, with a reason.
+- **Not run:** no execution has been attempted.
+
+Never describe a proposed check as completed, a blocked check as passed, or an unreviewed component as safe.
+
+### 9. Authorization Between Audit Phases
+
+- Complete each audit phase and summarize its findings before proceeding to a phase involving additional execution, installation, or code modification.
+- Request authorization when the next phase introduces material risk, requires a new tool, changes data, or modifies application code.
+- Do not interpret permission to inspect the repository as permission to modify it.
+- Preserve a clear record of decisions, assumptions, unresolved questions, and remaining work.
+
+The goal is a reproducible, evidence-based audit with verified fixes and explicitly documented limitations—not merely a clean scanner dashboard or a large number of completed commands.

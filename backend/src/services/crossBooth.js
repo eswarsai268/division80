@@ -89,7 +89,7 @@ async function decide(c, requestId, decision, grantHours) {
     const u = c.user;
     if (u.role !== "BOOTH_MEMBER")
         throw (0, errors_1.forbidden)();
-    return (0, pool_1.tx)(async (conn) => {
+    const result = await (0, pool_1.tx)(async (conn) => {
         const r = (await (0, pool_1.query)("SELECT * FROM cross_booth_requests WHERE id = ? FOR UPDATE", [requestId], conn))[0];
         if (!r)
             throw (0, errors_1.notFound)();
@@ -104,7 +104,7 @@ async function decide(c, requestId, decision, grantHours) {
         const expired = (await (0, pool_1.query)("SELECT (? <= NOW(3)) AS e", [r.expires_at], conn))[0].e;
         if (expired) {
             await (0, pool_1.exec)("UPDATE cross_booth_requests SET status='EXPIRED' WHERE id = ? AND status='PENDING'", [r.id], conn);
-            throw (0, errors_1.conflict)("Request expired");
+            return { expired: true };
         }
         const res = decision === "APPROVED"
             ? await (0, pool_1.exec)(`UPDATE cross_booth_requests SET status='APPROVED', approver_id=?, decided_at=NOW(3),
@@ -115,8 +115,11 @@ async function decide(c, requestId, decision, grantHours) {
         await (0, audit_1.audit)({ actorId: u.id, action: "CROSS_BOOTH_" + (decision === "APPROVED" ? "APPROVAL" : "REJECTION"),
             resourceType: "CROSS_BOOTH_REQUEST", resourceId: r.id, scope: `${r.source_booth_id}->${r.target_booth_id}`, outcome: "SUCCESS", requestId: c.requestId }, conn);
         await (0, pool_1.exec)("INSERT INTO notification_outbox (id, user_id, type, payload) VALUES (?,?,?,?)", [(0, crypto_1.randomUUID)(), r.requester_id, "CROSS_BOOTH_" + decision, JSON.stringify({ requestId: r.id })], conn);
-        return { id: r.id, status: decision };
+        return { expired: false, response: { id: r.id, status: decision } };
     });
+    if (result.expired)
+        throw (0, errors_1.conflict)("Request expired");
+    return result.response;
 }
 const approveRequest = (c, id, hours = 4) => decide(c, id, "APPROVED", Math.min(Math.max(hours, 1), 24));
 exports.approveRequest = approveRequest;
