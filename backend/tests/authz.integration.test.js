@@ -99,6 +99,76 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         await b.post(`/api/v1/cross-booth/requests/${id}/approve`).set(H).send({ grantHours: 1 }).expect(409); // replay
         await a.get(`/api/v1/booth/households/${ids.houseB}`).expect(200); // granted, resource-specific
     });
+    it("decision rechecks current approver rights after a concurrent assignment revocation", async () => {
+        const a = await login(U.a1.email);
+        const created = await a.post("/api/v1/cross-booth/requests").set(H).send({
+            sourceBoothId: ids.boothA, householdId: ids.houseB, reason: "Permission revocation regression",
+        }).expect(201);
+        const id = created.body.data.id;
+        const staleContext = {
+            user: {
+                id: U.b1.id, role: "BOOTH_MEMBER", organizationId: ids.org,
+                boothIds: [ids.boothB], approverBoothIds: [ids.boothB],
+            },
+            requestId: randomUUID(),
+        };
+        const [assignment] = await q.query("SELECT id FROM booth_assignments WHERE user_id = ? AND booth_id = ? AND revoked_at IS NULL", [U.b1.id, ids.boothB]);
+        const crossBooth = await import("../src/services/crossBooth");
+        try {
+            await q.exec("UPDATE booth_assignments SET revoked_at = NOW(3) WHERE id = ?", [assignment.id]);
+            await expect(crossBooth.approveRequest(staleContext, id, 1)).rejects.toMatchObject({ status: 403 });
+            await expect(crossBooth.rejectRequest(staleContext, id)).rejects.toMatchObject({ status: 403 });
+
+            await q.exec("UPDATE booth_assignments SET revoked_at = NULL, starts_at = DATE_ADD(NOW(3), INTERVAL 1 HOUR) WHERE id = ?", [assignment.id]);
+            await expect(crossBooth.approveRequest(staleContext, id, 1)).rejects.toMatchObject({ status: 403 });
+
+            await q.exec("UPDATE booth_assignments SET starts_at = DATE_SUB(NOW(3), INTERVAL 1 HOUR), ends_at = DATE_SUB(NOW(3), INTERVAL 1 MINUTE) WHERE id = ?", [assignment.id]);
+            await expect(crossBooth.rejectRequest(staleContext, id)).rejects.toMatchObject({ status: 403 });
+
+            await q.exec("UPDATE booth_assignments SET ends_at = NULL WHERE id = ?", [assignment.id]);
+            await q.exec("UPDATE booths SET status = 'INACTIVE' WHERE id = ?", [ids.boothB]);
+            await expect(crossBooth.approveRequest(staleContext, id, 1)).rejects.toMatchObject({ status: 403 });
+        }
+        finally {
+            await q.exec("UPDATE booths SET status = 'ACTIVE' WHERE id = ?", [ids.boothB]);
+            await q.exec("UPDATE booth_assignments SET revoked_at = NULL, starts_at = DATE_SUB(NOW(3), INTERVAL 1 HOUR), ends_at = NULL WHERE id = ?", [assignment.id]);
+        }
+        const [finalRow] = await q.query("SELECT status FROM cross_booth_requests WHERE id = ?", [id]);
+        expect(finalRow.status).toBe("PENDING");
+    });
+    it("rejects sequential duplicate requests and permits a new request after rejection", async () => {
+        const requester = await mkUser("BOOTH_MEMBER", "duplicate-sequential");
+        await assign(ids.boothA, requester.id);
+        const agent = await login(requester.email);
+        const payload = { sourceBoothId: ids.boothA, householdId: ids.houseB, reason: "Sequential duplicate regression" };
+
+        const first = await agent.post("/api/v1/cross-booth/requests").set(H).send(payload).expect(201);
+        const duplicate = await agent.post("/api/v1/cross-booth/requests").set(H).send(payload).expect(409);
+        expect(duplicate.body.error).toMatchObject({ code: "CONFLICT", message: "A pending request already exists" });
+
+        await q.exec("UPDATE cross_booth_requests SET status = 'REJECTED' WHERE id = ?", [first.body.data.id]);
+        const afterRejected = await agent.post("/api/v1/cross-booth/requests").set(H).send(payload).expect(201);
+
+        await q.exec("UPDATE cross_booth_requests SET status = 'EXPIRED' WHERE id = ?", [afterRejected.body.data.id]);
+        const afterExpired = await agent.post("/api/v1/cross-booth/requests").set(H).send(payload).expect(201);
+
+        await q.exec("UPDATE cross_booth_requests SET status = 'APPROVED', grant_expires_at = DATE_SUB(NOW(3), INTERVAL 1 MINUTE) WHERE id = ?", [afterExpired.body.data.id]);
+        await agent.post("/api/v1/cross-booth/requests").set(H).send(payload).expect(201);
+    });
+    it("serializes concurrent duplicate requests and returns one conflict", async () => {
+        const requester = await mkUser("BOOTH_MEMBER", "duplicate-concurrent");
+        await assign(ids.boothA, requester.id);
+        const agent = await login(requester.email);
+        const payload = { sourceBoothId: ids.boothA, householdId: ids.houseB, reason: "Concurrent duplicate regression" };
+
+        const responses = await Promise.all([
+            agent.post("/api/v1/cross-booth/requests").set(H).send(payload),
+            agent.post("/api/v1/cross-booth/requests").set(H).send(payload),
+        ]);
+        expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
+        const duplicate = responses.find((response) => response.status === 409);
+        expect(duplicate.body.error).toMatchObject({ code: "CONFLICT", message: "A pending request already exists" });
+    });
     it("expired cross-booth requests stay expired and cannot be approved or rejected", async () => {
         const a = await login(U.a1.email), b = await login(U.b1.email);
         const created = await a.post("/api/v1/cross-booth/requests").set(H).send({

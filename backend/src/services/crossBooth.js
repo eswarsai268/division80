@@ -16,11 +16,15 @@ async function createRequest(c, i) {
     if (u.role !== "BOOTH_MEMBER" || !u.boothIds.includes(i.sourceBoothId))
         throw (0, errors_1.forbidden)();
     return (0, pool_1.tx)(async (conn) => {
-        const h = i.householdId
+        const candidate = i.householdId
             ? (await (0, pool_1.query)(`SELECT h.id, h.booth_id FROM households h JOIN booths b ON b.id = h.booth_id
                 WHERE h.id = ? AND h.deleted_at IS NULL AND b.organization_id = ?`, [i.householdId, u.organizationId], conn))[0]
             : (await (0, pool_1.query)(`SELECT h.id, h.booth_id FROM citizens ci JOIN households h ON h.id = ci.household_id
                 JOIN booths b ON b.id = h.booth_id WHERE ci.voter_id = ? AND ci.deleted_at IS NULL AND h.deleted_at IS NULL AND b.organization_id = ?`, [i.voterId.toUpperCase(), u.organizationId], conn))[0];
+        if (!candidate)
+            throw (0, errors_1.notFound)();
+        // The household row is the shared serialization point for requests to this resource.
+        const h = (await (0, pool_1.query)("SELECT id, booth_id FROM households WHERE id = ? AND deleted_at IS NULL FOR UPDATE", [candidate.id], conn))[0];
         if (!h)
             throw (0, errors_1.notFound)();
         if (u.boothIds.includes(h.booth_id))
@@ -28,7 +32,7 @@ async function createRequest(c, i) {
         const target = (await (0, pool_1.query)("SELECT id FROM booths WHERE id = ? AND organization_id = ? AND status = 'ACTIVE'", [h.booth_id, u.organizationId], conn))[0];
         if (!target)
             throw (0, errors_1.notFound)();
-        const dup = (await (0, pool_1.query)("SELECT id FROM cross_booth_requests WHERE requester_id = ? AND resource_id = ? AND action = ? AND status IN ('PENDING','APPROVED') AND (status = 'PENDING' AND expires_at > NOW(3) OR status = 'APPROVED' AND grant_expires_at > NOW(3))", [u.id, h.id, i.action], conn))[0];
+        const dup = (await (0, pool_1.query)("SELECT id FROM cross_booth_requests WHERE requester_id = ? AND resource_id = ? AND action = ? AND status IN ('PENDING','APPROVED') AND (status = 'PENDING' AND expires_at > NOW(3) OR status = 'APPROVED' AND grant_expires_at > NOW(3)) FOR UPDATE", [u.id, h.id, i.action], conn))[0];
         if (dup)
             throw (0, errors_1.conflict)("A pending request already exists");
         const id = (0, crypto_1.randomUUID)();
@@ -93,8 +97,19 @@ async function decide(c, requestId, decision, grantHours) {
         const r = (await (0, pool_1.query)("SELECT * FROM cross_booth_requests WHERE id = ? FOR UPDATE", [requestId], conn))[0];
         if (!r)
             throw (0, errors_1.notFound)();
-        // Approver must hold approver rights on the TARGET booth right now (fresh DB state).
-        if (!u.approverBoothIds.includes(r.target_booth_id) || r.requester_id === u.id) {
+        // Lock order is request, then current assignment/booth/user. Revocation updates the
+        // assignment row, so it either commits before this check or waits until this decision commits.
+        const approver = (await (0, pool_1.query)(`SELECT ba.id
+          FROM booth_assignments ba
+          JOIN booths b ON b.id = ba.booth_id
+          JOIN users assigned_user ON assigned_user.id = ba.user_id
+         WHERE ba.user_id = ? AND ba.booth_id = ? AND ba.can_approve_cross_booth = 1
+           AND ba.revoked_at IS NULL AND ba.starts_at <= NOW(3)
+           AND (ba.ends_at IS NULL OR ba.ends_at > NOW(3))
+           AND b.status = 'ACTIVE' AND b.organization_id = ?
+           AND assigned_user.role = 'BOOTH_MEMBER' AND assigned_user.status = 'ACTIVE'
+         FOR UPDATE`, [u.id, r.target_booth_id, u.organizationId], conn))[0];
+        if (!approver || r.requester_id === u.id) {
             await (0, audit_1.audit)({ actorId: u.id, action: "CROSS_BOOTH_" + (decision === "APPROVED" ? "APPROVAL" : "REJECTION"),
                 resourceType: "CROSS_BOOTH_REQUEST", resourceId: r.id, outcome: "DENIED", reason: "not target-booth approver", requestId: c.requestId });
             throw (0, errors_1.forbidden)();
