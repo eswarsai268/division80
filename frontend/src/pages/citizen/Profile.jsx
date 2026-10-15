@@ -1,8 +1,9 @@
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import {
-  ArrowRight, CalendarDays, CheckCircle2, CircleAlert, Clock3, LockKeyhole, Mail,
+  ArrowRight, CalendarDays, CheckCircle2, CircleAlert, Clock3, LockKeyhole, LogOut, Mail,
   Phone, Save, ShieldCheck, UserRound, XCircle,
 } from "lucide-react";
 import Async from "../../components/Async";
@@ -29,7 +30,36 @@ function memberSince(value) {
   return Number.isNaN(date.getTime()) ? "Not available" : date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
-function ProfileContent({ profile }) {
+function LogoutDialog({ onClose, onLogout }) {
+  const dialogRef = useRef(null);
+  const [error, setError] = useState(null);
+  const [pending, setPending] = useState(false);
+  useEffect(() => { dialogRef.current?.showModal(); }, []);
+  const confirmLogout = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      await onLogout();
+    } catch (logoutError) {
+      setError(logoutError);
+      setPending(false);
+    }
+  };
+  return (
+    <dialog ref={dialogRef} className="logout-dialog" aria-labelledby="logout-dialog-title" onCancel={(event) => { event.preventDefault(); if (!pending) onClose(); }} onClick={(event) => { if (event.target === dialogRef.current && !pending) onClose(); }}>
+      <h2 id="logout-dialog-title">{t("Are you sure you want to log out?")}</h2>
+      <p>{t("You will need to sign in again to access your account.")}</p>
+      {error && <ErrorBox error={error} />}
+      <div className="logout-dialog-actions">
+        <button type="button" className="logout-cancel" onClick={onClose} disabled={pending}>{t("Cancel")}</button>
+        <button type="button" className="logout-confirm" onClick={confirmLogout} disabled={pending}>{pending ? t("Logging out…") : t("Yes, Logout")}</button>
+      </div>
+    </dialog>
+  );
+}
+
+function ProfileContent({ profile, onLogout }) {
+  const [logoutOpen, setLogoutOpen] = useState(false);
   const qc = useQueryClient();
   const form = useForm({ values: { fullName: profile.fullName ?? "", phone: phoneDigits(profile.phone) } });
   const mutation = useMutation({
@@ -150,7 +180,14 @@ function ProfileContent({ profile }) {
           <span className="min-w-0 flex-1"><strong>{t("View complaints")}</strong><small>{t("Track your submitted complaints and updates")}</small></span>
           <ArrowRight size={18} className="text-slate-400" aria-hidden="true" />
         </Link>
+        <button type="button" className="profile-activity-link profile-logout-card" onClick={() => setLogoutOpen(true)}>
+          <span className="profile-activity-icon"><LogOut size={19} aria-hidden="true" /></span>
+          <span className="min-w-0 flex-1 text-left"><strong>{t("Logout")}</strong><small>{t("Sign out of your account securely.")}</small></span>
+          <ArrowRight size={18} className="text-slate-400" aria-hidden="true" />
+        </button>
       </section>
+
+      {logoutOpen && <LogoutDialog onClose={() => setLogoutOpen(false)} onLogout={onLogout} />}
 
       <footer className="profile-footer"><p>{profile.fullName || "Citizen"} · {roleLabel(profile.role)} portal</p><p>{t("Local community impact")}</p></footer>
     </div>
@@ -158,6 +195,7 @@ function ProfileContent({ profile }) {
 }
 
 export default function Profile() {
+  const { onLogout } = useOutletContext();
   const profile = useGet(["profile"], "/profile");
-  return <Async q={profile}>{(data) => <ProfileContent profile={data} />}</Async>;
+  return <Async q={profile}>{(data) => <ProfileContent profile={data} onLogout={onLogout} />}</Async>;
 }

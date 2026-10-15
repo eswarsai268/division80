@@ -112,6 +112,7 @@ body {
 }
 
 .app-top-nav-inner {
+  position: relative;
   display: flex;
   width: 100%;
   max-width: 48rem;
@@ -120,8 +121,27 @@ body {
   justify-content: space-between;
   gap: 0.75rem;
   margin: 0 auto;
-  padding: 0.65rem max(1rem, env(safe-area-inset-left));
+  padding: 0.65rem max(1rem, env(safe-area-inset-right)) 0.65rem max(1rem, env(safe-area-inset-left));
 }
+
+.app-top-nav-back, .app-top-nav-language { z-index: 1; display: flex; flex: 0 0 auto; align-items: center; }
+.app-top-nav-brand { position: absolute; left: 50%; display: flex; width: calc(100% - 12rem); align-items: center; justify-content: center; gap: 0.5rem; transform: translateX(-50%); }
+.app-top-nav-brand .app-brand-name { max-width: 17rem; margin: 0; text-align: center; }
+@media (min-width: 40rem) { .app-top-nav-brand .app-brand-name { white-space: nowrap; } }
+@media (max-width: 23rem) { .app-top-nav-brand { gap: 0.25rem; } .app-top-nav-brand .app-brand-name { font-size: 0.66rem; } }
+
+.profile-logout-card { width: 100%; margin-top: 0.55rem; border: 0; cursor: pointer; font: inherit; text-align: left; }
+.profile-logout-card:focus-visible { outline: 2px solid #a87900; outline-offset: 2px; }
+.logout-dialog { position: fixed; z-index: 1000; inset: 0; width: min( calc(100% - 2rem), 26rem); max-width: none; margin: auto; border: 1px solid #eee5cf; border-radius: 1.1rem; background: #fffdf7; padding: 1.35rem; color: #263246; box-shadow: 0 14px 50px rgb(36 31 20 / 24%); }
+.logout-dialog::backdrop { background: rgb(28 25 23 / 48%); }
+.logout-dialog h2 { margin: 0; font-size: 1.05rem; font-weight: 750; line-height: 1.35; }
+.logout-dialog > p { margin: 0.55rem 0 1.1rem; color: #606b7a; font-size: 0.85rem; line-height: 1.5; }
+.logout-dialog-actions { display: flex; justify-content: flex-end; gap: 0.6rem; }
+.logout-dialog-actions button { min-height: 2.6rem; border-radius: 0.7rem; padding: 0.55rem 0.9rem; font-size: 0.82rem; font-weight: 700; }
+.logout-dialog-actions button:focus-visible { outline: 2px solid #8a6400; outline-offset: 2px; }
+.logout-dialog-actions button:disabled { cursor: wait; opacity: 0.65; }
+.logout-cancel { border: 1px solid #e4ddcb; background: white; color: #344054; }
+.logout-confirm { border: 1px solid #e2ad00; background: var(--tdp-yellow); color: #422006; }
 
 .app-bottom-nav {
   position: fixed;
