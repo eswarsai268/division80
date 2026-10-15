@@ -100,7 +100,9 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         await a.get(`/api/v1/booth/households/${ids.houseB}`).expect(200); // granted, resource-specific
     });
     it("decision rechecks current approver rights after a concurrent assignment revocation", async () => {
-        const a = await login(U.a1.email);
+        const requester = await mkUser("BOOTH_MEMBER", "revocation-requester");
+        await assign(ids.boothA, requester.id);
+        const a = await login(requester.email);
         const created = await a.post("/api/v1/cross-booth/requests").set(H).send({
             sourceBoothId: ids.boothA, householdId: ids.houseB, reason: "Permission revocation regression",
         }).expect(201);
@@ -170,7 +172,9 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         expect(duplicate.body.error).toMatchObject({ code: "CONFLICT", message: "A pending request already exists" });
     });
     it("expired cross-booth requests stay expired and cannot be approved or rejected", async () => {
-        const a = await login(U.a1.email), b = await login(U.b1.email);
+        const requester = await mkUser("BOOTH_MEMBER", "expiry-requester");
+        await assign(ids.boothA, requester.id);
+        const a = await login(requester.email), b = await login(U.b1.email);
         const created = await a.post("/api/v1/cross-booth/requests").set(H).send({
             sourceBoothId: ids.boothA, householdId: ids.houseB, reason: "Expired request regression",
         }).expect(201);
