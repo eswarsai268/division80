@@ -6,7 +6,7 @@ const values = {
     DATABASE_USER: "synthetic-test-user",
     DATABASE_PASSWORD: "synthetic-test-password",
     DATABASE_NAME: "synthetic-test-db",
-    JWT_ACCESS_SECRET: "synthetic-test-secret-012345678901234567890123",
+    JWT_ACCESS_SECRET: "x".repeat(40),
     LOG_LEVEL: "silent",
     REDIS_URL: undefined,
 };

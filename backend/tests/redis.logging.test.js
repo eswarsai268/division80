@@ -30,7 +30,7 @@ describe("Redis error handling", () => {
                 NODE_ENV: "test",
                 DATABASE_HOST: "127.0.0.1",
                 DATABASE_USER: "synthetic-test-user",
-                JWT_ACCESS_SECRET: "synthetic-test-secret-012345678901234567890123",
+                JWT_ACCESS_SECRET: "x".repeat(40),
                 REDIS_URL: "redis://synthetic-user:synthetic-secret@127.0.0.1:6379",
             },
             encoding: "utf8",
