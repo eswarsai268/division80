@@ -36,11 +36,15 @@ async function exec(sql, params = [], conn = exports.pool) {
     const [res] = await conn.execute({ sql, timeout: QUERY_TIMEOUT_MS }, params);
     return res;
 }
-async function tx(fn) {
+async function tx(fn, options = {}) {
     const c = await exports.pool.getConnection();
     let transactionFailed = false;
     try {
-        await c.beginTransaction();
+        // TiDB-only callers can opt into lock-taking semantics even if the cluster default differs.
+        if (options.pessimistic)
+            await c.query("BEGIN PESSIMISTIC");
+        else
+            await c.beginTransaction();
         const out = await fn(c);
         await c.commit();
         return out;

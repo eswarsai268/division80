@@ -19,7 +19,7 @@ export default function HouseholdDetail() {
     const [drafts, setDrafts] = useState({});
     return <Async q={q}>{({ household, citizens }) => <div className="space-y-3">
     <div className="card"><h1 className="font-semibold">{t("House")} {household.houseCode}</h1><p className="mt-1 text-xs text-slate-500">{t("Booth")} {household.boothCode}{household.address ? ` · ${household.address}` : ""}</p><p className="mt-2 text-sm font-semibold text-emerald-700">{t("Visit progress")}: {citizens.filter((citizen) => citizen.verificationDone).length}/{citizens.length} {t("people visited")}</p></div>
-    {!household.ownBooth && <div className="card bg-amber-50 text-sm text-amber-900">{t("Read-only access granted through a cross-booth approval.")}</div>}
+    {!household.ownBooth && <div className="card bg-amber-50 text-sm text-amber-900">{t("Read-only view. Visit updates are available only for your assigned booths.")}</div>}
     {visit.error && <ErrorBox error={visit.error}/>}
     {citizens.length === 0 && <Empty text="No family members on record."/>}
     {citizens.map((c) => {

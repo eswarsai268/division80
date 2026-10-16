@@ -104,7 +104,7 @@ function extendAdmin(ad) {
 }
 function extendBooth(b) {
     const idp = (req, name) => (0, http_1.parse)(http_1.uuid, req.params[name]);
-    b.get("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await households.listAssignedBoothsForUser((0, http_1.ctx)(req).user))));
+    b.get("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await households.listBoothsForUser((0, http_1.ctx)(req).user))));
     b.get("/verifications", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listVerificationsForBooths((0, http_1.ctx)(req)))));
     b.patch("/citizens/:citizenId/visit", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await households.updateVisitForUser((0, http_1.ctx)(req), idp(req, "citizenId"), (0, http_1.parse)(zod_1.z.object({
         lifeStatus: zod_1.z.enum(["ALIVE", "DECEASED", "UNKNOWN"]),

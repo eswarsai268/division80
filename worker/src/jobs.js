@@ -10,7 +10,13 @@ const FORMULA = /^[=+\-@\t\r]/;
 const cell = (v) => { let s = v == null ? "" : String(v); if (FORMULA.test(s))
     s = "'" + s; return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 const mask = (v) => (v ? `****${v.slice(-4)}` : "");
-const errMsg = (e) => String(e?.message ?? "error").slice(0, 250);
+const importFailureMessage = (e) => e?.code === "ER_DUP_ENTRY"
+    ? "A record conflicted with data saved after preview. Some rows may already be saved; delete this import to archive them before retrying."
+    : "Import could not be completed. Some rows may already be saved; delete this import to archive them before retrying.";
+const exportFailureMessage = (e) => e?.message === "Export too large; filter by booth"
+    ? "Export is too large. Filter by booth and try again."
+    : "Export could not be generated. Try again or contact support.";
+const safeErrorCode = (e) => typeof e?.code === "string" && /^[A-Z0-9_]{1,40}$/i.test(e.code) ? e.code : "UNKNOWN";
 /** IMPORT_CITIZENS: claims one QUEUED job (or resumes a stale one), commits in atomic batches with progress tracking. */
 async function processImports() {
     await db_1.pool.execute(`UPDATE import_jobs SET status = 'FAILED', last_error = 'Import stopped before roster tracking was enabled', locked_by = NULL
@@ -68,7 +74,7 @@ async function processImports() {
                     const map = new Map(hid.map((h) => [`${h.booth_id}|${h.house_code}`, h.id]));
                     const people = slice.filter((r) => map.has(`${r.boothId}|${r.houseCode}`));
                     if (people.length)
-                        await conn.execute(`INSERT INTO citizens (id, household_id, booth_id, full_name, relation, voter_id, life_status, roll_serial, age, gender, d2d_verified, not_here, address_changed, new_address, visit_notes, source_import_job_id) VALUES ${people.map(() => "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").join(",")} ON DUPLICATE KEY UPDATE id = id`, people.flatMap((r) => [(0, crypto_1.randomUUID)(), map.get(`${r.boothId}|${r.houseCode}`), r.boothId, r.fullName, r.relation, r.voterId, r.lifeStatus, r.rollSerial ?? null, r.age ?? null, r.gender ?? "UNKNOWN", r.verificationDone ? 1 : 0, r.notHere ? 1 : 0, r.addressChanged ? 1 : 0, r.newAddress ?? null, r.visitNotes ?? null, job.id]));
+                        await conn.execute(`INSERT INTO citizens (id, household_id, booth_id, full_name, relation, voter_id, life_status, roll_serial, age, gender, d2d_verified, not_here, address_changed, new_address, visit_notes, source_import_job_id) VALUES ${people.map(() => "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").join(",")}`, people.flatMap((r) => [(0, crypto_1.randomUUID)(), map.get(`${r.boothId}|${r.houseCode}`), r.boothId, r.fullName, r.relation, r.voterId, r.lifeStatus, r.rollSerial ?? null, r.age ?? null, r.gender ?? "UNKNOWN", r.verificationDone ? 1 : 0, r.notHere ? 1 : 0, r.addressChanged ? 1 : 0, r.newAddress ?? null, r.visitNotes ?? null, job.id]));
                     await conn.execute(`UPDATE households SET verification_status = 'IN_VERIFICATION'
                         WHERE (booth_id, house_code) IN (${houses.map(() => "(?,?)").join(",")})`, houses.flatMap((r) => [r.boothId, r.houseCode]));
                     done += slice.length;
@@ -88,9 +94,10 @@ async function processImports() {
             db_1.log.info({ jobId: job.id, rows: rows.length }, "import committed");
         }
         catch (e) {
-            await db_1.pool.execute("UPDATE import_jobs SET status = 'FAILED', last_error = ?, payload = NULL, locked_by = NULL WHERE id = ?", [errMsg(e), job.id]);
-            await (0, db_1.audit)(job.created_by, "IMPORT", "IMPORT_JOB", job.id, errMsg(e), "FAILURE");
-            db_1.log.error({ jobId: job.id, err: errMsg(e) }, "import failed");
+            const message = importFailureMessage(e);
+            await db_1.pool.execute("UPDATE import_jobs SET status = 'FAILED', last_error = ?, payload = NULL, locked_by = NULL WHERE id = ?", [message, job.id]);
+            await (0, db_1.audit)(job.created_by, "IMPORT", "IMPORT_JOB", job.id, message, "FAILURE");
+            db_1.log.error({ jobId: job.id, code: safeErrorCode(e) }, "import failed");
         }
     }
     return jobs.length;
@@ -170,8 +177,10 @@ async function processExports() {
             await (0, db_1.audit)(job.created_by, "EXPORT", "EXPORT_JOB", job.id, `generated ${n} rows`);
         }
         catch (e) {
-            await db_1.pool.execute("UPDATE export_jobs SET status = 'FAILED', last_error = ?, locked_by = NULL WHERE id = ?", [errMsg(e), job.id]);
-            await (0, db_1.audit)(job.created_by, "EXPORT", "EXPORT_JOB", job.id, errMsg(e), "FAILURE");
+            const message = exportFailureMessage(e);
+            await db_1.pool.execute("UPDATE export_jobs SET status = 'FAILED', last_error = ?, locked_by = NULL WHERE id = ?", [message, job.id]);
+            await (0, db_1.audit)(job.created_by, "EXPORT", "EXPORT_JOB", job.id, message, "FAILURE");
+            db_1.log.error({ jobId: job.id, code: safeErrorCode(e) }, "export failed");
         }
     }
     return jobs.length;

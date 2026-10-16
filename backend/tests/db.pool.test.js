@@ -4,6 +4,7 @@ import { pool, tx } from "../src/db/pool.js";
 
 const connection = {
     beginTransaction: vi.fn(),
+    query: vi.fn(),
     commit: vi.fn(),
     rollback: vi.fn(),
     release: vi.fn(),
@@ -26,6 +27,16 @@ describe("database transaction helper", () => {
         expect(connection.beginTransaction).toHaveBeenCalledOnce();
         expect(connection.commit).toHaveBeenCalledOnce();
         expect(connection.rollback).not.toHaveBeenCalled();
+        expect(connection.release).toHaveBeenCalledOnce();
+    });
+
+    it("can explicitly start a pessimistic transaction for TiDB locking workflows", async () => {
+        const callback = vi.fn(async () => "result");
+
+        await expect(tx(callback, { pessimistic: true })).resolves.toBe("result");
+        expect(connection.query).toHaveBeenCalledWith("BEGIN PESSIMISTIC");
+        expect(connection.beginTransaction).not.toHaveBeenCalled();
+        expect(connection.commit).toHaveBeenCalledOnce();
         expect(connection.release).toHaveBeenCalledOnce();
     });
 

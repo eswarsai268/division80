@@ -59,12 +59,46 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         if (uploadDir)
             await fs.rm(uploadDir, { recursive: true, force: true });
     });
-    it("T1/T2: booth A member cannot read booth B household (ID swap) -> 404/403", async () => {
+    it("Booth Members can read organization households across booths but cannot write to unassigned booths", async () => {
         const ag = await login(U.a1.email);
         await ag.get(`/api/v1/booth/households/${ids.houseA}`).expect(200);
-        const r = await ag.get(`/api/v1/booth/households/${ids.houseB}`);
-        expect([403, 404]).toContain(r.status);
-        await ag.get(`/api/v1/booth/households/${ids.houseB}/citizens`).expect(404);
+        const citizenId = randomUUID();
+        const voterId = `TEST${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+        await q.exec("INSERT INTO citizens (id, household_id, booth_id, full_name, relation, voter_id, life_status) VALUES (?,?,?,?,?,?,?)",
+            [citizenId, ids.houseB, ids.boothB, "Other Booth Resident", "MEMBER", voterId, "ALIVE"]);
+        const list = await ag.get("/api/v1/booth/households").expect(200);
+        expect(list.body.data.items.some((household) => household.id === ids.houseB)).toBe(true);
+        const booths = await ag.get("/api/v1/booth/booths").expect(200);
+        expect(booths.body.data.some((booth) => booth.id === ids.boothB)).toBe(true);
+        const me = await ag.get("/api/v1/auth/me").expect(200);
+        expect(me.body.data.boothIds).toContain(ids.boothA);
+        expect(me.body.data.boothIds).not.toContain(ids.boothB);
+        await ag.get("/api/v1/admin/assignments").expect(403);
+        const detail = await ag.get(`/api/v1/booth/households/${ids.houseB}/citizens`).expect(200);
+        expect(detail.body.data.household.ownBooth).toBe(false);
+        expect(detail.body.data.citizens[0].voterId).toBe(`****${voterId.slice(-4)}`);
+        await ag.patch(`/api/v1/booth/citizens/${citizenId}/visit`).set(H).send({
+            lifeStatus: "ALIVE", verificationDone: true, notHere: false, addressChanged: false,
+            newAddress: "", visitNotes: "",
+        }).expect(404);
+        await ag.post("/api/v1/booth/verifications").set(H).send({ citizenId, step: 1, result: "PASSED" }).expect(404);
+
+        const inactiveBooth = randomUUID(), inactiveHouse = randomUUID();
+        await q.exec("INSERT INTO booths (id, organization_id, code, name, status) VALUES (?,?,?,?, 'INACTIVE')", [inactiveBooth, ids.org, `INACTIVE-${inactiveBooth.slice(0, 6)}`, "Inactive booth"]);
+        await q.exec("INSERT INTO households (id, organization_id, booth_id, house_code) VALUES (?,?,?,?)", [inactiveHouse, ids.org, inactiveBooth, "INACTIVE-1"]);
+        const activeBooths = await ag.get("/api/v1/booth/booths").expect(200);
+        expect(activeBooths.body.data.some((booth) => booth.id === inactiveBooth)).toBe(false);
+        const activeHouses = await ag.get("/api/v1/booth/households").expect(200);
+        expect(activeHouses.body.data.items.some((household) => household.id === inactiveHouse)).toBe(false);
+        await ag.get(`/api/v1/booth/households/${inactiveHouse}`).expect(404);
+
+        const otherOrg = randomUUID(), otherBooth = randomUUID(), otherHouse = randomUUID();
+        await q.exec("INSERT INTO organizations (id, slug, name) VALUES (?,?,?)", [otherOrg, `other-${otherOrg.slice(0, 8)}`, "Other test org"]);
+        await q.exec("INSERT INTO booths (id, organization_id, code, name) VALUES (?,?,?,?)", [otherBooth, otherOrg, "OTHER", "Other organization"]);
+        await q.exec("INSERT INTO households (id, organization_id, booth_id, house_code) VALUES (?,?,?,?)", [otherHouse, otherOrg, otherBooth, "OTHER-1"]);
+        const all = await ag.get("/api/v1/booth/households").expect(200);
+        expect(all.body.data.items.some((household) => household.id === otherHouse)).toBe(false);
+        await ag.get(`/api/v1/booth/households/${otherHouse}`).expect(404);
     });
     it("T3: normal user cannot reach citizen/household data", async () => {
         const ag = await login(U.user1.email);
@@ -91,6 +125,83 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         expect(profile.body.data.role).toBe("BOOTH_MEMBER");
         expect(profile.body.data.boothIds).toContain(boothId);
         expect(profile.body.data.approverBoothIds).toContain(boothId);
+    });
+    it.each([
+        { label: "suspension", change: { status: "SUSPENDED" }, expectedStatus: "SUSPENDED", expectedRole: "BOOTH_MEMBER" },
+        { label: "demotion", change: { role: "USER" }, expectedStatus: "ACTIVE", expectedRole: "USER" },
+    ])("serializes assignment creation with account $label", async ({ change, expectedStatus, expectedRole }) => {
+        const member = await mkUser("BOOTH_MEMBER", "assignment-suspension-race");
+        const admin = await mkUser("ADMIN", "assignment-suspension-admin");
+        const agent = await login(admin.email);
+        const lock = await q.pool.getConnection();
+        let transactionOpen = false;
+        try {
+            await lock.beginTransaction();
+            transactionOpen = true;
+            await lock.execute("SELECT id FROM users WHERE id = ? FOR UPDATE", [member.id]);
+
+            const assignmentRequest = agent.post(`/api/v1/admin/booths/${ids.boothA}/assignments`).set(H)
+                .send({ userId: member.id, canApproveCrossBooth: true });
+            const suspensionRequest = agent.patch(`/api/v1/admin/users/${member.id}`).set(H)
+                .send(change);
+
+            // Let both API operations reach the database while the target row is held.
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            await lock.commit();
+            transactionOpen = false;
+
+            const [assignment, suspension] = await Promise.all([assignmentRequest, suspensionRequest]);
+            expect(suspension.status).toBe(200);
+            expect([201, 404]).toContain(assignment.status);
+
+            const [user] = await q.query("SELECT status, role FROM users WHERE id = ?", [member.id]);
+            const [active] = await q.query("SELECT COUNT(*) AS n FROM booth_assignments WHERE user_id = ? AND revoked_at IS NULL", [member.id]);
+            expect(user.status).toBe(expectedStatus);
+            expect(user.role).toBe(expectedRole);
+            expect(Number(active.n)).toBe(0);
+            if (change.status === "SUSPENDED") {
+                await agent.patch(`/api/v1/admin/users/${member.id}`).set(H).send({ status: "ACTIVE" }).expect(200);
+                const [afterReactivation] = await q.query("SELECT COUNT(*) AS n FROM booth_assignments WHERE user_id = ? AND revoked_at IS NULL", [member.id]);
+                expect(Number(afterReactivation.n)).toBe(0);
+            }
+        }
+        finally {
+            if (transactionOpen)
+                await lock.rollback();
+            lock.release();
+        }
+    });
+    it("profile PATCH without phone preserves a concurrent phone update", async () => {
+        const user = await mkUser("USER", "profile-phone-race");
+        const agent = await login(user.email);
+        const oldPhone = "+91 11111 11111";
+        const newPhone = "+91 22222 22222";
+        await q.exec("UPDATE users SET phone = ? WHERE id = ?", [oldPhone, user.id]);
+
+        const lock = await q.pool.getConnection();
+        let transactionOpen = false;
+        try {
+            await lock.beginTransaction();
+            transactionOpen = true;
+            await lock.execute("SELECT id FROM users WHERE id = ? FOR UPDATE", [user.id]);
+
+            const patch = agent.patch("/api/v1/profile").set(H).send({ fullName: "Updated Profile Name" });
+            // The request reads/updates while this transaction prevents its write from completing.
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            await lock.execute("UPDATE users SET phone = ? WHERE id = ?", [newPhone, user.id]);
+            await lock.commit();
+            transactionOpen = false;
+
+            const response = await patch.expect(200);
+            expect(response.body.data.phone).toBe(newPhone);
+            const [row] = await q.query("SELECT phone FROM users WHERE id = ?", [user.id]);
+            expect(row.phone).toBe(newPhone);
+        }
+        finally {
+            if (transactionOpen)
+                await lock.rollback();
+            lock.release();
+        }
     });
     it("T4: user cannot read another user's complaint", async () => {
         const u1 = await login(U.user1.email), u2 = await login(U.user2.email);
@@ -251,7 +362,45 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         finally {
             const rows = await q.query("SELECT object_key FROM attachments WHERE complaint_id = ?", [complaintId]);
             await q.exec("DELETE FROM attachments WHERE complaint_id = ?", [complaintId]);
+            await q.exec("UPDATE complaints SET attachment_count = 0 WHERE id = ?", [complaintId]);
             await Promise.all(rows.map((row) => fs.unlink(path.join(uploadDir, path.basename(row.object_key))).catch(() => undefined)));
+        }
+    });
+    it("marks an import failed when a voter ID becomes duplicate after preview", async () => {
+        const workerDb = await import("../../worker/src/db.js");
+        const workerJobs = await import("../../worker/src/jobs.js");
+        const citizenId = randomUUID();
+        const voterId = `LATE${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+        const jobId = randomUUID();
+        const houseCode = `IM-${randomUUID().slice(0, 8)}`;
+        try {
+            const [booth] = await q.query("SELECT code FROM booths WHERE id = ?", [ids.boothA]);
+            await q.exec("INSERT INTO citizens (id, household_id, booth_id, full_name, relation, voter_id, life_status) VALUES (?,?,?,?,?,?,?)",
+                [citizenId, ids.houseA, ids.boothA, "Existing Synthetic Person", "RESIDENT", voterId, "UNKNOWN"]);
+            const payload = [{
+                boothId: ids.boothA, boothCode: booth.code, houseCode, addressLine: null, rollSerial: null,
+                fullName: "Late Duplicate Synthetic Person", relation: "RESIDENT", voterId, age: null,
+                gender: "UNKNOWN", lifeStatus: "UNKNOWN", verificationDone: false, notHere: false,
+                addressChanged: false, newAddress: null, visitNotes: null,
+            }];
+            await q.exec(`INSERT INTO import_jobs (id, organization_id, created_by, status, total_rows, valid_rows, payload, data_tracked)
+                VALUES (?, ?, ?, 'QUEUED', 1, 1, ?, 1)`, [jobId, ids.org, U.a1.id, JSON.stringify(payload)]);
+
+            await expect(workerJobs.processImports()).resolves.toBe(1);
+
+            const [job] = await q.query("SELECT status, processed_rows AS processedRows, last_error AS lastError FROM import_jobs WHERE id = ?", [jobId]);
+            expect(job.status).toBe("FAILED");
+            expect(Number(job.processedRows)).toBe(0);
+            expect(job.lastError).toContain("conflicted with data saved after preview");
+            expect(job.lastError).not.toContain(voterId);
+            const [imported] = await q.query("SELECT COUNT(*) AS n FROM citizens WHERE source_import_job_id = ?", [jobId]);
+            expect(Number(imported.n)).toBe(0);
+        }
+        finally {
+            await q.exec("DELETE FROM citizens WHERE id = ? OR source_import_job_id = ?", [citizenId, jobId]);
+            await q.exec("DELETE FROM households WHERE booth_id = ? AND house_code = ? AND NOT EXISTS (SELECT 1 FROM citizens WHERE citizens.household_id = households.id)", [ids.boothA, houseCode]);
+            await q.exec("DELETE FROM import_jobs WHERE id = ?", [jobId]);
+            await workerDb.pool.end();
         }
     });
     it("rejects sequential duplicate requests and permits a new request after rejection", async () => {

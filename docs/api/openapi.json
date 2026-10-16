@@ -486,7 +486,7 @@
      "cross-booth"
     ],
     "summary": "POST /api/v1/cross-booth/requests",
-    "description": "Creates a request scoped to an exact voter ID (or household ID) and source booth. The target-booth approver grants time-limited READ or VERIFY access; VERIFY is required to record cross-booth steps.",
+    "description": "Creates a request scoped to an exact voter ID (or household ID) and source booth. Booth Members can read household rosters within their organization. An approved, time-limited VERIFY grant is required to record verification steps for another booth.",
     "responses": {
      "200": {
       "description": "OK: {success,data,requestId}"

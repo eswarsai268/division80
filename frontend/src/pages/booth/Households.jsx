@@ -34,7 +34,7 @@ export default function Households() {
     const [debouncedSearch, setDebouncedSearch] = useState(() => (readFilters().search ?? "").trim());
     const [status, setStatus] = useState(() => readFilters().status ?? "");
     const [boothId, setBoothId] = useState(() => readFilters().boothId ?? "");
-    const booths = useGet(["booth", "assigned-booths"], "/booth/booths");
+    const booths = useGet(["booth", "organization-booths"], "/booth/booths");
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
         return () => clearTimeout(timer);
@@ -62,21 +62,21 @@ export default function Households() {
     return <div className="space-y-4">
       <header className="rounded-3xl bg-[#ffc400] p-5 text-stone-950 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wider">{t("Door-to-door visit")}</p>
-        <h1 className="mt-1 text-2xl font-extrabold">{t("Your houses")}</h1>
-        <p className="mt-2 text-sm">{t("Choose a booth, open a house, then check each person.")}</p>
+        <h1 className="mt-1 text-2xl font-extrabold">{t("Organization houses")}</h1>
+        <p className="mt-2 text-sm">{t("View houses across your organization. Visit updates are limited to your assigned booths.")}</p>
       </header>
 
-      <Async q={booths}>{(assigned) => assigned.length ? <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <Async q={booths}>{(available) => available.length ? <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700"><Building2 size={23}/></span>
         <span className="min-w-0 flex-1">
-          <span className="block text-xs text-slate-500">{t("Assigned booths")}</span>
+          <span className="block text-xs text-slate-500">{t("Organization booths")}</span>
         <select className="mt-1 w-full bg-transparent text-base font-bold text-slate-900 focus:outline-none" value={boothId} onChange={(event) => { const value = event.target.value; setBoothId(value); saveFilters({ search, status, boothId: value }); }} aria-label={t("Choose booth")}>
-            <option value="">{t("All my assigned booths")}</option>
-            {assigned.map((booth) => <option key={booth.id} value={booth.id}>{booth.name} · {t("Booth")} {booth.code}</option>)}
+            <option value="">{t("All organization booths")}</option>
+            {available.map((booth) => <option key={booth.id} value={booth.id}>{booth.name} · {t("Booth")} {booth.code}</option>)}
           </select>
         </span>
         <ChevronDown className="shrink-0 text-amber-600" size={20}/>
-      </label> : <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">{t("No booth is assigned to your account yet. Please ask your administrator for help.")}</div>}</Async>
+      </label> : <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">{t("No active booths are available in your organization.")}</div>}</Async>
 
       <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white p-1.5 shadow-sm" role="tablist" aria-label={t("Filter houses")}>
         {FILTERS.map(([value, label]) => <button key={value || "all"} type="button" role="tab" aria-selected={status === value} onClick={() => { setStatus(value); saveFilters({ search, status: value, boothId }); }}

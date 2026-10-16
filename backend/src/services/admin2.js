@@ -19,6 +19,7 @@ const redis_1 = require("../cache/redis");
 const errors_1 = require("../errors");
 const households_1 = require("../repositories/households");
 const audit_1 = require("./audit");
+const publicContent_1 = require("./publicContent");
 const org = (c) => c.user.organizationId;
 const page = (rows, limit) => {
     const more = rows.length > limit;
@@ -147,6 +148,7 @@ async function updateEvent(c, id, i) {
     if (r.affectedRows === 0)
         throw (0, errors_1.notFound)();
     await (0, audit_1.audit)({ actorId: c.user.id, action: "EVENT_UPDATE", resourceType: "EVENT", resourceId: id, outcome: "SUCCESS", requestId: c.requestId });
+    await (0, publicContent_1.invalidatePublicContent)();
     return { id };
 }
 async function getComplaintAdmin(c, id) {
@@ -196,7 +198,18 @@ async function getProfile(userId) {
     return u;
 }
 async function updateProfile(userId, i) {
-    await (0, pool_1.exec)("UPDATE users SET full_name = COALESCE(?, full_name), phone = ? WHERE id = ?", [i.fullName ?? null, i.phone === undefined ? (await getProfile(userId)).phone : i.phone, userId]);
+    const fields = [];
+    const values = [];
+    if (i.fullName !== undefined) {
+        fields.push("full_name = ?");
+        values.push(i.fullName);
+    }
+    if (i.phone !== undefined) {
+        fields.push("phone = ?");
+        values.push(i.phone);
+    }
+    if (fields.length)
+        await (0, pool_1.exec)(`UPDATE users SET ${fields.join(", ")} WHERE id = ?`, [...values, userId]);
     return getProfile(userId);
 }
 async function listVerificationsForBooths(c) {

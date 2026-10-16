@@ -3,6 +3,12 @@ import { createContext, useContext, useMemo, useState } from "react";
 const STORAGE_KEY = "samasya-language";
 
 const te = {
+  "Organization houses": "సంస్థ ఇళ్లు",
+  "View houses across your organization. Visit updates are limited to your assigned booths.": "మీ సంస్థలోని ఇళ్లను వీక్షించండి. సందర్శన వివరాల నవీకరణలు మీకు కేటాయించిన బూత్‌లకే పరిమితం.",
+  "Organization booths": "సంస్థ బూత్‌లు",
+  "All organization booths": "సంస్థలోని అన్ని బూత్‌లు",
+  "No active booths are available in your organization.": "మీ సంస్థలో క్రియాశీల బూత్‌లు అందుబాటులో లేవు.",
+  "Read-only view. Visit updates are available only for your assigned booths.": "చదవడానికి మాత్రమే వీక్షణ. సందర్శన వివరాల నవీకరణలు మీకు కేటాయించిన బూత్‌లకే అందుబాటులో ఉంటాయి.",
   "A stronger connection to every community.": "ప్రతి సమాజంతో మరింత బలమైన అనుబంధం.",
   "Access your secure community workspace.": "మీ సురక్షిత సమాజ కార్యస్థలాన్ని ఉపయోగించండి.",
   "Sign in as Citizen": "పౌరుడిగా సైన్ ఇన్ చేయండి",

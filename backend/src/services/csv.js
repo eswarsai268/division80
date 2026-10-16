@@ -8,23 +8,52 @@ function parseCsv(text) {
     const rows = [];
     let row = [];
     let cur = "";
-    let q = false;
+    let quoted = false;
+    let afterQuote = false;
+    const pushRow = () => {
+        row.push(cur);
+        if (row.length > 1 || row[0] !== "")
+            rows.push(row);
+        row = [];
+        cur = "";
+        afterQuote = false;
+    };
     for (let i = 0; i < text.length; i++) {
         const ch = text[i];
-        if (q) {
+        if (quoted) {
             if (ch === '"') {
                 if (text[i + 1] === '"') {
                     cur += '"';
                     i++;
                 }
-                else
-                    q = false;
+                else {
+                    quoted = false;
+                    afterQuote = true;
+                }
             }
             else
                 cur += ch;
         }
-        else if (ch === '"')
-            q = true;
+        else if (afterQuote) {
+            if (ch === ",") {
+                row.push(cur);
+                cur = "";
+                afterQuote = false;
+            }
+            else if (ch === "\n" || ch === "\r") {
+                if (ch === "\r" && text[i + 1] === "\n")
+                    i++;
+                pushRow();
+            }
+            else {
+                throw new SyntaxError("Unexpected character after a quoted CSV field");
+            }
+        }
+        else if (ch === '"') {
+            if (cur !== "")
+                throw new SyntaxError("Unexpected quote in an unquoted CSV field");
+            quoted = true;
+        }
         else if (ch === ",") {
             row.push(cur);
             cur = "";
@@ -32,16 +61,14 @@ function parseCsv(text) {
         else if (ch === "\n" || ch === "\r") {
             if (ch === "\r" && text[i + 1] === "\n")
                 i++;
-            row.push(cur);
-            cur = "";
-            if (row.length > 1 || row[0] !== "")
-                rows.push(row);
-            row = [];
+            pushRow();
         }
         else
             cur += ch;
     }
-    if (cur !== "" || row.length) {
+    if (quoted)
+        throw new SyntaxError("Unclosed quoted CSV field");
+    if (cur !== "" || row.length || afterQuote) {
         row.push(cur);
         rows.push(row);
     }

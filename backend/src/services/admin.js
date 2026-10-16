@@ -18,6 +18,7 @@ const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
 const password_1 = require("../auth/password");
 const audit_1 = require("./audit");
+const publicContent_1 = require("./publicContent");
 // Every query below is constrained by c.user.organizationId (admin scope), never by client input.
 const org = (c) => c.user.organizationId;
 async function createBooth(c, i) {
@@ -59,11 +60,16 @@ async function updateBooth(c, id, i) {
 }
 async function assignMember(c, boothId, i) {
     return (0, pool_1.tx)(async (conn) => {
-        const b = (await (0, pool_1.query)("SELECT id FROM booths WHERE id = ? AND organization_id = ? AND status = 'ACTIVE' FOR UPDATE", [boothId, org(c)], conn))[0];
-        const u = (await (0, pool_1.query)("SELECT id FROM users WHERE id = ? AND organization_id = ? AND role = 'BOOTH_MEMBER' AND status = 'ACTIVE'", [i.userId, org(c)], conn))[0];
-        if (!b || !u)
+        // Match updateUser and lockActiveBoothAssignment: user -> assignment -> booth.
+        // Revalidate role/status while holding the user row lock so suspension or demotion
+        // cannot race an assignment into existence after its revocation pass.
+        const u = (await (0, pool_1.query)("SELECT id FROM users WHERE id = ? AND organization_id = ? AND role = 'BOOTH_MEMBER' AND status = 'ACTIVE' FOR UPDATE", [i.userId, org(c)], conn))[0];
+        if (!u)
             throw (0, errors_1.notFound)();
         const existing = (await (0, pool_1.query)("SELECT id FROM booth_assignments WHERE booth_id = ? AND user_id = ? AND revoked_at IS NULL FOR UPDATE", [boothId, i.userId], conn))[0];
+        const b = (await (0, pool_1.query)("SELECT id FROM booths WHERE id = ? AND organization_id = ? AND status = 'ACTIVE' FOR UPDATE", [boothId, org(c)], conn))[0];
+        if (!b)
+            throw (0, errors_1.notFound)();
         if (existing)
             return { id: existing.id, alreadyAssigned: true };
         const id = (0, crypto_1.randomUUID)();
@@ -144,7 +150,7 @@ async function updateUser(c, id, i) {
         await (0, pool_1.exec)("UPDATE users SET status = COALESCE(?, status), role = COALESCE(?, role) WHERE id = ?", [i.status ?? null, i.role ?? null, id], conn);
         if (i.status === "SUSPENDED" || i.role) {
             await (0, pool_1.exec)("UPDATE sessions SET revoked_at = NOW(3) WHERE user_id = ? AND revoked_at IS NULL", [id], conn);
-            if (i.role === "USER")
+            if (i.status === "SUSPENDED" || i.role === "USER")
                 await (0, pool_1.exec)("UPDATE booth_assignments SET revoked_at = NOW(3), revoked_by = ? WHERE user_id = ? AND revoked_at IS NULL", [c.user.id, id], conn);
         }
         await (0, audit_1.audit)({ actorId: c.user.id, action: i.status === "SUSPENDED" ? "ACCOUNT_SUSPENSION" : "ROLE_CHANGE", resourceType: "USER", resourceId: id,
@@ -180,5 +186,6 @@ async function setEventStatus(c, id, status) {
     if (r.affectedRows === 0)
         throw (0, errors_1.notFound)();
     await (0, audit_1.audit)({ actorId: c.user.id, action: "EVENT_" + status, resourceType: "EVENT", resourceId: id, outcome: "SUCCESS", requestId: c.requestId });
+    await (0, publicContent_1.invalidatePublicContent)();
     return { id, status };
 }

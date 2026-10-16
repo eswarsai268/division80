@@ -51,20 +51,22 @@ async function saveAttachment(c, complaintId, mime, body) {
         writeAttempted = true;
         await promises_1.default.writeFile(path_1.default.join(DIR, key), body, { mode: 0o600, flag: "wx" });
         return await (0, pool_1.tx)(async (conn) => {
-            // Every uploader locks this complaint row, serializing the limit across API instances.
-            const owned = (await (0, pool_1.query)("SELECT id FROM complaints WHERE id = ? AND user_id = ? FOR UPDATE", [complaintId, c.user.id], conn))[0];
-            if (!owned)
-                throw (0, errors_1.notFound)();
-            // Use a locking/current read: a plain COUNT can see the transaction's
-            // older snapshot after waiting for the complaint lock under TiDB.
-            const attachments = await (0, pool_1.query)("SELECT id FROM attachments WHERE complaint_id = ? LIMIT 3 FOR UPDATE", [complaintId], conn);
-            if (attachments.length >= MAX_PER_COMPLAINT)
+            // The conditional update is the database-wide claim for one of the three slots.
+            const claim = await (0, pool_1.exec)(`UPDATE complaints
+                SET attachment_count = attachment_count + 1
+                WHERE id = ? AND user_id = ? AND attachment_count < ?`,
+            [complaintId, c.user.id, MAX_PER_COMPLAINT], conn);
+            if (claim.affectedRows !== 1) {
+                const owned = (await (0, pool_1.query)("SELECT id FROM complaints WHERE id = ? AND user_id = ? FOR UPDATE", [complaintId, c.user.id], conn))[0];
+                if (!owned)
+                    throw (0, errors_1.notFound)();
                 throw (0, errors_1.conflict)(`At most ${MAX_PER_COMPLAINT} photos per complaint`);
+            }
             // No antivirus engine is wired in: validated images are marked CLEAN. Plug a scanner in here (set PENDING, scan in worker).
             await (0, pool_1.exec)("INSERT INTO attachments (id, complaint_id, object_key, mime_type, size_bytes, scan_status) VALUES (?,?,?,?,?, 'CLEAN')", [id, complaintId, key, mime, body.length], conn);
             await (0, audit_1.audit)({ actorId: c.user.id, action: "ATTACHMENT_UPLOAD", resourceType: "COMPLAINT", resourceId: complaintId, outcome: "SUCCESS", requestId: c.requestId }, conn);
             return { id };
-        });
+        }, { pessimistic: true });
     }
     catch (error) {
         if (writeAttempted && error?.code !== "EEXIST")

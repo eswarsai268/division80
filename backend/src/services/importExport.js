@@ -38,7 +38,13 @@ const parseBoolean = (value) => {
 };
 /** Steps 1-5 of the import flow: validate -> parse -> validate rows -> store preview. Nothing is committed here. */
 async function createImportJob(c, csv) {
-    const rows = (0, csv_1.parseCsv)(csv.replace(/^\uFEFF/, ""));
+    let rows;
+    try {
+        rows = (0, csv_1.parseCsv)(csv.replace(/^\uFEFF/, ""));
+    }
+    catch {
+        throw new errors_1.AppError(422, "INVALID_CSV", "CSV contains invalid quoting");
+    }
     if (rows.length < 2)
         throw new errors_1.AppError(422, "EMPTY_FILE", "File has no data rows");
     if (rows.length - 1 > MAX_ROWS)
