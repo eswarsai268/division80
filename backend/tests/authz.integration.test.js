@@ -18,7 +18,7 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
     const ids = {};
     const originalUploadDir = process.env.UPLOAD_DIR;
     let uploadDir;
-    const login = async (email) => { const ag = request.agent(app); await ag.post("/api/v1/auth/login").set(H).send({ email, password: pw }).expect(200); return ag; };
+    const login = async (email, password = pw) => { const ag = request.agent(app); await ag.post("/api/v1/auth/login").set(H).send({ email, password }).expect(200); return ag; };
     async function mkUser(role, name) {
         const id = randomUUID();
         const email = `${name}-${id.slice(0, 6)}@test.local`;
@@ -137,7 +137,7 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
 
         await agent.post("/api/v1/admin/users").set(H).send({ ...payload, password: "Short7!" }).expect(422);
         await agent.post("/api/v1/admin/users").set(H).send({ ...payload, password: "Eight888" }).expect(201);
-        const member = await login(email);
+        const member = await login(email, "Eight888");
         const profile = await member.get("/api/v1/auth/me").expect(200);
         expect(profile.body.data.boothIds).toContain(ids.boothA);
     });
