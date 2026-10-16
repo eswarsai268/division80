@@ -7,8 +7,8 @@ const env_1 = require("../config/env");
 const pool_1 = require("../db/pool");
 async function main() {
     const email = process.env.SEED_ADMIN_EMAIL, pw = process.env.SEED_ADMIN_PASSWORD;
-    if (!email || !pw || pw.length < 12)
-        throw new Error("Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD (>=12 chars)");
+    if (!email || !pw || pw.length < 8)
+        throw new Error("Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD (>=8 chars)");
     let org = (await (0, pool_1.query)("SELECT id FROM organizations WHERE slug = ?", [env_1.env.DEFAULT_ORG_SLUG]))[0];
     if (!org) {
         org = { id: (0, crypto_1.randomUUID)() };

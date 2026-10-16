@@ -165,7 +165,7 @@ async function settings(c) {
     return {
         organization: o,
         loginVideoUrl: media?.loginVideoUrl ?? null,
-        security: { accessTokenMinutes: Math.round(env_1.env.ACCESS_TOKEN_TTL_SECONDS / 60), refreshTokenDays: env_1.env.REFRESH_TOKEN_TTL_DAYS, minPasswordLength: 12,
+        security: { accessTokenMinutes: Math.round(env_1.env.ACCESS_TOKEN_TTL_SECONDS / 60), refreshTokenDays: env_1.env.REFRESH_TOKEN_TTL_DAYS, minPasswordLength: 8,
             passwordHashing: "argon2id", cookiesSecure: env_1.env.NODE_ENV === "production", rateLimitStore: redis_1.redis ? "redis" : "memory (single instance only)" },
         limits: { maxImportRows: 50000, exportExpiryHours: 24, maxPhotosPerComplaint: 3, maxPhotoMB: 5 },
     };

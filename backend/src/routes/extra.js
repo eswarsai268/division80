@@ -78,7 +78,7 @@ function extendAdmin(ad) {
     ad.patch("/settings/login-media", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.updateLoginVideo((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ loginVideoUrl: zod_1.z.string().url().max(1000).nullable() }), req.body).loginVideoUrl))));
     ad.post("/settings/password/change", rateLimit_1.limits.passwordChange, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await auth.changePassword((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
         currentPassword: zod_1.z.string().min(1).max(128),
-        newPassword: zod_1.z.string().min(12).max(128),
+        newPassword: zod_1.z.string().min(8).max(128),
     }), req.body), String(req.id)))));
     ad.get("/cross-booth", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await xb.listAdminRequests((0, http_1.ctx)(req)))));
     ad.post("/import-jobs", rateLimit_1.limits.importJobs, (0, http_1.h)(async (req, res) => {

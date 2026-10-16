@@ -38,7 +38,7 @@ export default function AdminBooths() {
         <div><h3 className="text-sm font-semibold">{t("First booth member login (optional)")}</h3><p className="mt-1 text-xs text-slate-500">{t("Create and assign the member now. They can sign in at Booth login with this email and password.")}</p></div>
         <input className="input" placeholder={t("Member full name")} value={member.fullName} onChange={(e) => setMember({ ...member, fullName: e.target.value })} aria-label={t("Booth member full name")}/>
         <input className="input" type="email" autoComplete="off" placeholder={t("Member login email")} value={member.email} onChange={(e) => setMember({ ...member, email: e.target.value })} aria-label={t("Booth member login email")}/>
-        <input className="input" type="password" autoComplete="new-password" minLength={8} placeholder={t("Initial password (at least 8 characters)")} value={member.password} onChange={(e) => setMember({ ...member, password: e.target.value })} aria-label={t("Booth member initial password")}/>
+        <input className="input" type="password" autoComplete="new-password" minLength={8} placeholder={t("Initial password (8+ characters)")} value={member.password} onChange={(e) => setMember({ ...member, password: e.target.value })} aria-label={t("Booth member initial password")}/>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={member.canApproveCrossBooth} onChange={(e) => setMember({ ...member, canApproveCrossBooth: e.target.checked })}/> {t("Can approve cross-booth requests")}</label>
         {invalidPartialMember && <p className="text-xs text-amber-800">{t("To create a member login, provide a name, valid email, and password of at least 8 characters.")}</p>}
       </div>

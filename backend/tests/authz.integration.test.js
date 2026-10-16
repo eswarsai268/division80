@@ -126,6 +126,21 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         expect(profile.body.data.boothIds).toContain(boothId);
         expect(profile.body.data.approverBoothIds).toContain(boothId);
     });
+    it("admin booth-member creation accepts an eight-character password and rejects shorter passwords", async () => {
+        const admin = await mkUser("ADMIN", "password-minimum-admin");
+        const agent = await login(admin.email);
+        const email = `eight-char-member-${randomUUID().slice(0, 8)}@test.local`;
+        const payload = {
+            email, fullName: "Eight Character Member", role: "BOOTH_MEMBER", boothId: ids.boothA,
+            canApproveCrossBooth: false,
+        };
+
+        await agent.post("/api/v1/admin/users").set(H).send({ ...payload, password: "Short7!" }).expect(422);
+        await agent.post("/api/v1/admin/users").set(H).send({ ...payload, password: "Eight888" }).expect(201);
+        const member = await login(email);
+        const profile = await member.get("/api/v1/auth/me").expect(200);
+        expect(profile.body.data.boothIds).toContain(ids.boothA);
+    });
     it.each([
         { label: "suspension", change: { status: "SUSPENDED" }, expectedStatus: "SUSPENDED", expectedRole: "BOOTH_MEMBER" },
         { label: "demotion", change: { role: "USER" }, expectedStatus: "ACTIVE", expectedRole: "USER" },

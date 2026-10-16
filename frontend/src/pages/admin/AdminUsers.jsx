@@ -29,7 +29,7 @@ export default function AdminUsers() {
     <div className="card space-y-2"><h2 className="font-semibold">{t("Create booth member / user")}</h2>
       <input className="input" placeholder={t("Full name")} value={f.fullName} onChange={(e) => setF({ ...f, fullName: e.target.value })} aria-label={t("Full name")}/>
       <input className="input" type="email" placeholder={t("Email")} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} aria-label={t("Email")}/>
-      <input className="input" type="password" placeholder={t("Initial password (8+ chars)")} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} aria-label={t("Initial password")} autoComplete="new-password"/>
+      <input className="input" type="password" minLength={8} placeholder={t("Initial password (8+ characters)")} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} aria-label={t("Initial password")} autoComplete="new-password"/>
       <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value, boothId: "" })} aria-label={t("Role")}><option value="BOOTH_MEMBER">{t("Booth member")}</option><option value={t("USER")}>{t("Citizen")}</option></select>
       {f.role === "BOOTH_MEMBER" && <>
         <select className="input" value={f.boothId} onChange={(e) => setF({ ...f, boothId: e.target.value })} aria-label={t("Assign member to booth")}><option value="">{t("Select booth (required)")}</option>{booths.data?.filter((b) => b.status === "ACTIVE").map((b) => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}</select>
