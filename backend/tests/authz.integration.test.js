@@ -3,7 +3,8 @@
 import { randomUUID } from "crypto";
 import request from "supertest";
 import { beforeAll, describe, expect, it } from "vitest";
-const enabled = process.env.TEST_DB === "1";
+import { isAuthzDatabaseTestEnabled } from "./authzTestGate.mjs";
+const enabled = isAuthzDatabaseTestEnabled(process.env);
 process.env.JWT_ACCESS_SECRET ??= "t".repeat(40);
 describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
     let app;

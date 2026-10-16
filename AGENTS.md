@@ -481,3 +481,13 @@ Never describe a proposed check as completed, a blocked check as passed, or an u
 - Preserve a clear record of decisions, assumptions, unresolved questions, and remaining work.
 
 The goal is a reproducible, evidence-based audit with verified fixes and explicitly documented limitations—not merely a clean scanner dashboard or a large number of completed commands.
+
+### Environment and `.env` Inspection Rules
+
+- When reviewing configuration, inspect the repository's `.env` file if it exists and is accessible.
+- Determine whether each relevant command or process actually loads `.env`, rather than assuming that file presence means its variables are available in `process.env`.
+- Trace how environment variables are loaded in development, tests, CI, migrations, workers, and production deployment.
+- Distinguish variables present in `.env`, variables inherited from the process environment, and variables supplied by deployment platforms.
+- I authorize reading `.env` to understand configuration, but never print, reproduce, commit, or include secret values in reports.
+- Before running database-backed tests, identify the configured database target and establish that it is an isolated test database. Never assume the `.env` database is safe for testing.
+- Do not change environment-loading behavior or configuration defaults without explaining the consequences and proposing the change first.

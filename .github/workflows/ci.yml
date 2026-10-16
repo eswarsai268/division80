@@ -25,7 +25,12 @@ jobs:
           done
           echo "database not ready" && exit 1
       - run: node backend/src/scripts/migrate.js
+        env:
+          NODE_ENV: test
+          DATABASE_SSL: "false"
       - run: npm test            # unit + authorization (IDOR/RBAC/cross-booth) tests
+        env:
+          NODE_ENV: test
       - run: npm run build
       - run: npm audit --audit-level=high
       - uses: gitleaks/gitleaks-action@v2   # secret scanning

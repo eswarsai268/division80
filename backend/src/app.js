@@ -18,7 +18,9 @@ const rateLimit_1 = require("./middleware/rateLimit");
 const security_1 = require("./middleware/security");
 const routes_1 = __importDefault(require("./routes"));
 const logger_1 = require("./utils/logger");
-function createApp() {
+function createApp(dependencies = {}) {
+    const readinessPool = dependencies.pool ?? pool_1.pool;
+    const readinessRedis = dependencies.redis ?? redis_1.redis;
     const app = (0, express_1.default)();
     app.disable("x-powered-by");
     app.set("trust proxy", env_1.env.TRUST_PROXY_HOPS); // 0 unless behind N known proxies, else IP spoofing bypasses rate limits
@@ -32,9 +34,9 @@ function createApp() {
     app.get("/health", (_req, res) => res.json({ status: "ok" }));
     app.get("/ready", async (_req, res) => {
         try {
-            await pool_1.pool.query("SELECT 1");
-            if (redis_1.redis)
-                await redis_1.redis.ping();
+            await readinessPool.query("SELECT 1");
+            if (readinessRedis)
+                await readinessRedis.ping();
             res.json({ status: "ready" });
         }
         catch {

@@ -16,7 +16,7 @@ const corsOrigin = zod_1.z.string().url().default("http://localhost:5173").super
     }
 });
 const schema = zod_1.z.object({
-    NODE_ENV: zod_1.z.enum(["development", "test", "production"]).default("development"),
+    NODE_ENV: zod_1.z.enum(["development", "test", "production"]),
     PORT: zod_1.z.coerce.number().int().min(1).max(65535).default(4000),
     DATABASE_HOST: zod_1.z.string().min(1),
     DATABASE_PORT: zod_1.z.coerce.number().int().min(1).max(65535).default(4000),

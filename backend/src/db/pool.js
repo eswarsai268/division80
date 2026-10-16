@@ -38,6 +38,7 @@ async function exec(sql, params = [], conn = exports.pool) {
 }
 async function tx(fn) {
     const c = await exports.pool.getConnection();
+    let transactionFailed = false;
     try {
         await c.beginTransaction();
         const out = await fn(c);
@@ -45,11 +46,23 @@ async function tx(fn) {
         return out;
     }
     catch (e) {
-        await c.rollback().catch(() => undefined);
+        transactionFailed = true;
+        try {
+            await c.rollback();
+        }
+        catch {
+            // Keep the transaction failure as the primary error.
+        }
         throw e;
     }
     finally {
-        c.release();
+        try {
+            c.release();
+        }
+        catch (releaseError) {
+            if (!transactionFailed)
+                throw releaseError;
+        }
     }
 }
 const placeholders = (n) => Array(n).fill("?").join(",");
