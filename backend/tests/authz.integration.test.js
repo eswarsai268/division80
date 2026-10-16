@@ -228,10 +228,11 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         const r = await a.post("/api/v1/cross-booth/requests").set(H).send({ sourceBoothId: ids.boothA, householdId: ids.houseB, reason: "Joint verification" }).expect(201);
         const id = r.body.data.id;
         await a.post(`/api/v1/cross-booth/requests/${id}/approve`).set(H).send({}).expect(403);
-        await a.get(`/api/v1/booth/households/${ids.houseB}`).expect(404); // not yet granted
+        await a.get(`/api/v1/booth/households/${ids.houseB}`).expect(200); // organization-scoped reads do not require a grant
+        await a.get(`/api/v1/cross-booth/requests/${id}/household`).expect(404); // grant-specific roster remains unavailable
         await b.post(`/api/v1/cross-booth/requests/${id}/approve`).set(H).send({ grantHours: 1 }).expect(200);
         await b.post(`/api/v1/cross-booth/requests/${id}/approve`).set(H).send({ grantHours: 1 }).expect(409); // replay
-        await a.get(`/api/v1/booth/households/${ids.houseB}`).expect(200); // granted, resource-specific
+        await a.get(`/api/v1/cross-booth/requests/${id}/household`).expect(200); // grant-specific roster is available after approval
     });
     it("decision rechecks current approver rights after a concurrent assignment revocation", async () => {
         const requester = await mkUser("BOOTH_MEMBER", "revocation-requester");
