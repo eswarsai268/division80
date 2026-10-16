@@ -9,11 +9,12 @@ const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
 const households_1 = require("../repositories/households");
+const boothAssignments_1 = require("../repositories/boothAssignments");
 const audit_1 = require("./audit");
 const REQUEST_VALID_HOURS = 24;
 async function createRequest(c, i) {
     const u = c.user;
-    if (u.role !== "BOOTH_MEMBER" || !u.boothIds.includes(i.sourceBoothId))
+    if (u.role !== "BOOTH_MEMBER")
         throw (0, errors_1.forbidden)();
     return (0, pool_1.tx)(async (conn) => {
         const candidate = i.householdId
@@ -35,6 +36,9 @@ async function createRequest(c, i) {
         const dup = (await (0, pool_1.query)("SELECT id FROM cross_booth_requests WHERE requester_id = ? AND resource_id = ? AND action = ? AND status IN ('PENDING','APPROVED') AND (status = 'PENDING' AND expires_at > NOW(3) OR status = 'APPROVED' AND grant_expires_at > NOW(3)) FOR UPDATE", [u.id, h.id, i.action], conn))[0];
         if (dup)
             throw (0, errors_1.conflict)("A pending request already exists");
+        // Keep the existing request -> user -> assignment -> booth lock order used by decisions.
+        if (!(await (0, boothAssignments_1.lockActiveBoothAssignment)(conn, u.id, u.organizationId, i.sourceBoothId)))
+            throw (0, errors_1.forbidden)();
         const id = (0, crypto_1.randomUUID)();
         await (0, pool_1.exec)(`INSERT INTO cross_booth_requests (id, requester_id, source_booth_id, target_booth_id, resource_type, resource_id, action, reason, expires_at)
        VALUES (?,?,?,?, 'HOUSEHOLD', ?, ?, ?, DATE_ADD(NOW(3), INTERVAL ${REQUEST_VALID_HOURS} HOUR))`, [id, u.id, i.sourceBoothId, h.booth_id, h.id, i.action, i.reason], conn);
@@ -97,18 +101,9 @@ async function decide(c, requestId, decision, grantHours) {
         const r = (await (0, pool_1.query)("SELECT * FROM cross_booth_requests WHERE id = ? FOR UPDATE", [requestId], conn))[0];
         if (!r)
             throw (0, errors_1.notFound)();
-        // Lock order is request, then current assignment/booth/user. Revocation updates the
-        // assignment row, so it either commits before this check or waits until this decision commits.
-        const approver = (await (0, pool_1.query)(`SELECT ba.id
-          FROM booth_assignments ba
-          JOIN booths b ON b.id = ba.booth_id
-          JOIN users assigned_user ON assigned_user.id = ba.user_id
-         WHERE ba.user_id = ? AND ba.booth_id = ? AND ba.can_approve_cross_booth = 1
-           AND ba.revoked_at IS NULL AND ba.starts_at <= NOW(3)
-           AND (ba.ends_at IS NULL OR ba.ends_at > NOW(3))
-           AND b.status = 'ACTIVE' AND b.organization_id = ?
-           AND assigned_user.role = 'BOOTH_MEMBER' AND assigned_user.status = 'ACTIVE'
-         FOR UPDATE`, [u.id, r.target_booth_id, u.organizationId], conn))[0];
+        // Lock order is request, then user -> assignment -> booth. Revocation and account
+        // changes serialize on these rows before the decision can proceed.
+        const approver = await (0, boothAssignments_1.lockActiveBoothAssignment)(conn, u.id, u.organizationId, r.target_booth_id, true);
         if (!approver || r.requester_id === u.id) {
             await (0, audit_1.audit)({ actorId: u.id, action: "CROSS_BOOTH_" + (decision === "APPROVED" ? "APPROVAL" : "REJECTION"),
                 resourceType: "CROSS_BOOTH_REQUEST", resourceId: r.id, outcome: "DENIED", reason: "not target-booth approver", requestId: c.requestId });

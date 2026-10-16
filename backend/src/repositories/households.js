@@ -8,6 +8,7 @@ exports.listCitizensForUser = listCitizensForUser;
 exports.updateVisitForUser = updateVisitForUser;
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
+const boothAssignments_1 = require("./boothAssignments");
 const audit_1 = require("../services/audit");
 const maskVoter = (v) => (v ? `****${v.slice(-4)}` : null);
 exports.maskVoter = maskVoter;
@@ -129,11 +130,16 @@ async function updateVisitForUser(c, citizenId, input) {
     const u = c.user;
     if (u.role !== "BOOTH_MEMBER" || u.boothIds.length === 0)
         throw (0, errors_1.notFound)();
-    const placeholders = (0, pool_1.placeholders)(u.boothIds.length);
     return (0, pool_1.tx)(async (conn) => {
+        const candidate = (await (0, pool_1.query)(`SELECT booth_id AS boothId FROM citizens
+            WHERE id = ? AND deleted_at IS NULL`, [citizenId], conn))[0];
+        if (!candidate || !u.boothIds.includes(candidate.boothId))
+            throw (0, errors_1.notFound)();
+        if (!(await (0, boothAssignments_1.lockActiveBoothAssignment)(conn, u.id, u.organizationId, candidate.boothId)))
+            throw (0, errors_1.notFound)();
         const citizen = (await (0, pool_1.query)(`SELECT id FROM citizens
-            WHERE id = ? AND booth_id IN (${placeholders}) AND deleted_at IS NULL FOR UPDATE`,
-        [citizenId, ...u.boothIds], conn))[0];
+            WHERE id = ? AND booth_id = ? AND deleted_at IS NULL FOR UPDATE`,
+        [citizenId, candidate.boothId], conn))[0];
         if (!citizen)
             throw (0, errors_1.notFound)();
         await (0, pool_1.exec)(`UPDATE citizens SET life_status = ?, d2d_verified = ?, not_here = ?, address_changed = ?,

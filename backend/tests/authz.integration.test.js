@@ -1,8 +1,11 @@
 // Requires a migrated TEST database. Run:  TEST_DB=1 DATABASE_HOST=... npm test -w backend
 // Uses synthetic data only — NEVER point this at a database containing real citizen data.
 import { randomUUID } from "crypto";
+import fs from "fs/promises";
+import os from "os";
+import path from "path";
 import request from "supertest";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { isAuthzDatabaseTestEnabled } from "./authzTestGate.mjs";
 const enabled = isAuthzDatabaseTestEnabled(process.env);
 process.env.JWT_ACCESS_SECRET ??= "t".repeat(40);
@@ -13,6 +16,8 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
     const H = { "X-Requested-With": "samasya-web" };
     const pw = "Correct-Horse-Battery-9";
     const ids = {};
+    const originalUploadDir = process.env.UPLOAD_DIR;
+    let uploadDir;
     const login = async (email) => { const ag = request.agent(app); await ag.post("/api/v1/auth/login").set(H).send({ email, password: pw }).expect(200); return ag; };
     async function mkUser(role, name) {
         const id = randomUUID();
@@ -25,6 +30,8 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
     }
     const U = {};
     beforeAll(async () => {
+        uploadDir = await fs.mkdtemp(path.join(os.tmpdir(), "samasya-authz-uploads-"));
+        process.env.UPLOAD_DIR = uploadDir;
         ids.org = randomUUID();
         process.env.DEFAULT_ORG_SLUG = `t-${ids.org.slice(0, 8)}`; // must be set BEFORE config is imported
         app = (await import("../src/app")).createApp();
@@ -43,6 +50,14 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         U.user2 = await mkUser("USER", "u2");
         await assign(ids.boothA, U.a1.id, 1);
         await assign(ids.boothB, U.b1.id, 1);
+    });
+    afterAll(async () => {
+        if (originalUploadDir === undefined)
+            delete process.env.UPLOAD_DIR;
+        else
+            process.env.UPLOAD_DIR = originalUploadDir;
+        if (uploadDir)
+            await fs.rm(uploadDir, { recursive: true, force: true });
     });
     it("T1/T2: booth A member cannot read booth B household (ID swap) -> 404/403", async () => {
         const ag = await login(U.a1.email);
@@ -138,6 +153,106 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         }
         const [finalRow] = await q.query("SELECT status FROM cross_booth_requests WHERE id = ?", [id]);
         expect(finalRow.status).toBe("PENDING");
+    });
+    it("sensitive booth writes reject a stale context after assignment revocation", async () => {
+        const member = await mkUser("BOOTH_MEMBER", "stale-write-member");
+        await assign(ids.boothA, member.id);
+        const context = {
+            user: { id: member.id, role: "BOOTH_MEMBER", organizationId: ids.org,
+                boothIds: [ids.boothA], approverBoothIds: [] },
+            requestId: randomUUID(),
+        };
+        const [assignment] = await q.query("SELECT id FROM booth_assignments WHERE user_id = ? AND booth_id = ? AND revoked_at IS NULL", [member.id, ids.boothA]);
+        const citizenId = randomUUID();
+        await q.exec("INSERT INTO citizens (id, household_id, booth_id, full_name, relation, life_status) VALUES (?,?,?,?,?,?)",
+            [citizenId, ids.houseA, ids.boothA, "Stale Assignment Resident", "MEMBER", "ALIVE"]);
+        const crossBooth = await import("../src/services/crossBooth");
+        const verification = await import("../src/services/verification");
+        const households = await import("../src/repositories/households");
+
+        await q.exec("UPDATE booth_assignments SET revoked_at = NOW(3) WHERE id = ?", [assignment.id]);
+        await expect(crossBooth.createRequest(context, {
+            sourceBoothId: ids.boothA, householdId: ids.houseB, action: "READ", reason: "Stale assignment check",
+        })).rejects.toMatchObject({ status: 403 });
+        await expect(verification.recordVerification(context, {
+            citizenId, step: 1, result: "PASSED",
+        })).rejects.toMatchObject({ status: 404 });
+        await expect(households.updateVisitForUser(context, citizenId, {
+            lifeStatus: "ALIVE", verificationDone: true, notHere: false, addressChanged: false,
+            newAddress: "", visitNotes: "",
+        })).rejects.toMatchObject({ status: 404 });
+        const [written] = await q.query("SELECT COUNT(*) AS n FROM verifications WHERE citizen_id = ?", [citizenId]);
+        expect(Number(written.n)).toBe(0);
+    });
+    it("sensitive booth writes reject future, expired, inactive, or suspended assignments", async () => {
+        const member = await mkUser("BOOTH_MEMBER", "invalid-assignment-member");
+        await assign(ids.boothA, member.id);
+        const context = {
+            user: { id: member.id, role: "BOOTH_MEMBER", organizationId: ids.org,
+                boothIds: [ids.boothA], approverBoothIds: [] },
+            requestId: randomUUID(),
+        };
+        const [assignment] = await q.query("SELECT id FROM booth_assignments WHERE user_id = ? AND booth_id = ? AND revoked_at IS NULL", [member.id, ids.boothA]);
+        const citizenId = randomUUID();
+        await q.exec("INSERT INTO citizens (id, household_id, booth_id, full_name, relation, life_status) VALUES (?,?,?,?,?,?)",
+            [citizenId, ids.houseA, ids.boothA, "Invalid Assignment Resident", "MEMBER", "ALIVE"]);
+        const crossBooth = await import("../src/services/crossBooth");
+        const verification = await import("../src/services/verification");
+        const households = await import("../src/repositories/households");
+        try {
+            await q.exec("UPDATE booth_assignments SET starts_at = DATE_ADD(NOW(3), INTERVAL 1 HOUR) WHERE id = ?", [assignment.id]);
+            await expect(crossBooth.createRequest(context, {
+                sourceBoothId: ids.boothA, householdId: ids.houseB, action: "READ", reason: "Future assignment check",
+            })).rejects.toMatchObject({ status: 403 });
+
+            await q.exec("UPDATE booth_assignments SET starts_at = DATE_SUB(NOW(3), INTERVAL 1 HOUR), ends_at = DATE_SUB(NOW(3), INTERVAL 1 MINUTE) WHERE id = ?", [assignment.id]);
+            await expect(households.updateVisitForUser(context, citizenId, {
+                lifeStatus: "ALIVE", verificationDone: true, notHere: false, addressChanged: false,
+                newAddress: "", visitNotes: "",
+            })).rejects.toMatchObject({ status: 404 });
+
+            await q.exec("UPDATE booth_assignments SET ends_at = NULL WHERE id = ?", [assignment.id]);
+            await q.exec("UPDATE booths SET status = 'INACTIVE' WHERE id = ?", [ids.boothA]);
+            await expect(verification.recordVerification(context, {
+                citizenId, step: 1, result: "PASSED",
+            })).rejects.toMatchObject({ status: 404 });
+            await q.exec("UPDATE booths SET status = 'ACTIVE' WHERE id = ?", [ids.boothA]);
+            await q.exec("UPDATE users SET status = 'SUSPENDED' WHERE id = ?", [member.id]);
+            await expect(households.updateVisitForUser(context, citizenId, {
+                lifeStatus: "ALIVE", verificationDone: true, notHere: false, addressChanged: false,
+                newAddress: "", visitNotes: "",
+            })).rejects.toMatchObject({ status: 404 });
+        }
+        finally {
+            await q.exec("UPDATE booths SET status = 'ACTIVE' WHERE id = ?", [ids.boothA]);
+            await q.exec("UPDATE users SET status = 'ACTIVE' WHERE id = ?", [member.id]);
+            await q.exec("UPDATE booth_assignments SET revoked_at = NULL, starts_at = DATE_SUB(NOW(3), INTERVAL 1 HOUR), ends_at = NULL WHERE id = ?", [assignment.id]);
+        }
+    });
+    it("serializes concurrent attachment uploads and keeps the complaint limit", async () => {
+        const owner = await mkUser("USER", "attachment-owner");
+        const agent = await login(owner.email);
+        const created = await agent.post("/api/v1/complaints").set(H).send({
+            title: "Attachment race", description: "Synthetic complaint for concurrent upload testing", category: "OTHER",
+        }).expect(201);
+        const complaintId = created.body.data.id;
+        const image = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
+        const upload = () => agent.post(`/api/v1/complaints/${complaintId}/attachments`)
+            .set(H).set("Content-Type", "image/jpeg").send(image);
+        try {
+            await upload().expect(201);
+            await upload().expect(201);
+            const results = await Promise.all([upload(), upload()]);
+            expect(results.map((response) => response.status).sort()).toEqual([201, 409]);
+            const [count] = await q.query("SELECT COUNT(*) AS n FROM attachments WHERE complaint_id = ?", [complaintId]);
+            expect(Number(count.n)).toBe(3);
+            expect(await fs.readdir(uploadDir)).toHaveLength(3);
+        }
+        finally {
+            const rows = await q.query("SELECT object_key FROM attachments WHERE complaint_id = ?", [complaintId]);
+            await q.exec("DELETE FROM attachments WHERE complaint_id = ?", [complaintId]);
+            await Promise.all(rows.map((row) => fs.unlink(path.join(uploadDir, path.basename(row.object_key))).catch(() => undefined)));
+        }
     });
     it("rejects sequential duplicate requests and permits a new request after rejection", async () => {
         const requester = await mkUser("BOOTH_MEMBER", "duplicate-sequential");

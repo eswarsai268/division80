@@ -7,6 +7,7 @@ exports.getVerificationForUser = getVerificationForUser;
 const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
+const boothAssignments_1 = require("../repositories/boothAssignments");
 const audit_1 = require("./audit");
 exports.STEPS = ["Record verification", "Voter ID check", "Life status", "T+Live circle", "Detail verification", "Double check"];
 /** Steps must be passed strictly in order. Returns the next required step, or null when all 6 passed. */
@@ -20,24 +21,39 @@ async function recordVerification(c, input, idempotencyKey) {
     if (c.user.role !== "BOOTH_MEMBER")
         throw (0, errors_1.forbidden)();
     return (0, pool_1.tx)(async (conn) => {
-        // Lock the citizen row: serialises concurrent verifications of the same person.
-        const cit = (await (0, pool_1.query)("SELECT id, household_id, booth_id FROM citizens WHERE id = ? AND deleted_at IS NULL FOR UPDATE", [input.citizenId], conn))[0];
-        if (!cit)
+        // Read the resource without a lock to discover its booth; permission locks follow
+        // user -> assignment -> booth before the citizen row is locked for the write.
+        const candidate = (await (0, pool_1.query)("SELECT id, household_id, booth_id FROM citizens WHERE id = ? AND deleted_at IS NULL", [input.citizenId], conn))[0];
+        if (!candidate)
             throw (0, errors_1.notFound)();
         let crossRequestId = null;
-        if (!c.user.boothIds.includes(cit.booth_id)) {
-            const grant = (await (0, pool_1.query)(`SELECT r.id, r.source_booth_id AS sourceBoothId FROM cross_booth_requests r
-              JOIN booth_assignments a ON a.booth_id = r.source_booth_id AND a.user_id = r.requester_id
+        if (await (0, boothAssignments_1.lockActiveBoothAssignment)(conn, c.user.id, c.user.organizationId, candidate.booth_id)) {
+            // Current same-booth assignment grants access.
+        }
+        else {
+            const grantCandidate = (await (0, pool_1.query)(`SELECT r.id, r.source_booth_id AS sourceBoothId FROM cross_booth_requests r
               JOIN booths target ON target.id = r.target_booth_id AND target.status = 'ACTIVE'
               JOIN households h ON h.id = r.resource_id AND h.booth_id = r.target_booth_id AND h.deleted_at IS NULL
              WHERE r.requester_id = ? AND r.resource_id = ? AND r.target_booth_id = ? AND r.action = 'VERIFY'
                AND r.status = 'APPROVED' AND r.grant_expires_at > NOW(3)
-               AND a.revoked_at IS NULL AND a.starts_at <= NOW(3) AND (a.ends_at IS NULL OR a.ends_at > NOW(3))
-             ORDER BY r.grant_expires_at DESC LIMIT 1`, [c.user.id, cit.household_id, cit.booth_id], conn))[0];
-            if (!grant || !c.user.boothIds.includes(grant.sourceBoothId))
+             ORDER BY r.grant_expires_at DESC LIMIT 1`, [c.user.id, candidate.household_id, candidate.booth_id], conn))[0];
+            if (!grantCandidate || !(await (0, boothAssignments_1.lockActiveBoothAssignment)(conn, c.user.id, c.user.organizationId, grantCandidate.sourceBoothId)))
+                throw (0, errors_1.notFound)();
+            const grant = (await (0, pool_1.query)(`SELECT r.id FROM cross_booth_requests r
+              JOIN booths target ON target.id = r.target_booth_id AND target.status = 'ACTIVE'
+              JOIN households h ON h.id = r.resource_id AND h.booth_id = r.target_booth_id AND h.deleted_at IS NULL
+             WHERE r.id = ? AND r.requester_id = ? AND r.resource_id = ? AND r.target_booth_id = ?
+               AND r.source_booth_id = ? AND r.action = 'VERIFY'
+               AND r.status = 'APPROVED' AND r.grant_expires_at > NOW(3)`,
+            [grantCandidate.id, c.user.id, candidate.household_id, candidate.booth_id, grantCandidate.sourceBoothId], conn))[0];
+            if (!grant)
                 throw (0, errors_1.notFound)();
             crossRequestId = grant.id;
         }
+        // Re-read under lock after permission checks and reject if the resource moved or was archived.
+        const cit = (await (0, pool_1.query)("SELECT id, household_id, booth_id FROM citizens WHERE id = ? AND deleted_at IS NULL FOR UPDATE", [input.citizenId], conn))[0];
+        if (!cit || cit.booth_id !== candidate.booth_id || cit.household_id !== candidate.household_id)
+            throw (0, errors_1.notFound)();
         if (idempotencyKey) {
             const prev = (await (0, pool_1.query)("SELECT id, citizen_id, step, result FROM verifications WHERE verifier_id = ? AND idempotency_key = ?", [c.user.id, idempotencyKey], conn))[0];
             if (prev && (prev.citizen_id !== input.citizenId || prev.step !== input.step))
