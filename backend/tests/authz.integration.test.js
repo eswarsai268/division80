@@ -209,12 +209,19 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
         await u1.get(`/api/v1/complaints/${c.body.data.id}`).expect(200);
         await u2.get(`/api/v1/complaints/${c.body.data.id}`).expect(404);
     });
-    it("T5: revoked assignment loses access immediately", async () => {
+    it("T5: revoked assignment preserves organization reads but removes booth assignment", async () => {
         const ag = await login(U.a1.email);
         await ag.get(`/api/v1/booth/households/${ids.houseA}`).expect(200);
-        await q.exec("UPDATE booth_assignments SET revoked_at = NOW(3) WHERE user_id = ?", [U.a1.id]);
-        await ag.get(`/api/v1/booth/households/${ids.houseA}`).expect(404);
-        await assign(ids.boothA, U.a1.id, 1);
+        try {
+            await q.exec("UPDATE booth_assignments SET revoked_at = NOW(3) WHERE user_id = ? AND booth_id = ? AND revoked_at IS NULL", [U.a1.id, ids.boothA]);
+            // Household reads are organization-scoped; assignment revocation removes write/approval rights.
+            await ag.get(`/api/v1/booth/households/${ids.houseA}`).expect(200);
+            const profile = await ag.get("/api/v1/auth/me").expect(200);
+            expect(profile.body.data.boothIds).not.toContain(ids.boothA);
+        }
+        finally {
+            await q.exec("UPDATE booth_assignments SET revoked_at = NULL WHERE user_id = ? AND booth_id = ?", [U.a1.id, ids.boothA]);
+        }
     });
     it("T7/T10: requester cannot approve own request; approval cannot be replayed", async () => {
         const a = await login(U.a1.email), b = await login(U.b1.email);
@@ -502,10 +509,13 @@ describe.skipIf(!enabled)("authorization (IDOR / RBAC / cross-booth)", () => {
             password: "New-Secure-Password-2026",
         }).expect(200);
     });
-    it("T6: expired grant is denied", async () => {
+    it("T6: expired grant cannot expose its roster while organization household reads remain available", async () => {
         const a = await login(U.a1.email);
         await q.exec("UPDATE cross_booth_requests SET grant_expires_at = DATE_SUB(NOW(3), INTERVAL 1 MINUTE) WHERE requester_id = ?", [U.a1.id]);
-        await a.get(`/api/v1/booth/households/${ids.houseB}`).expect(404);
+        const [grant] = await q.query("SELECT id FROM cross_booth_requests WHERE requester_id = ? AND action = 'VERIFY' AND status = 'APPROVED' ORDER BY created_at DESC LIMIT 1", [U.a1.id]);
+        expect(grant).toBeDefined();
+        await a.get(`/api/v1/cross-booth/requests/${grant.id}/household`).expect(404);
+        await a.get(`/api/v1/booth/households/${ids.houseB}`).expect(200);
     });
     it("T8/T9: client-supplied role / user_id are ignored", async () => {
         const reg = await request(app).post("/api/v1/auth/register").set(H).send({ email: `x-${randomUUID().slice(0, 6)}@test.local`, password: pw, fullName: "Mallory", role: "ADMIN", user_id: U.user1.id });
