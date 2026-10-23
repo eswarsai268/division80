@@ -100,7 +100,7 @@ async function getHouseholdForUser(u, householdId) {
 }
 async function listCitizensForUser(u, householdId) {
     const house = await getHouseholdForUser(u, householdId); // authorisation first
-    const rows = await (0, pool_1.query)(`SELECT c.id, c.full_name AS fullName, c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus,
+    const rows = await (0, pool_1.query)(`SELECT c.id, c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName, c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus,
             c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone,
             c.not_here AS notHere, c.address_changed AS addressChanged,
             c.new_address AS newAddress, c.visit_notes AS visitNotes,

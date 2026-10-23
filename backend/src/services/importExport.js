@@ -8,6 +8,7 @@ exports.createExport = createExport;
 exports.getExport = getExport;
 exports.downloadExport = downloadExport;
 exports.deleteExport = deleteExport;
+exports.normalizeHeader = normalizeHeader;
 const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
@@ -18,15 +19,19 @@ const LIFE = ["ALIVE", "DECEASED", "UNKNOWN"];
 const HEADER_ALIASES = {
     booth: "booth_code", booth_n: "booth_code", booth_no: "booth_code", booth_number: "booth_code",
     door_no: "house_code", door_number: "house_code",
-    name: "full_name", serial: "roll_serial", serial_n: "roll_serial",
+    name: "full_name", voter_name: "full_name", serial: "roll_serial", sn: "roll_serial", s_no: "roll_serial", serial_n: "roll_serial",
     serial_no: "roll_serial", serial_number: "roll_serial",
     additional_notes: "visit_notes", shifted: "address_changed",
     no_here: "not_here",
+    voter_id_no: "voter_id", voter_id_number: "voter_id",
+    father_s_name_husband_s_name: "father_or_husband_name",
+    father_name_husband_name: "father_or_husband_name",
+    father_name_or_husband_name: "father_or_husband_name",
 };
-const normalizeHeader = (value) => {
-    const key = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+function normalizeHeader(value) {
+    const key = value.trim().toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
     return HEADER_ALIASES[key] ?? key;
-};
+}
 const parseBoolean = (value) => {
     const normalized = value.trim().toLowerCase();
     if (["", "0", "false", "no", "n", "కాదు"].includes(normalized))
@@ -72,6 +77,7 @@ async function createImportJob(c, csv) {
             address: get("address") || get("address_line"),
             serial: get("roll_serial") || get("serial_number"),
             name: get("full_name"),
+            fatherOrHusbandName: get("father_or_husband_name"),
             rel: get("relation"),
             voter: get("voter_id").toUpperCase(),
             age: get("age"),
@@ -104,6 +110,10 @@ async function createImportJob(c, csv) {
         }
         if (f.name.length < 1 || f.name.length > 200) {
             bad(line, "Invalid full_name");
+            continue;
+        }
+        if (f.fatherOrHusbandName.length > 200) {
+            bad(line, "father_or_husband_name must be at most 200 characters");
             continue;
         }
         if (!f.rel)
@@ -183,6 +193,7 @@ async function createImportJob(c, csv) {
             addressLine: f.address || null,
             rollSerial: f.serial || null,
             fullName: f.name,
+            fatherOrHusbandName: f.fatherOrHusbandName || null,
             relation: rel,
             voterId: f.voter || null,
             age,

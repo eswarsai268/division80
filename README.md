@@ -26,7 +26,7 @@ Configure the variables in `.env.example`. Production API, worker and migration 
 
 ## Data import and exports
 
-Admins can import one CSV or `.xlsx` worksheet at a time, up to 50 MiB and 50,000 rows. Required headers are `booth_code,house_code,full_name,relation`. Optional headers are `address,roll_serial,voter_id,age,gender,life_status`. The worker must be running to commit imports and generate exports. Imported roster rows and verification history are retained independently of login accounts.
+Admins can import one CSV or `.xlsx` worksheet at a time, up to 50 MiB and 50,000 rows. The voter-list headers `Booth number`, `S. No`, `Voter Name`, `Father's Name/ Husband's Name`, `Door No`, and `Voter Id No` are accepted, alongside the existing normalized headers. Relationship defaults to `RESIDENT`; fields absent from a source sheet keep their existing defaults. The worker must be running to commit imports and generate exports. Imported roster rows and verification history are retained independently of login accounts.
 
 Exports include active roster, shifted and deceased people, D2D status, households and verification progress. Voter IDs are masked in exports; generated files expire after 24 hours.
 
