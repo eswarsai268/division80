@@ -5,7 +5,7 @@ This document describes implemented controls and known gaps. It does not establi
 | Threat | Current control |
 |---|---|
 | Cross-organization roster access | Household and citizen queries are scoped to the authenticated user’s organization; active booths and archived records are filtered. |
-| Excess booth write access | Visit updates require a current active assignment to the target booth. Verification writes are restricted to active booths within the caller’s organization. |
+| Excess booth write access | Visit updates and verification writes require a current active assignment to the target booth. |
 | Privilege escalation | The server loads role and assignments from the database for each authenticated request. Only admins and booth members can authenticate; admin APIs create booth-member accounts only. |
 | Stolen or replayed refresh token | Refresh rotation and reuse detection revoke the session. |
 | CSRF | HttpOnly, SameSite=Strict cookies, `X-Requested-With` header and Origin checks. |
@@ -16,7 +16,7 @@ This document describes implemented controls and known gaps. It does not establi
 
 ## Data and scope
 
-Booth members can view active household rosters and verification history across their organization. They can update visit details only in booths where they have an active assignment. Verification writes can be made across active booths in the same organization. Organization boundaries remain in effect.
+Booth members can view active household rosters and people across their organization. Voter IDs are masked outside assigned booths. Visit updates, verification writes, and verification history remain limited to booths where the member has an active assignment. Organization boundaries remain in effect.
 
 Imported citizens are roster records, not login accounts. Citizen account, complaint, cross-booth approval and audit-log features are removed by migration 009, which also deletes their stored records and complaint attachment files referenced by the database.
 
