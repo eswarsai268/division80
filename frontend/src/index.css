@@ -26,7 +26,7 @@ body {
 
 .app-brand-name { max-width: 17rem; font-size: 0.88rem; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; }
 .auth-brand-name { max-width: 17rem; font-size: 1.1rem; font-weight: 800; line-height: 1.2; letter-spacing: -0.025em; }
-.portal-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem; margin-bottom: 1rem; border: 1px solid #e9b000; border-radius: 0.9rem; background: #fff1b8; padding: 0.3rem; }
+.portal-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem; margin-bottom: 1rem; border: 1px solid #e9b000; border-radius: 0.9rem; background: #fff1b8; padding: 0.3rem; }
 .portal-tab { border-radius: 0.7rem; padding: 0.65rem 0.4rem; color: #61470a; text-align: center; text-decoration: none; font-size: 0.8rem; font-weight: 600; transition: background-color 160ms ease, color 160ms ease; }
 .portal-tab:hover { background: rgb(255 255 255 / 55%); }
 .portal-tab.is-active { background: var(--tdp-yellow); color: var(--tdp-ink); box-shadow: 0 1px 3px rgb(36 46 62 / 16%); }
