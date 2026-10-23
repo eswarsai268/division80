@@ -7,6 +7,7 @@ exports.getVerificationForUser = getVerificationForUser;
 const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
+const boothAssignments_1 = require("../repositories/boothAssignments");
 exports.STEPS = ["Record verification", "Voter ID check", "Life status", "T+Live circle", "Detail verification", "Double check"];
 /** Steps must be passed strictly in order. Returns the next required step, or null when all 6 passed. */
 function nextStep(passed) {
@@ -24,10 +25,12 @@ async function recordVerification(c, input, idempotencyKey) {
         const candidate = (await (0, pool_1.query)("SELECT id, household_id, booth_id FROM citizens WHERE id = ? AND deleted_at IS NULL", [input.citizenId], conn))[0];
         if (!candidate)
             throw (0, errors_1.notFound)();
-        const access = (await (0, pool_1.query)(`SELECT b.id FROM booths b JOIN households h ON h.booth_id = b.id
-            WHERE b.id = ? AND b.organization_id = ? AND b.status = 'ACTIVE' AND h.organization_id = ?
-              AND h.id = ? AND h.deleted_at IS NULL FOR UPDATE`,
-        [candidate.booth_id, c.user.organizationId, c.user.organizationId, candidate.household_id], conn))[0];
+        if (!(await (0, boothAssignments_1.lockActiveBoothAssignment)(conn, c.user.id, c.user.organizationId, candidate.booth_id)))
+            throw (0, errors_1.notFound)();
+        const access = (await (0, pool_1.query)(`SELECT h.id FROM households h JOIN booths b ON b.id = h.booth_id
+            WHERE h.id = ? AND h.booth_id = ? AND h.organization_id = ? AND h.deleted_at IS NULL
+              AND b.organization_id = ? AND b.status = 'ACTIVE' FOR UPDATE`,
+        [candidate.household_id, candidate.booth_id, c.user.organizationId, c.user.organizationId], conn))[0];
         if (!access)
             throw (0, errors_1.notFound)();
         // Re-read under lock after permission checks and reject if the resource moved or was archived.
@@ -58,9 +61,11 @@ async function recordVerification(c, input, idempotencyKey) {
     });
 }
 async function getVerificationForUser(c, id) {
+    if (c.user.boothIds.length === 0)
+        throw (0, errors_1.notFound)();
+    const ph = c.user.boothIds.map(() => "?").join(",");
     const r = (await (0, pool_1.query)(`SELECT v.id, v.citizen_id AS citizenId, v.household_id AS householdId, v.booth_id AS boothId, v.step, v.result, v.notes, v.created_at AS createdAt
-       FROM verifications v JOIN booths b ON b.id = v.booth_id
-      WHERE v.id = ? AND b.organization_id = ? AND b.status = 'ACTIVE'`, [id, c.user.organizationId]))[0];
+       FROM verifications v WHERE v.id = ? AND v.booth_id IN (${ph})`, [id, ...c.user.boothIds]))[0];
     if (!r)
         throw (0, errors_1.notFound)();
     return r;

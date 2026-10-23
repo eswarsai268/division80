@@ -13,6 +13,15 @@ describe("verification step ordering", () => {
         expect(nextStep([1, 2, 3, 4, 5, 6])).toBeNull();
     });
 });
+describe("voter-list import headers", () => {
+    it("maps the supplied workbook headers to the roster schema", async () => {
+        const { normalizeHeader } = await import("../src/services/importExport");
+        const headers = ["Booth number", "S. No", "Voter Name", "Father's Name/ Husband's Name", "Door No", "Voter Id No"];
+        expect(headers.map(normalizeHeader)).toEqual([
+            "booth_code", "roll_serial", "full_name", "father_or_husband_name", "house_code", "voter_id",
+        ]);
+    });
+});
 describe("masking", () => {
     it("masks voter id", async () => {
         const { maskVoter } = await import("../src/repositories/households");

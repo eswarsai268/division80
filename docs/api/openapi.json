@@ -285,7 +285,7 @@
       "description": "Validation error"
      }
     },
-    "description": "Records the next ordered verification step for a citizen in an active booth in the caller organization."
+    "description": "Records the next ordered verification step only for a citizen in a booth with an active assignment for the caller. Household and person details remain readable across active booths in the caller organization."
    },
    "get": {
     "tags": [
@@ -306,7 +306,7 @@
       "description": "Validation error"
      }
     },
-    "description": "Lists recent verification records for active booths in the caller organization."
+    "description": "Lists recent verification records only for booths currently assigned to the caller."
    }
   },
   "/api/v1/booth/verifications/{verificationId}": {
@@ -329,7 +329,7 @@
       "description": "Validation error"
      }
     },
-    "description": "Reads a verification record only when its booth belongs to the caller organization."
+    "description": "Reads a verification record only when its booth is currently assigned to the caller."
    }
   },
   "/api/v1/admin/dashboard": {

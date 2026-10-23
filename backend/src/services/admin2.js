@@ -39,7 +39,7 @@ async function listCitizens(c, f) {
         where.push("ci.id > ?");
         p.push(f.cursor);
     }
-    const rows = await (0, pool_1.query)(`SELECT ci.id, ci.full_name AS fullName, ci.relation, ci.voter_id AS voterId, ci.life_status AS lifeStatus,
+    const rows = await (0, pool_1.query)(`SELECT ci.id, ci.full_name AS fullName, ci.father_or_husband_name AS fatherOrHusbandName, ci.relation, ci.voter_id AS voterId, ci.life_status AS lifeStatus,
             ci.roll_serial AS rollSerial, ci.age, ci.gender, h.address_line AS address, h.house_code AS houseCode, b.code AS boothCode,
             (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED') AS passedSteps
        FROM citizens ci JOIN households h ON h.id = ci.household_id JOIN booths b ON b.id = ci.booth_id
@@ -173,8 +173,9 @@ async function updateLoginVideo(c, loginVideoUrl) {
 }
 exports.updateLoginVideo = updateLoginVideo;
 async function listVerificationsForBooths(c) {
+    if (c.user.boothIds.length === 0)
+        return [];
     return (0, pool_1.query)(`SELECT v.id, v.step, v.result, v.created_at AS createdAt, h.house_code AS houseCode, ci.full_name AS citizenName, u.full_name AS verifier
        FROM verifications v JOIN households h ON h.id = v.household_id JOIN citizens ci ON ci.id = v.citizen_id JOIN users u ON u.id = v.verifier_id
-      JOIN booths b ON b.id = v.booth_id
-      WHERE b.organization_id = ? AND b.status = 'ACTIVE' ORDER BY v.created_at DESC LIMIT 100`, [c.user.organizationId]);
+      WHERE v.booth_id IN (${(0, pool_1.placeholders)(c.user.boothIds.length)}) ORDER BY v.created_at DESC LIMIT 100`, c.user.boothIds);
 }

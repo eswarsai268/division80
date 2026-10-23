@@ -74,7 +74,7 @@ async function processImports() {
                     const map = new Map(hid.map((h) => [`${h.booth_id}|${h.house_code}`, h.id]));
                     const people = slice.filter((r) => map.has(`${r.boothId}|${r.houseCode}`));
                     if (people.length)
-                        await conn.execute(`INSERT INTO citizens (id, household_id, booth_id, full_name, relation, voter_id, life_status, roll_serial, age, gender, d2d_verified, not_here, address_changed, new_address, visit_notes, source_import_job_id) VALUES ${people.map(() => "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").join(",")}`, people.flatMap((r) => [(0, crypto_1.randomUUID)(), map.get(`${r.boothId}|${r.houseCode}`), r.boothId, r.fullName, r.relation, r.voterId, r.lifeStatus, r.rollSerial ?? null, r.age ?? null, r.gender ?? "UNKNOWN", r.verificationDone ? 1 : 0, r.notHere ? 1 : 0, r.addressChanged ? 1 : 0, r.newAddress ?? null, r.visitNotes ?? null, job.id]));
+                        await conn.execute(`INSERT INTO citizens (id, household_id, booth_id, full_name, father_or_husband_name, relation, voter_id, life_status, roll_serial, age, gender, d2d_verified, not_here, address_changed, new_address, visit_notes, source_import_job_id) VALUES ${people.map(() => "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").join(",")}`, people.flatMap((r) => [(0, crypto_1.randomUUID)(), map.get(`${r.boothId}|${r.houseCode}`), r.boothId, r.fullName, r.fatherOrHusbandName ?? null, r.relation, r.voterId, r.lifeStatus, r.rollSerial ?? null, r.age ?? null, r.gender ?? "UNKNOWN", r.verificationDone ? 1 : 0, r.notHere ? 1 : 0, r.addressChanged ? 1 : 0, r.newAddress ?? null, r.visitNotes ?? null, job.id]));
                     await conn.execute(`UPDATE households SET verification_status = 'IN_VERIFICATION'
                         WHERE (booth_id, house_code) IN (${houses.map(() => "(?,?)").join(",")})`, houses.flatMap((r) => [r.boothId, r.houseCode]));
                     done += slice.length;
@@ -100,15 +100,15 @@ async function processImports() {
     }
     return jobs.length;
 }
-const ROSTER_SQL = `SELECT ci.id, b.code AS booth_code, h.house_code, h.address_line AS address, ci.roll_serial, ci.full_name, ci.relation, ci.voter_id, ci.age, ci.gender, ci.life_status,
+const ROSTER_SQL = `SELECT ci.id, b.code AS booth_code, h.house_code, h.address_line AS address, ci.roll_serial, ci.full_name, ci.father_or_husband_name, ci.relation, ci.voter_id, ci.age, ci.gender, ci.life_status,
             ci.d2d_verified AS d2d_visit_done, ci.not_here, ci.address_changed, ci.new_address, ci.visit_notes,
             COALESCE(vp.passed_steps, 0) AS verification_steps, h.verification_status AS household_status
             FROM citizens ci JOIN households h ON h.id = ci.household_id JOIN booths b ON b.id = ci.booth_id
             LEFT JOIN (SELECT citizen_id, COUNT(*) AS passed_steps FROM verifications WHERE result = 'PASSED' GROUP BY citizen_id) vp ON vp.citizen_id = ci.id
            WHERE b.organization_id = ? AND h.deleted_at IS NULL AND ci.deleted_at IS NULL`;
-const VERIFICATION_COLS = ["booth_code", "house_code", "address", "roll_serial", "full_name", "relation", "voter_id", "age", "gender", "life_status", "d2d_visit_done", "not_here", "address_changed", "new_address", "visit_notes", "verification_steps", "household_status"];
-const D2D_EXPORT = { headers: ["SN", "SERIAL NO", "DOOR NO", "ADDRESS", "NAME", "VOTER ID", "GENDER", "BOOTH NO", "DEAD", "NOT HERE", "VERIFICATION DONE", "ADDRESS CHANGED", "NEW ADDRESS", "ADDITIONAL NOTES"],
-    cols: ["sn", "serial_no", "door_no", "address", "name", "voter_id", "gender", "booth_no", "dead", "not_here", "d2d_visit_done", "address_changed", "new_address", "visit_notes"],
+const VERIFICATION_COLS = ["booth_code", "house_code", "address", "roll_serial", "full_name", "father_or_husband_name", "relation", "voter_id", "age", "gender", "life_status", "d2d_visit_done", "not_here", "address_changed", "new_address", "visit_notes", "verification_steps", "household_status"];
+const D2D_EXPORT = { headers: ["SN", "SERIAL NO", "DOOR NO", "ADDRESS", "NAME", "FATHER / HUSBAND NAME", "VOTER ID", "GENDER", "BOOTH NO", "DEAD", "NOT HERE", "VERIFICATION DONE", "ADDRESS CHANGED", "NEW ADDRESS", "ADDITIONAL NOTES"],
+    cols: ["sn", "serial_no", "door_no", "address", "name", "father_or_husband_name", "voter_id", "gender", "booth_no", "dead", "not_here", "d2d_visit_done", "address_changed", "new_address", "visit_notes"],
     sql: ROSTER_SQL, booth: "ci.booth_id" };
 const EXPORTS = {
     CITIZENS: D2D_EXPORT,
