@@ -173,8 +173,9 @@ async function updateLoginVideo(c, loginVideoUrl) {
 }
 exports.updateLoginVideo = updateLoginVideo;
 async function listVerificationsForBooths(c) {
+    if (c.user.boothIds.length === 0)
+        return [];
     return (0, pool_1.query)(`SELECT v.id, v.step, v.result, v.created_at AS createdAt, h.house_code AS houseCode, ci.full_name AS citizenName, u.full_name AS verifier
        FROM verifications v JOIN households h ON h.id = v.household_id JOIN citizens ci ON ci.id = v.citizen_id JOIN users u ON u.id = v.verifier_id
-      JOIN booths b ON b.id = v.booth_id
-      WHERE b.organization_id = ? AND b.status = 'ACTIVE' ORDER BY v.created_at DESC LIMIT 100`, [c.user.organizationId]);
+      WHERE v.booth_id IN (${(0, pool_1.placeholders)(c.user.boothIds.length)}) ORDER BY v.created_at DESC LIMIT 100`, c.user.boothIds);
 }

@@ -63,12 +63,19 @@ describe.skipIf(!enabled)("authorization and retired routes", () => {
     }).expect(404);
   });
 
-  it("cross-booth approval is gone and verification uses organization visibility", async () => {
-    const agent = await login(users.a.email);
-    await agent.post("/api/v1/cross-booth/requests").set(H).send({}).expect(404);
-    await agent.post("/api/v1/booth/verifications").set(H).send({ citizenId: ids.citizenB, step: 1, result: "PASSED" }).expect(201);
-    const list = await agent.get("/api/v1/booth/verifications").expect(200);
-    expect(list.body.data.some((v) => v.citizenName === "Resident B")).toBe(true);
+  it("removes cross-booth approval and keeps verification writes and history assigned-booth scoped", async () => {
+    const agentA = await login(users.a.email);
+    await agentA.post("/api/v1/cross-booth/requests").set(H).send({}).expect(404);
+    await agentA.post("/api/v1/booth/verifications").set(H).send({ citizenId: ids.citizenB, step: 1, result: "PASSED" }).expect(404);
+    const resultA = await agentA.post("/api/v1/booth/verifications").set(H).send({ citizenId: ids.citizenA, step: 1, result: "PASSED" }).expect(201);
+    const listA = await agentA.get("/api/v1/booth/verifications").expect(200);
+    expect(listA.body.data.some((v) => v.citizenName === "Resident A")).toBe(true);
+    expect(listA.body.data.some((v) => v.citizenName === "Resident B")).toBe(false);
+    await agentA.get(`/api/v1/booth/verifications/${resultA.body.data.id}`).expect(200);
+
+    const agentB = await login(users.b.email);
+    const resultB = await agentB.post("/api/v1/booth/verifications").set(H).send({ citizenId: ids.citizenB, step: 1, result: "PASSED" }).expect(201);
+    await agentA.get(`/api/v1/booth/verifications/${resultB.body.data.id}`).expect(404);
   });
 
   it("citizen account, complaint, audit, and cross-booth APIs are absent", async () => {
