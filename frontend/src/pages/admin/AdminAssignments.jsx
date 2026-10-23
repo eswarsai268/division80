@@ -17,7 +17,7 @@ export default function AdminAssignments() {
     const assign = useAct(async () => {
         try {
             for (const boothId of boothIds)
-                await post(`/admin/booths/${boothId}/assignments`, { userId, canApproveCrossBooth: false });
+                await post(`/admin/booths/${boothId}/assignments`, { userId });
         } catch (error) {
             await Promise.all([q.refetch(), booths.refetch()]);
             throw error;
@@ -49,5 +49,5 @@ export default function AdminAssignments() {
       {(assign.error || revoke.error) && <ErrorBox error={assign.error ?? revoke.error}/>}
       <button className="btn w-full" disabled={!boothIds.length || !userId || assign.isPending} onClick={() => assign.mutate(undefined)}>{assign.isPending ? "Assigning booths…" : `Assign ${boothIds.length || "selected"} booth${boothIds.length === 1 ? "" : "s"}`}</button>
     </div>
-    <Async q={q}>{(data) => data.length ? <>{data.map((assignment) => <div key={assignment.id} className="card mb-2 flex items-center justify-between text-sm"><span>{assignment.boothCode} · {assignment.fullName}{assignment.canApprove ? " · approver" : ""}</span><button className="btn-ghost" onClick={() => confirm("Revoke this assignment?") && revoke.mutate(assignment.id)}>{t("Revoke")}</button></div>)}</> : <Empty text="No active assignments."/>}</Async></div>;
+    <Async q={q}>{(data) => data.length ? <>{data.map((assignment) => <div key={assignment.id} className="card mb-2 flex items-center justify-between text-sm"><span>{assignment.boothCode} · {assignment.fullName}</span><button className="btn-ghost" onClick={() => confirm("Revoke this assignment?") && revoke.mutate(assignment.id)}>{t("Revoke")}</button></div>)}</> : <Empty text="No active assignments."/>}</Async></div>;
 }

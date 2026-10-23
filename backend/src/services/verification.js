@@ -7,8 +7,6 @@ exports.getVerificationForUser = getVerificationForUser;
 const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
-const boothAssignments_1 = require("../repositories/boothAssignments");
-const audit_1 = require("./audit");
 exports.STEPS = ["Record verification", "Voter ID check", "Life status", "T+Live circle", "Detail verification", "Double check"];
 /** Steps must be passed strictly in order. Returns the next required step, or null when all 6 passed. */
 function nextStep(passed) {
@@ -26,30 +24,12 @@ async function recordVerification(c, input, idempotencyKey) {
         const candidate = (await (0, pool_1.query)("SELECT id, household_id, booth_id FROM citizens WHERE id = ? AND deleted_at IS NULL", [input.citizenId], conn))[0];
         if (!candidate)
             throw (0, errors_1.notFound)();
-        let crossRequestId = null;
-        if (await (0, boothAssignments_1.lockActiveBoothAssignment)(conn, c.user.id, c.user.organizationId, candidate.booth_id)) {
-            // Current same-booth assignment grants access.
-        }
-        else {
-            const grantCandidate = (await (0, pool_1.query)(`SELECT r.id, r.source_booth_id AS sourceBoothId FROM cross_booth_requests r
-              JOIN booths target ON target.id = r.target_booth_id AND target.status = 'ACTIVE'
-              JOIN households h ON h.id = r.resource_id AND h.booth_id = r.target_booth_id AND h.deleted_at IS NULL
-             WHERE r.requester_id = ? AND r.resource_id = ? AND r.target_booth_id = ? AND r.action = 'VERIFY'
-               AND r.status = 'APPROVED' AND r.grant_expires_at > NOW(3)
-             ORDER BY r.grant_expires_at DESC LIMIT 1`, [c.user.id, candidate.household_id, candidate.booth_id], conn))[0];
-            if (!grantCandidate || !(await (0, boothAssignments_1.lockActiveBoothAssignment)(conn, c.user.id, c.user.organizationId, grantCandidate.sourceBoothId)))
-                throw (0, errors_1.notFound)();
-            const grant = (await (0, pool_1.query)(`SELECT r.id FROM cross_booth_requests r
-              JOIN booths target ON target.id = r.target_booth_id AND target.status = 'ACTIVE'
-              JOIN households h ON h.id = r.resource_id AND h.booth_id = r.target_booth_id AND h.deleted_at IS NULL
-             WHERE r.id = ? AND r.requester_id = ? AND r.resource_id = ? AND r.target_booth_id = ?
-               AND r.source_booth_id = ? AND r.action = 'VERIFY'
-               AND r.status = 'APPROVED' AND r.grant_expires_at > NOW(3)`,
-            [grantCandidate.id, c.user.id, candidate.household_id, candidate.booth_id, grantCandidate.sourceBoothId], conn))[0];
-            if (!grant)
-                throw (0, errors_1.notFound)();
-            crossRequestId = grant.id;
-        }
+        const access = (await (0, pool_1.query)(`SELECT b.id FROM booths b JOIN households h ON h.booth_id = b.id
+            WHERE b.id = ? AND b.organization_id = ? AND b.status = 'ACTIVE' AND h.organization_id = ?
+              AND h.id = ? AND h.deleted_at IS NULL FOR UPDATE`,
+        [candidate.booth_id, c.user.organizationId, c.user.organizationId, candidate.household_id], conn))[0];
+        if (!access)
+            throw (0, errors_1.notFound)();
         // Re-read under lock after permission checks and reject if the resource moved or was archived.
         const cit = (await (0, pool_1.query)("SELECT id, household_id, booth_id FROM citizens WHERE id = ? AND deleted_at IS NULL FOR UPDATE", [input.citizenId], conn))[0];
         if (!cit || cit.booth_id !== candidate.booth_id || cit.household_id !== candidate.household_id)
@@ -68,23 +48,19 @@ async function recordVerification(c, input, idempotencyKey) {
         if (input.step !== expected)
             throw new errors_1.AppError(409, "INVALID_STEP", `Step ${expected} must be recorded next`);
         const id = (0, crypto_1.randomUUID)();
-        await (0, pool_1.exec)(`INSERT INTO verifications (id, citizen_id, household_id, booth_id, step, result, verifier_id, notes, idempotency_key, cross_booth_request_id)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`, [id, cit.id, cit.household_id, cit.booth_id, input.step, input.result, c.user.id, input.notes ?? null, idempotencyKey ?? null, crossRequestId], conn);
+        await (0, pool_1.exec)(`INSERT INTO verifications (id, citizen_id, household_id, booth_id, step, result, verifier_id, notes, idempotency_key)
+       VALUES (?,?,?,?,?,?,?,?,?)`, [id, cit.id, cit.household_id, cit.booth_id, input.step, input.result, c.user.id, input.notes ?? null, idempotencyKey ?? null], conn);
         // Household rollup (derived state, computed server-side only)
         const open = (await (0, pool_1.query)(`SELECT COUNT(*) AS n FROM citizens ci WHERE ci.household_id = ? AND ci.deleted_at IS NULL
          AND (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED') < 6`, [cit.household_id], conn))[0].n;
         await (0, pool_1.exec)("UPDATE households SET verification_status = ? WHERE id = ?", [Number(open) === 0 ? "RESOLVED" : "IN_VERIFICATION", cit.household_id], conn);
-        await (0, audit_1.audit)({ actorId: c.user.id, action: "CITIZEN_VERIFICATION", resourceType: "CITIZEN", resourceId: cit.id,
-            scope: crossRequestId ? `cross-booth:${crossRequestId}` : `booth:${cit.booth_id}`, outcome: "SUCCESS", reason: `step ${input.step} ${input.result}`, requestId: c.requestId }, conn);
         return { id, step: input.step, result: input.result, replayed: false };
     });
 }
 async function getVerificationForUser(c, id) {
-    if (c.user.boothIds.length === 0)
-        throw (0, errors_1.notFound)();
-    const ph = c.user.boothIds.map(() => "?").join(",");
-    const r = (await (0, pool_1.query)(`SELECT id, citizen_id AS citizenId, household_id AS householdId, booth_id AS boothId, step, result, notes, created_at AS createdAt
-       FROM verifications WHERE id = ? AND booth_id IN (${ph})`, [id, ...c.user.boothIds]))[0];
+    const r = (await (0, pool_1.query)(`SELECT v.id, v.citizen_id AS citizenId, v.household_id AS householdId, v.booth_id AS boothId, v.step, v.result, v.notes, v.created_at AS createdAt
+       FROM verifications v JOIN booths b ON b.id = v.booth_id
+      WHERE v.id = ? AND b.organization_id = ? AND b.status = 'ACTIVE'`, [id, c.user.organizationId]))[0];
     if (!r)
         throw (0, errors_1.notFound)();
     return r;

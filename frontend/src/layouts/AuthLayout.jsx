@@ -9,7 +9,7 @@ export default function AuthLayout({ title, subtitle, children }) {
   const { language, setLanguage } = useLanguage();
   const location = useLocation();
   const media = useGet(["public", "login-media"], "/auth/login-media", { staleTime: 60_000 });
-  const backFallback = location.pathname === "/login" ? "/register" : "/login";
+  const backFallback = location.pathname === "/admin/login" ? "/booth/login" : "/admin/login";
   return (
     <main className="min-h-screen bg-[#f3f4f8] px-4 py-6 sm:flex sm:items-center sm:justify-center sm:px-6">
       <div className="mx-auto w-full max-w-md">

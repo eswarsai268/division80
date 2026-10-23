@@ -3,7 +3,7 @@ import Async from "../../components/Async";
 import Badge from "../../components/Badge";
 import Empty from "../../components/Empty";
 import Feed from "../../components/Feed";
-import { ArrowRight, CheckCircle2, ClipboardList, Clock3, Home, Search, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock3, Home, Search, ShieldCheck, Users } from "lucide-react";
 import { fmt } from "../../utils/format";
 import { useGet } from "../../hooks/useGet";
 import { t } from "../../i18n";
@@ -31,13 +31,10 @@ export default function BoothDashboard() {
       <section>
         <div className="section-heading"><h2>{t("Booth summary")}</h2><Link to="/booth/households" className="section-action">{t("View households")} <ArrowRight size={15}/></Link></div>
         <Async q={q}>{(d) => {
-        const c = d.complaints ?? {};
         const h = d.households ?? {};
-        const pending = (c.SUBMITTED ?? 0) + (c.UNDER_REVIEW ?? 0) + (c.ASSIGNED ?? 0);
         const cards = [
           [Home, h.PENDING + h.IN_VERIFICATION + h.RESOLVED, "Households"],
           [Clock3, h.PENDING + h.IN_VERIFICATION, "Pending visits"],
-          [ClipboardList, pending, "Open complaints"],
           [CheckCircle2, h.RESOLVED, "Verified households"],
         ];
         return <div className="grid grid-cols-2 gap-3">{cards.map(([Icon, value, label]) => <div key={label} className="metric-card"><span className="metric-icon"><Icon size={20}/></span><strong>{value}</strong><span>{t(label)}</span></div>)}</div>;
@@ -55,7 +52,6 @@ export default function BoothDashboard() {
       </section>
 
       <section><div className="section-heading"><h2>{t("Quick tools")}</h2></div><div className="grid grid-cols-3 gap-3">
-        <Link to="/booth/complaints" className="tool-card"><span className="tool-icon"><ClipboardList size={21}/></span><span>{t("Complaints")}</span></Link>
         <Link to="/booth/verifications" className="tool-card"><span className="tool-icon"><ShieldCheck size={21}/></span><span>{t("Verifications")}</span></Link>
         <Link to="/booth/households" className="tool-card"><span className="tool-icon"><Users size={21}/></span><span>{t("Households")}</span></Link>
       </div></section>

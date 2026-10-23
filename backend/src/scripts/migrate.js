@@ -20,6 +20,25 @@ async function main() {
         const [done] = await c.query("SELECT 1 FROM schema_migrations WHERE name = ?", [f]);
         if (done.length)
             continue;
+        if (f === "009_remove_citizen_accounts_complaints_cross_booth_and_audit.sql") {
+            const uploadDir = path_1.default.resolve(env_1.env.UPLOAD_DIR);
+            const [attachmentTable] = await c.query("SELECT COUNT(*) AS present FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'attachments'");
+            const [attachments] = Number(attachmentTable[0].present) ? await c.query("SELECT object_key FROM attachments") : [[]];
+            for (const row of attachments) {
+                const key = String(row.object_key);
+                const filename = path_1.default.basename(key);
+                const file = path_1.default.resolve(uploadDir, filename);
+                if (filename !== key || path_1.default.dirname(file) !== uploadDir)
+                    throw new Error("Cannot safely remove an invalid complaint attachment path");
+                try {
+                    await fs_1.default.promises.unlink(file);
+                }
+                catch (error) {
+                    if (error?.code !== "ENOENT")
+                        throw error;
+                }
+            }
+        }
         await c.query(fs_1.default.readFileSync(path_1.default.join(dir, f), "utf8"));
         await c.query("INSERT INTO schema_migrations (name) VALUES (?)", [f]);
         console.log("applied", f);

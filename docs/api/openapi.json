@@ -6,28 +6,6 @@
   "description": "Endpoint index generated from route files. Cookie auth (access_token, refresh_token). Mutating requests require header X-Requested-With: samasya-web. Request/response schemas are enforced by zod in backend/src/routes."
  },
  "paths": {
-  "/api/v1/auth/register": {
-   "post": {
-    "tags": [
-     "auth"
-    ],
-    "summary": "POST /api/v1/auth/register",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
   "/api/v1/auth/login": {
    "post": {
     "tags": [
@@ -174,94 +152,6 @@
     }
    }
   },
-  "/api/v1/complaints": {
-   "post": {
-    "tags": [
-     "complaints"
-    ],
-    "summary": "POST /api/v1/complaints",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/complaints/mine": {
-   "get": {
-    "tags": [
-     "complaints"
-    ],
-    "summary": "GET /api/v1/complaints/mine",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/complaints/{complaintId}": {
-   "get": {
-    "tags": [
-     "complaints"
-    ],
-    "summary": "GET /api/v1/complaints/{complaintId}",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/complaints/{complaintId}/timeline": {
-   "get": {
-    "tags": [
-     "complaints"
-    ],
-    "summary": "GET /api/v1/complaints/{complaintId}/timeline",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
   "/api/v1/booth/dashboard": {
    "get": {
     "tags": [
@@ -303,7 +193,8 @@
      "422": {
       "description": "Validation error"
      }
-    }
+    },
+    "description": "Lists active household rosters across booths in the authenticated booth member organization. boothId is a filter and cannot cross the organization boundary."
    }
   },
   "/api/v1/booth/households/{householdId}": {
@@ -325,7 +216,8 @@
      "422": {
       "description": "Validation error"
      }
-    }
+    },
+    "description": "Reads a household in any active booth in the caller organization. Voter IDs are masked outside booths assigned to the caller."
    }
   },
   "/api/v1/booth/households/{householdId}/citizens": {
@@ -347,7 +239,8 @@
      "422": {
       "description": "Validation error"
      }
-    }
+    },
+    "description": "Lists household members across active booths in the caller organization. Voter IDs are masked outside booths assigned to the caller."
    }
   },
   "/api/v1/booth/booths/{boothId}/summary": {
@@ -356,50 +249,6 @@
      "booth"
     ],
     "summary": "GET /api/v1/booth/booths/{boothId}/summary",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/booth/complaints": {
-   "get": {
-    "tags": [
-     "booth"
-    ],
-    "summary": "GET /api/v1/booth/complaints",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/booth/complaints/{complaintId}": {
-   "get": {
-    "tags": [
-     "booth"
-    ],
-    "summary": "GET /api/v1/booth/complaints/{complaintId}",
     "responses": {
      "200": {
       "description": "OK: {success,data,requestId}"
@@ -435,7 +284,8 @@
      "422": {
       "description": "Validation error"
      }
-    }
+    },
+    "description": "Records the next ordered verification step for a citizen in an active booth in the caller organization."
    },
    "get": {
     "tags": [
@@ -455,7 +305,8 @@
      "422": {
       "description": "Validation error"
      }
-    }
+    },
+    "description": "Lists recent verification records for active booths in the caller organization."
    }
   },
   "/api/v1/booth/verifications/{verificationId}": {
@@ -477,115 +328,8 @@
      "422": {
       "description": "Validation error"
      }
-    }
-   }
-  },
-  "/api/v1/cross-booth/requests": {
-   "post": {
-    "tags": [
-     "cross-booth"
-    ],
-    "summary": "POST /api/v1/cross-booth/requests",
-    "description": "Creates a request scoped to an exact voter ID (or household ID) and source booth. Booth Members can read household rosters within their organization. An approved, time-limited VERIFY grant is required to record verification steps for another booth.",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   },
-   "get": {
-    "tags": [
-     "cross-booth"
-    ],
-    "summary": "GET /api/v1/cross-booth/requests",
-    "description": "Lists requests made by the current booth member and requests targeting booths where they can approve.",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/cross-booth/requests/{requestId}/household": {
-   "get": {
-    "tags": [
-     "cross-booth"
-    ],
-    "summary": "GET /api/v1/cross-booth/requests/{requestId}/household",
-    "description": "Returns household roster data only to the requester while an approved, time-limited read or verify grant is active.",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "404": {
-      "description": "No active grant for this requester"
-     }
-    }
-   }
-  },
-  "/api/v1/cross-booth/requests/{requestId}/approve": {
-   "post": {
-    "tags": [
-     "cross-booth"
-    ],
-    "summary": "POST /api/v1/cross-booth/requests/{requestId}/approve",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/cross-booth/requests/{requestId}/reject": {
-   "post": {
-    "tags": [
-     "cross-booth"
-    ],
-    "summary": "POST /api/v1/cross-booth/requests/{requestId}/reject",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
+    },
+    "description": "Reads a verification record only when its booth belongs to the caller organization."
    }
   },
   "/api/v1/admin/dashboard": {
@@ -785,7 +529,7 @@
      "admin"
     ],
     "summary": "POST /api/v1/admin/users",
-    "description": "Creates a user. BOOTH_MEMBER accounts require boothId and are assigned to that active booth atomically; USER accounts do not receive booth assignments. Passwords are never returned.",
+    "description": "Creates and assigns a booth member account. Only BOOTH_MEMBER accounts can be created here; passwords are never returned.",
     "responses": {
      "200": {
       "description": "OK: {success,data,requestId}"
@@ -808,92 +552,6 @@
      "admin"
     ],
     "summary": "PATCH /api/v1/admin/users/{userId}",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/admin/complaints": {
-   "get": {
-    "tags": [
-     "admin"
-    ],
-    "summary": "GET /api/v1/admin/complaints",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/admin/complaints/{complaintId}": {
-   "patch": {
-    "tags": [
-     "admin"
-    ],
-    "summary": "PATCH /api/v1/admin/complaints/{complaintId}",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   },
-   "get": {
-    "tags": [
-     "admin"
-    ],
-    "summary": "GET /api/v1/admin/complaints/{complaintId}",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/admin/audit-logs": {
-   "get": {
-    "tags": [
-     "admin"
-    ],
-    "summary": "GET /api/v1/admin/audit-logs",
     "responses": {
      "200": {
       "description": "OK: {success,data,requestId}"
@@ -1128,28 +786,6 @@
     }
    }
   },
-  "/api/v1/admin/complaints/{complaintId}/attachments": {
-   "get": {
-    "tags": [
-     "admin"
-    ],
-    "summary": "GET /api/v1/admin/complaints/{complaintId}/attachments",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
   "/api/v1/admin/settings": {
    "get": {
     "tags": [
@@ -1217,26 +853,6 @@
      },
      "429": {
       "description": "Password change rate limit reached"
-     }
-    }
-   }
-  },
-  "/api/v1/admin/cross-booth": {
-   "get": {
-    "tags": [
-     "admin"
-    ],
-    "summary": "GET /api/v1/admin/cross-booth",
-    "description": "Lists organization-scoped cross-booth requests and the number of verification steps recorded under each grant.",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
      }
     }
    }
@@ -1397,112 +1013,6 @@
      "admin"
     ],
     "summary": "GET /api/v1/admin/export-jobs/{jobId}/download",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/complaints/{complaintId}/attachments": {
-   "post": {
-    "tags": [
-     "complaints"
-    ],
-    "summary": "POST /api/v1/complaints/{complaintId}/attachments",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   },
-   "get": {
-    "tags": [
-     "complaints"
-    ],
-    "summary": "GET /api/v1/complaints/{complaintId}/attachments",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/profile": {
-   "get": {
-    "tags": [
-     "profile"
-    ],
-    "summary": "GET /api/v1/profile",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   },
-   "patch": {
-    "tags": [
-     "profile"
-    ],
-    "summary": "PATCH /api/v1/profile",
-    "responses": {
-     "200": {
-      "description": "OK: {success,data,requestId}"
-     },
-     "401": {
-      "description": "Unauthenticated"
-     },
-     "403": {
-      "description": "Forbidden"
-     },
-     "422": {
-      "description": "Validation error"
-     }
-    }
-   }
-  },
-  "/api/v1/files/{attachmentId}": {
-   "get": {
-    "tags": [
-     "files"
-    ],
-    "summary": "GET /api/v1/files/{attachmentId}",
     "responses": {
      "200": {
       "description": "OK: {success,data,requestId}"

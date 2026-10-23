@@ -9,7 +9,6 @@ exports.updateVisitForUser = updateVisitForUser;
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
 const boothAssignments_1 = require("./boothAssignments");
-const audit_1 = require("../services/audit");
 const maskVoter = (v) => (v ? `****${v.slice(-4)}` : null);
 exports.maskVoter = maskVoter;
 const escLike = (s) => s.replace(/[\\%_]/g, (m) => "\\" + m);
@@ -132,16 +131,6 @@ async function updateVisitForUser(c, citizenId, input) {
             new_address = ?, visit_notes = ? WHERE id = ? AND deleted_at IS NULL`,
         [input.lifeStatus, input.verificationDone ? 1 : 0, input.notHere ? 1 : 0, input.addressChanged ? 1 : 0,
             input.addressChanged ? input.newAddress || null : null, input.visitNotes || null, citizenId], conn);
-        await (0, audit_1.audit)({
-            actorId: u.id,
-            action: "CITIZEN_VISIT_UPDATE",
-            resourceType: "CITIZEN",
-            resourceId: citizenId,
-            scope: "assigned booth",
-            outcome: "SUCCESS",
-            reason: "D2D visit details updated",
-            requestId: c.requestId,
-        }, conn);
         return { id: citizenId };
     });
 }
