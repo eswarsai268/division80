@@ -93,7 +93,7 @@ export default function Households() {
 
       {totals && <p role="status" className="rounded-xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">Database results for these filters: <strong className="text-slate-900">{totals.totalHouseholds.toLocaleString()} houses</strong> with <strong className="text-slate-900">{totals.totalPeople.toLocaleString()} people</strong>. Loaded {items.length.toLocaleString()} house cards.</p>}
       <Async q={query}>{() => items.length ? <section className="space-y-3" aria-label={t("House list")}>
-        {items.map((house) => <Link key={house.id} to={`/booth/households/${house.id}`} className="flex min-h-24 items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 text-inherit no-underline shadow-sm transition hover:border-amber-300 hover:shadow-md">
+        {items.map((house) => <div key={house.id}><Link to={`/booth/households/${house.id}`} className="flex min-h-24 items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 text-inherit no-underline shadow-sm transition hover:border-amber-300 hover:shadow-md">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-amber-100 bg-amber-50 text-amber-700"><Users size={23}/></span>
           <span className="min-w-0 flex-1">
             <span className="block text-lg font-extrabold text-slate-900">{t("House")} {house.houseCode}</span>
@@ -101,7 +101,15 @@ export default function Households() {
             <span className="mt-1 block text-xs font-semibold text-emerald-700">{t("Visited")}: {house.visitedCount}/{house.citizenCount}</span>
           </span>
           <ArrowRight className="shrink-0 text-slate-500" size={21}/>
-        </Link>)}
+        </Link>
+        {house.matchingCitizens?.length > 0 && <div className="mt-2 rounded-xl border border-amber-300 bg-amber-100/80 px-4 py-3 shadow-sm">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-amber-900">{t("Matching people")}</p>
+          <div className="mt-1.5 space-y-1.5">{house.matchingCitizens.slice(0, 10).map((person) => <div key={person.id} className="flex flex-wrap items-baseline gap-x-2 text-sm">
+            <span className="font-bold text-slate-900">{person.fullName}</span>
+            {person.fatherOrHusbandName && <span className="text-amber-950">{t("Father / husband")}: <strong>{person.fatherOrHusbandName}</strong></span>}
+          </div>)}</div>
+        </div>}
+        </div>)}
         {query.hasNextPage && <button className="btn w-full min-h-12 rounded-xl" type="button" disabled={query.isFetchingNextPage} onClick={() => query.fetchNextPage()}>
           {t(query.isFetchingNextPage ? "Loading houses…" : "Show more houses")}
         </button>}
