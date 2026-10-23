@@ -52,7 +52,12 @@ const households_1 = require("../repositories/households");
 const audit_1 = require("../services/audit");
 const extra_1 = require("./extra");
 const router = (0, express_1.Router)();
+<<<<<<< HEAD
 const password = zod_1.z.string().min(8).max(128);
+=======
+const password = zod_1.z.string().min(12).max(128);
+const registrationPassword = zod_1.z.string().min(8, "Password must contain at least 8 characters").max(128);
+>>>>>>> 3f665bea833da63243d2b5cef7b8956b3ddcb22c
 const boothMemberCredentials = zod_1.z.object({
     email: zod_1.z.string().email().max(255),
     fullName: zod_1.z.string().min(2).max(200),
@@ -71,7 +76,7 @@ const clearCookies = (res) => { res.clearCookie("access_token", { path: "/" }); 
 const a = (0, express_1.Router)();
 a.post("/register", rateLimit_1.limits.register, (0, http_1.h)(async (req, res) => {
     // Unknown keys (e.g. "role") are stripped by zod and ignored: self-registration is always USER.
-    const body = (0, http_1.parse)(zod_1.z.object({ email: zod_1.z.string().email().max(255), password, fullName: zod_1.z.string().min(2).max(200), phone: zod_1.z.string().max(32).optional() }), req.body);
+    const body = (0, http_1.parse)(zod_1.z.object({ email: zod_1.z.string().email().max(255), password: registrationPassword, fullName: zod_1.z.string().min(2).max(200), phone: zod_1.z.string().max(32).optional() }), req.body);
     (0, http_1.ok)(req, res, await auth.register(body, String(req.id)), 201);
 }));
 a.post("/login", rateLimit_1.limits.login, rateLimit_1.limits.loginEmail, (0, http_1.h)(async (req, res) => {

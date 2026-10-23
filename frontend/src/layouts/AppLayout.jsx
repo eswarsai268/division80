@@ -15,11 +15,11 @@ export default function AppLayout() {
   const qc = useQueryClient();
   const nav = useNavigate();
   if (!me) return null;
-  const onLogout = async () => { await logout().catch(() => undefined); qc.clear(); nav(loginFor(me.role)); };
+  const onLogout = async () => { await logout(); qc.clear(); nav(loginFor(me.role)); };
   return (
     <div className="app-shell mx-auto min-h-screen max-w-3xl">
-      <AppHeader me={me} onLogout={onLogout} />
-      <main key={language} className="p-4"><Outlet /></main>
+      <AppHeader me={me} />
+      <main key={language} className="p-4"><Outlet context={{ onLogout }} /></main>
       <BottomNav {...NAV[me.role]} />
     </div>
   );
