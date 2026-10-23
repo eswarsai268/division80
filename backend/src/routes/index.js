@@ -49,7 +49,8 @@ const verification = __importStar(require("../services/verification"));
 const households_1 = require("../repositories/households");
 const extra_1 = require("./extra");
 const router = (0, express_1.Router)();
-const password = zod_1.z.string().min(8).max(128);
+const password = zod_1.z.string().min(12).max(128);
+const registrationPassword = zod_1.z.string().min(8, "Password must contain at least 8 characters").max(128);
 const boothMemberCredentials = zod_1.z.object({
     email: zod_1.z.string().email().max(255),
     fullName: zod_1.z.string().min(2).max(200),
