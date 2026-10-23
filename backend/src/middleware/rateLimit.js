@@ -25,14 +25,10 @@ exports.limits = {
     // merely by exhausting an email-only bucket.
     loginEmail: (0, exports.limiter)("loginEmail", 20, HOUR, (r) => `${r.ip ?? "unknown"}:${String(r.body?.email ?? "").toLowerCase().slice(0, 100)}`),
     passwordChange: (0, exports.limiter)("passwordChange", 5, HOUR, byUser),
-    register: (0, exports.limiter)("register", 5, HOUR),
     refresh: (0, exports.limiter)("refresh", 60, 15 * MIN),
-    complaint: (0, exports.limiter)("complaint", 20, HOUR, byUser),
     search: (0, exports.limiter)("search", 120, MIN, byUser),
-    crossBooth: (0, exports.limiter)("xbooth", 30, HOUR, byUser),
     verification: (0, exports.limiter)("verify", 300, MIN, byUser),
     importJobs: (0, exports.limiter)("imports", 20, HOUR, byUser),
     exportJobs: (0, exports.limiter)("exports", 10, HOUR, byUser),
-    upload: (0, exports.limiter)("upload", 30, HOUR, byUser),
     admin: (0, exports.limiter)("admin", 120, MIN, byUser),
 };

@@ -9,7 +9,7 @@ if (!["http:", "https:"].includes(parsedBase.protocol) || parsedBase.username ||
 }
 const BASE_PATH = parsedBase.pathname.replace(/\/+$/, "");
 const BASE = configuredBase.startsWith("/") ? BASE_PATH : `${parsedBase.origin}${BASE_PATH}`;
-const NO_REFRESH_PATHS = new Set(["/auth/login", "/auth/register", "/auth/logout", "/auth/refresh"]);
+const NO_REFRESH_PATHS = new Set(["/auth/login", "/auth/logout", "/auth/refresh"]);
 
 export class ApiError extends Error {
     status;

@@ -13,7 +13,7 @@ import { t } from "../../i18n";
 export default function AdminBooths() {
     const [code, setCode] = useState("");
     const [name, setName] = useState("");
-    const [member, setMember] = useState({ fullName: "", email: "", password: "", canApproveCrossBooth: false });
+    const [member, setMember] = useState({ fullName: "", email: "", password: "" });
     const [createdMemberEmail, setCreatedMemberEmail] = useState("");
     const q = useGet(["admin", "booths"], "/admin/booths");
     const memberFields = [member.fullName, member.email, member.password];
@@ -27,7 +27,7 @@ export default function AdminBooths() {
         setCreatedMemberEmail(result.memberId ? member.email.trim() : "");
         setCode("");
         setName("");
-        setMember({ fullName: "", email: "", password: "", canApproveCrossBooth: false });
+        setMember({ fullName: "", email: "", password: "" });
         return result;
     }));
     const invalidPartialMember = memberStarted && !memberComplete;
@@ -39,7 +39,6 @@ export default function AdminBooths() {
         <input className="input" placeholder={t("Member full name")} value={member.fullName} onChange={(e) => setMember({ ...member, fullName: e.target.value })} aria-label={t("Booth member full name")}/>
         <input className="input" type="email" autoComplete="off" placeholder={t("Member login email")} value={member.email} onChange={(e) => setMember({ ...member, email: e.target.value })} aria-label={t("Booth member login email")}/>
         <input className="input" type="password" autoComplete="new-password" minLength={8} placeholder={t("Initial password (8+ characters)")} value={member.password} onChange={(e) => setMember({ ...member, password: e.target.value })} aria-label={t("Booth member initial password")}/>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={member.canApproveCrossBooth} onChange={(e) => setMember({ ...member, canApproveCrossBooth: e.target.checked })}/> {t("Can approve cross-booth requests")}</label>
         {invalidPartialMember && <p className="text-xs text-amber-800">{t("To create a member login, provide a name, valid email, and password of at least 8 characters.")}</p>}
       </div>
       {m.error && <ErrorBox error={m.error}/>}

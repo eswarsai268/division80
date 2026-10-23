@@ -9,7 +9,6 @@ exports.listAssignments = listAssignments;
 exports.revokeAssignment = revokeAssignment;
 exports.createUser = createUser;
 exports.updateUser = updateUser;
-exports.listAudit = listAudit;
 exports.dashboard = dashboard;
 exports.createEvent = createEvent;
 exports.setEventStatus = setEventStatus;
@@ -17,7 +16,6 @@ const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
 const password_1 = require("../auth/password");
-const audit_1 = require("./audit");
 const publicContent_1 = require("./publicContent");
 // Every query below is constrained by c.user.organizationId (admin scope), never by client input.
 const org = (c) => c.user.organizationId;
@@ -28,7 +26,6 @@ async function createBooth(c, i) {
     try {
         return await (0, pool_1.tx)(async (conn) => {
             await (0, pool_1.exec)("INSERT INTO booths (id, organization_id, code, name) VALUES (?,?,?,?)", [boothId, org(c), i.code, i.name], conn);
-            await (0, audit_1.audit)({ actorId: c.user.id, action: "BOOTH_CREATE", resourceType: "BOOTH", resourceId: boothId, outcome: "SUCCESS", requestId: c.requestId }, conn);
             if (i.member) {
                 await createBoothMemberAccount(c, boothId, i.member, memberId, passwordHash, conn);
             }
@@ -55,7 +52,6 @@ async function updateBooth(c, id, i) {
     const r = await (0, pool_1.exec)("UPDATE booths SET name = COALESCE(?, name), status = COALESCE(?, status) WHERE id = ? AND organization_id = ?", [i.name ?? null, i.status ?? null, id, org(c)]);
     if (r.affectedRows === 0)
         throw (0, errors_1.notFound)();
-    await (0, audit_1.audit)({ actorId: c.user.id, action: "BOOTH_UPDATE", resourceType: "BOOTH", resourceId: id, outcome: "SUCCESS", requestId: c.requestId });
     return { id };
 }
 async function assignMember(c, boothId, i) {
@@ -74,7 +70,7 @@ async function assignMember(c, boothId, i) {
             return { id: existing.id, alreadyAssigned: true };
         const id = (0, crypto_1.randomUUID)();
         try {
-            await (0, pool_1.exec)("INSERT INTO booth_assignments (id, booth_id, user_id, can_approve_cross_booth, created_by) VALUES (?,?,?,?,?)", [id, boothId, i.userId, i.canApproveCrossBooth ? 1 : 0, c.user.id], conn);
+            await (0, pool_1.exec)("INSERT INTO booth_assignments (id, booth_id, user_id, created_by) VALUES (?,?,?,?)", [id, boothId, i.userId, c.user.id], conn);
         }
         catch (e) { // unique(active_key) makes concurrent duplicate assignment impossible
             if (e?.code === "ER_DUP_ENTRY") {
@@ -85,13 +81,12 @@ async function assignMember(c, boothId, i) {
             }
             throw e;
         }
-        await (0, audit_1.audit)({ actorId: c.user.id, action: "BOOTH_ASSIGNMENT", resourceType: "BOOTH", resourceId: boothId, scope: `user:${i.userId}`, outcome: "SUCCESS", requestId: c.requestId }, conn);
         return { id };
     });
 }
 async function listAssignments(c, boothId) {
     await getBooth(c, boothId);
-    return (0, pool_1.query)(`SELECT a.id, a.user_id AS userId, u.full_name AS fullName, a.can_approve_cross_booth AS canApprove, a.starts_at AS startsAt, a.ends_at AS endsAt
+    return (0, pool_1.query)(`SELECT a.id, a.user_id AS userId, u.full_name AS fullName, a.starts_at AS startsAt, a.ends_at AS endsAt
                   FROM booth_assignments a JOIN users u ON u.id = a.user_id WHERE a.booth_id = ? AND a.revoked_at IS NULL`, [boothId]);
 }
 async function revokeAssignment(c, id) {
@@ -99,10 +94,9 @@ async function revokeAssignment(c, id) {
         SET a.revoked_at = NOW(3), a.revoked_by = ? WHERE a.id = ? AND a.revoked_at IS NULL AND b.organization_id = ?`, [c.user.id, id, org(c)]);
     if (r.affectedRows === 0)
         throw (0, errors_1.notFound)();
-    await (0, audit_1.audit)({ actorId: c.user.id, action: "BOOTH_REVOCATION", resourceType: "ASSIGNMENT", resourceId: id, outcome: "SUCCESS", requestId: c.requestId });
     return { id };
 }
-const listUsers = (c, role) => (0, pool_1.query)(`SELECT id, email, full_name AS fullName, role, status FROM users WHERE organization_id = ? ${role ? "AND role = ?" : ""} ORDER BY created_at DESC LIMIT 200`, role ? [org(c), role] : [org(c)]);
+const listUsers = (c, role) => (0, pool_1.query)(`SELECT id, email, full_name AS fullName, role, status FROM users WHERE organization_id = ? AND role IN ('ADMIN','BOOTH_MEMBER') ${role ? "AND role = ?" : ""} ORDER BY created_at DESC LIMIT 200`, role ? [org(c), role] : [org(c)]);
 exports.listUsers = listUsers;
 /** Admins create booth members with a temporary password. Creating ADMINs is deliberately NOT possible via API. */
 async function createUser(c, i) {
@@ -116,9 +110,7 @@ async function createUser(c, i) {
                 await createBoothMemberAccount(c, i.boothId, i, id, passwordHash, conn);
                 return { id };
             }
-            await (0, pool_1.exec)("INSERT INTO users (id, organization_id, email, password_hash, full_name, role) VALUES (?,?,?,?,?,?)", [id, org(c), i.email.toLowerCase(), passwordHash, i.fullName, i.role], conn);
-            await (0, audit_1.audit)({ actorId: c.user.id, action: "ROLE_CHANGE", resourceType: "USER", resourceId: id, reason: `created as ${i.role}`, outcome: "SUCCESS", requestId: c.requestId }, conn);
-            return { id };
+            throw new errors_1.AppError(422, "INVALID_ROLE", "Only booth member accounts can be created here");
         });
     }
     catch (e) {
@@ -133,9 +125,7 @@ async function createBoothMemberAccount(c, boothId, member, userId, passwordHash
         throw (0, errors_1.notFound)();
     await (0, pool_1.exec)("INSERT INTO users (id, organization_id, email, password_hash, full_name, role) VALUES (?,?,?,?,?,'BOOTH_MEMBER')", [userId, org(c), member.email.toLowerCase(), passwordHash, member.fullName], conn);
     const assignmentId = (0, crypto_1.randomUUID)();
-    await (0, pool_1.exec)("INSERT INTO booth_assignments (id, booth_id, user_id, can_approve_cross_booth, created_by) VALUES (?,?,?,?,?)", [assignmentId, boothId, userId, member.canApproveCrossBooth ? 1 : 0, c.user.id], conn);
-    await (0, audit_1.audit)({ actorId: c.user.id, action: "ROLE_CHANGE", resourceType: "USER", resourceId: userId, reason: "created as BOOTH_MEMBER", outcome: "SUCCESS", requestId: c.requestId }, conn);
-    await (0, audit_1.audit)({ actorId: c.user.id, action: "BOOTH_ASSIGNMENT", resourceType: "BOOTH", resourceId: boothId, scope: `user:${userId}`, outcome: "SUCCESS", requestId: c.requestId }, conn);
+    await (0, pool_1.exec)("INSERT INTO booth_assignments (id, booth_id, user_id, created_by) VALUES (?,?,?,?)", [assignmentId, boothId, userId, c.user.id], conn);
     return { id: userId, assignmentId };
 }
 async function updateUser(c, id, i) {
@@ -145,23 +135,14 @@ async function updateUser(c, id, i) {
         const t = (await (0, pool_1.query)("SELECT id, role FROM users WHERE id = ? AND organization_id = ? FOR UPDATE", [id, org(c)], conn))[0];
         if (!t)
             throw (0, errors_1.notFound)();
-        if (t.role === "ADMIN")
+        if (t.role !== "BOOTH_MEMBER")
             throw new errors_1.AppError(403, "FORBIDDEN", "Admin accounts cannot be modified here");
-        await (0, pool_1.exec)("UPDATE users SET status = COALESCE(?, status), role = COALESCE(?, role) WHERE id = ?", [i.status ?? null, i.role ?? null, id], conn);
-        if (i.status === "SUSPENDED" || i.role) {
+        await (0, pool_1.exec)("UPDATE users SET status = COALESCE(?, status) WHERE id = ?", [i.status ?? null, id], conn);
+        if (i.status === "SUSPENDED") {
             await (0, pool_1.exec)("UPDATE sessions SET revoked_at = NOW(3) WHERE user_id = ? AND revoked_at IS NULL", [id], conn);
-            if (i.status === "SUSPENDED" || i.role === "USER")
-                await (0, pool_1.exec)("UPDATE booth_assignments SET revoked_at = NOW(3), revoked_by = ? WHERE user_id = ? AND revoked_at IS NULL", [c.user.id, id], conn);
         }
-        await (0, audit_1.audit)({ actorId: c.user.id, action: i.status === "SUSPENDED" ? "ACCOUNT_SUSPENSION" : "ROLE_CHANGE", resourceType: "USER", resourceId: id,
-            reason: [i.status, i.role].filter(Boolean).join(","), outcome: "SUCCESS", requestId: c.requestId }, conn);
         return { id };
     });
-}
-function listAudit(c, limit) {
-    return (0, pool_1.query)(`SELECT a.id, a.actor_id AS actorId, a.action, a.resource_type AS resourceType, a.resource_id AS resourceId,
-            a.scope, a.outcome, a.reason, a.request_id AS requestId, a.created_at AS createdAt
-       FROM audit_logs a JOIN users u ON u.id = a.actor_id WHERE u.organization_id = ? ORDER BY a.created_at DESC LIMIT ${limit}`, [org(c)]);
 }
 async function dashboard(c) {
     const o = org(c);
@@ -170,9 +151,6 @@ async function dashboard(c) {
         booths: await one("SELECT COUNT(*) n FROM booths WHERE organization_id = ? AND status='ACTIVE'"),
         boothMembers: await one("SELECT COUNT(DISTINCT a.user_id) n FROM booth_assignments a JOIN booths b ON b.id=a.booth_id WHERE b.organization_id=? AND a.revoked_at IS NULL"),
         households: await one("SELECT COUNT(*) n FROM households WHERE organization_id = ? AND deleted_at IS NULL"),
-        pendingComplaints: await one("SELECT COUNT(*) n FROM complaints WHERE organization_id = ? AND status IN ('SUBMITTED','UNDER_REVIEW','ASSIGNED')"),
-        inVerification: await one("SELECT COUNT(*) n FROM complaints WHERE organization_id = ? AND status = 'IN_VERIFICATION'"),
-        resolved: await one("SELECT COUNT(*) n FROM complaints WHERE organization_id = ? AND status = 'RESOLVED'"),
         upcomingEvents: await one("SELECT COUNT(*) n FROM events WHERE organization_id = ? AND status='PUBLISHED' AND starts_at > NOW(3)"),
     };
 }
@@ -185,7 +163,6 @@ async function setEventStatus(c, id, status) {
     const r = await (0, pool_1.exec)("UPDATE events SET status = ?, published_at = IF(? = 'PUBLISHED', NOW(3), published_at) WHERE id = ? AND organization_id = ?", [status, status, id, org(c)]);
     if (r.affectedRows === 0)
         throw (0, errors_1.notFound)();
-    await (0, audit_1.audit)({ actorId: c.user.id, action: "EVENT_" + status, resourceType: "EVENT", resourceId: id, outcome: "SUCCESS", requestId: c.requestId });
     await (0, publicContent_1.invalidatePublicContent)();
     return { id, status };
 }

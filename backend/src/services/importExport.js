@@ -11,7 +11,6 @@ exports.deleteExport = deleteExport;
 const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
-const audit_1 = require("./audit");
 const csv_1 = require("./csv");
 const REQUIRED = ["booth_code", "house_code", "full_name"];
 const MAX_ROWS = 50_000;
@@ -213,7 +212,6 @@ async function createImportJob(c, csv) {
     const pendingBoothCodes = [...new Set(final.filter((v) => !v.boothId).map((v) => v.boothCode))].sort();
     const id = (0, crypto_1.randomUUID)();
     await (0, pool_1.exec)(`INSERT INTO import_jobs (id, organization_id, created_by, total_rows, valid_rows, error_count, errors, payload) VALUES (?,?,?,?,?,?,?,?)`, [id, c.user.organizationId, c.user.id, rows.length - 1, final.length, errorCount, JSON.stringify(errors), JSON.stringify(final)]);
-    await (0, audit_1.audit)({ actorId: c.user.id, action: "IMPORT", resourceType: "IMPORT_JOB", resourceId: id, outcome: "SUCCESS", reason: "preview created", requestId: c.requestId });
     return { id, status: "PREVIEW", totalRows: rows.length - 1, validRows: final.length, errorCount, errors: errors.slice(0, 50), pendingBoothCodes };
 }
 const IMPORT_COLS = `id, status, total_rows AS totalRows, valid_rows AS validRows, error_count AS errorCount, processed_rows AS processedRows, result, last_error AS lastError, created_at AS createdAt, data_tracked AS dataTracked, (status = 'PREVIEW' OR (status NOT IN ('QUEUED','COMMITTING') AND data_tracked = 1)) AS canDelete`;
@@ -251,15 +249,6 @@ async function deleteImportJob(c, id) {
         }
         await (0, pool_1.exec)(`UPDATE import_jobs SET deleted_at = NOW(3), payload = NULL, errors = NULL
             WHERE id = ? AND organization_id = ? AND deleted_at IS NULL`, [id, c.user.organizationId], conn);
-        await (0, audit_1.audit)({
-            actorId: c.user.id,
-            action: "IMPORT_DELETE",
-            resourceType: "IMPORT_JOB",
-            resourceId: id,
-            outcome: "SUCCESS",
-            reason: tracked ? "import and roster records archived" : "preview deleted",
-            requestId: c.requestId,
-        }, conn);
         return { id, deleted: true };
     });
 }
@@ -271,7 +260,6 @@ async function confirmImport(c, id) {
         await getImportJob(c, id);
         throw (0, errors_1.conflict)("Import is not in a confirmable state");
     }
-    await (0, audit_1.audit)({ actorId: c.user.id, action: "IMPORT", resourceType: "IMPORT_JOB", resourceId: id, outcome: "SUCCESS", reason: "confirmed", requestId: c.requestId });
     return { id, status: "QUEUED" };
 }
 async function createExport(c, i) {
@@ -282,7 +270,6 @@ async function createExport(c, i) {
     }
     const id = (0, crypto_1.randomUUID)();
     await (0, pool_1.exec)("INSERT INTO export_jobs (id, organization_id, created_by, kind, booth_id) VALUES (?,?,?,?,?)", [id, c.user.organizationId, c.user.id, i.kind, i.boothId ?? null]);
-    await (0, audit_1.audit)({ actorId: c.user.id, action: "EXPORT", resourceType: "EXPORT_JOB", resourceId: id, scope: `${i.kind}${i.boothId ? ":booth:" + i.boothId : ":org"}`, outcome: "SUCCESS", reason: "requested", requestId: c.requestId });
     return { id, status: "PENDING" };
 }
 const EXPORT_COLS = `id, kind, booth_id AS boothId, status, row_count AS rowCount, expires_at AS expiresAt, last_error AS lastError, created_at AS createdAt`;
@@ -298,7 +285,6 @@ async function downloadExport(c, id) {
     const j = (await (0, pool_1.query)("SELECT kind, content FROM export_jobs WHERE id = ? AND organization_id = ? AND status = 'READY' AND expires_at > NOW(3)", [id, c.user.organizationId]))[0];
     if (!j || j.content == null)
         throw (0, errors_1.notFound)();
-    await (0, audit_1.audit)({ actorId: c.user.id, action: "EXPORT", resourceType: "EXPORT_JOB", resourceId: id, outcome: "SUCCESS", reason: "downloaded", requestId: c.requestId });
     return { kind: String(j.kind).toLowerCase(), content: String(j.content) };
 }
 async function deleteExport(c, id) {
@@ -309,7 +295,6 @@ async function deleteExport(c, id) {
         if (job.status === "PROCESSING")
             throw (0, errors_1.conflict)("Wait until the export finishes before deleting it");
         await (0, pool_1.exec)("DELETE FROM export_jobs WHERE id = ? AND organization_id = ?", [id, c.user.organizationId], conn);
-        await (0, audit_1.audit)({ actorId: c.user.id, action: "EXPORT_DELETE", resourceType: "EXPORT_JOB", resourceId: id, outcome: "SUCCESS", reason: `deleted ${job.kind} export from history`, requestId: c.requestId }, conn);
         return { id, deleted: true };
     });
 }

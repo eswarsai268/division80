@@ -90,13 +90,11 @@ async function processImports() {
                 }
             }
             await db_1.pool.execute("UPDATE import_jobs SET status = 'COMMITTED', result = ?, payload = NULL, locked_by = NULL WHERE id = ?", [JSON.stringify({ rowsProcessed: rows.length }), job.id]);
-            await (0, db_1.audit)(job.created_by, "IMPORT", "IMPORT_JOB", job.id, `committed ${rows.length} rows`);
             db_1.log.info({ jobId: job.id, rows: rows.length }, "import committed");
         }
         catch (e) {
             const message = importFailureMessage(e);
             await db_1.pool.execute("UPDATE import_jobs SET status = 'FAILED', last_error = ?, payload = NULL, locked_by = NULL WHERE id = ?", [message, job.id]);
-            await (0, db_1.audit)(job.created_by, "IMPORT", "IMPORT_JOB", job.id, message, "FAILURE");
             db_1.log.error({ jobId: job.id, code: safeErrorCode(e) }, "import failed");
         }
     }
@@ -120,8 +118,6 @@ const EXPORTS = {
     HOUSEHOLDS: { cols: ["booth_code", "house_code", "status"],
         sql: `SELECT h.id, b.code AS booth_code, h.house_code, h.verification_status AS status
             FROM households h JOIN booths b ON b.id = h.booth_id WHERE b.organization_id = ? AND h.deleted_at IS NULL`, booth: "h.booth_id" },
-    COMPLAINTS: { cols: ["category", "status", "title", "created_at"],
-        sql: `SELECT c.id, c.category, c.status, c.title, c.created_at FROM complaints c WHERE c.organization_id = ?`, booth: "c.assigned_booth_id" },
     PENDING_VERIFICATION: { cols: VERIFICATION_COLS, sql: `${ROSTER_SQL} AND COALESCE(vp.passed_steps, 0) = 0`, booth: "ci.booth_id" },
     IN_PROGRESS_VERIFICATION: { cols: VERIFICATION_COLS, sql: `${ROSTER_SQL} AND COALESCE(vp.passed_steps, 0) BETWEEN 1 AND 5`, booth: "ci.booth_id" },
     VERIFIED_CITIZENS: { cols: VERIFICATION_COLS, sql: `${ROSTER_SQL} AND COALESCE(vp.passed_steps, 0) = 6`, booth: "ci.booth_id" },
@@ -139,6 +135,7 @@ async function processExports() {
                 throw new Error("unknown export kind");
             const lines = [(def.headers ?? def.cols).join(",")];
             let last = "", n = 0;
+            const alias = def.sql.includes("FROM citizens ci") ? "ci" : "h";
             for (;;) {
                 const params = [job.organization_id];
                 let extra = "";
@@ -147,10 +144,9 @@ async function processExports() {
                     params.push(job.booth_id);
                 }
                 if (last) {
-                    extra += ` AND ${def.sql.includes("FROM citizens ci") ? "ci" : def.sql.includes("FROM households h") ? "h" : "c"}.id > ?`;
+                    extra += ` AND ${alias}.id > ?`;
                     params.push(last);
                 }
-                const alias = def.sql.includes("FROM citizens ci") ? "ci" : def.sql.includes("FROM households h") ? "h" : "c";
                 const [rows] = await db_1.pool.execute(`${def.sql}${extra} ORDER BY ${alias}.id LIMIT ${PAGE}`, params);
                 if (!rows.length)
                     break;
@@ -174,12 +170,10 @@ async function processExports() {
                     break;
             }
             await db_1.pool.execute("UPDATE export_jobs SET status = 'READY', content = ?, row_count = ?, expires_at = DATE_ADD(NOW(3), INTERVAL 24 HOUR), locked_by = NULL WHERE id = ?", [lines.join("\n"), n, job.id]);
-            await (0, db_1.audit)(job.created_by, "EXPORT", "EXPORT_JOB", job.id, `generated ${n} rows`);
         }
         catch (e) {
             const message = exportFailureMessage(e);
             await db_1.pool.execute("UPDATE export_jobs SET status = 'FAILED', last_error = ?, locked_by = NULL WHERE id = ?", [message, job.id]);
-            await (0, db_1.audit)(job.created_by, "EXPORT", "EXPORT_JOB", job.id, message, "FAILURE");
             db_1.log.error({ jobId: job.id, code: safeErrorCode(e) }, "export failed");
         }
     }
@@ -191,5 +185,4 @@ async function maintenance() {
     await db_1.pool.execute("UPDATE export_jobs SET status = 'EXPIRED', content = NULL WHERE status = 'READY' AND expires_at < NOW(3)");
     await db_1.pool.execute("UPDATE export_jobs SET status = 'PENDING', locked_by = NULL WHERE status = 'PROCESSING' AND locked_at < DATE_SUB(NOW(3), INTERVAL 10 MINUTE)");
     await db_1.pool.execute("UPDATE notification_outbox SET status = 'PENDING', locked_by = NULL WHERE status = 'PROCESSING' AND locked_at < DATE_SUB(NOW(3), INTERVAL 5 MINUTE)");
-    await db_1.pool.execute("UPDATE cross_booth_requests SET status = 'EXPIRED' WHERE status = 'PENDING' AND expires_at < NOW(3)");
 }

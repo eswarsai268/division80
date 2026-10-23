@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.pool = exports.WORKER_ID = exports.log = void 0;
-exports.audit = audit;
 const crypto_1 = require("crypto");
 const promise_1 = __importDefault(require("mysql2/promise"));
 const pino_1 = __importDefault(require("pino"));
@@ -18,6 +17,3 @@ exports.pool = promise_1.default.createPool({
     ssl: config.databaseSsl === "true" ? { minVersion: "TLSv1.2", rejectUnauthorized: true } : undefined,
     connectionLimit: 4, timezone: "Z",
 });
-async function audit(actor, action, type, id, reason, outcome = "SUCCESS") {
-    await exports.pool.execute("INSERT INTO audit_logs (id, actor_id, action, resource_type, resource_id, outcome, reason, request_id) VALUES (?,?,?,?,?,?,?,?)", [(0, crypto_1.randomUUID)(), actor, action, type, id, outcome, reason.slice(0, 250), `worker:${exports.WORKER_ID.slice(0, 8)}`]);
-}
