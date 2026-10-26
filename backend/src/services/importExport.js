@@ -67,6 +67,7 @@ async function createImportJob(c, csv) {
     const valid = [];
     const seen = new Set();
     const householdAddresses = new Map();
+    let duplicateRows = 0;
     for (let i = 1; i < rows.length; i++) {
         const r = rows[i] ?? [];
         const line = i + 1;
@@ -94,8 +95,8 @@ async function createImportJob(c, csv) {
             bad(line, "Cell starts with a formula character (= + - @)");
             continue;
         }
-        const boothCode = f.booth.toUpperCase();
-        if (!/^[A-Z0-9][A-Z0-9\-/]{0,31}$/.test(boothCode)) {
+        const boothCode = f.booth.normalize("NFKC").toUpperCase();
+        if (!boothCode || boothCode.length > 255 || /[\u0000-\u001F\u007F]/.test(boothCode)) {
             bad(line, "Invalid booth_code");
             continue;
         }
@@ -104,7 +105,7 @@ async function createImportJob(c, csv) {
             bad(line, "Unknown or inactive booth_code");
             continue;
         }
-        if (!/^[A-Za-z0-9][A-Za-z0-9\-/]{0,31}$/.test(f.house)) {
+        if (!f.house || f.house.length > 255 || /[\u0000-\u001F\u007F]/.test(f.house)) {
             bad(line, "Invalid house_code");
             continue;
         }
@@ -173,10 +174,9 @@ async function createImportJob(c, csv) {
                 continue;
             }
             if (seen.has(f.voter)) {
-                bad(line, "Duplicate voter_id in file");
+                duplicateRows++;
                 continue;
             }
-            seen.add(f.voter);
         }
         const householdKey = `${boothId}|${f.house.toUpperCase()}`;
         const previousAddress = householdAddresses.get(householdKey);
@@ -186,6 +186,8 @@ async function createImportJob(c, csv) {
         }
         if (f.address)
             householdAddresses.set(householdKey, f.address);
+        if (f.voter)
+            seen.add(f.voter);
         valid.push({
             boothId: boothId ?? null,
             boothCode,
@@ -216,16 +218,18 @@ async function createImportJob(c, csv) {
         const chunk = ids.slice(i, i + voterLookupBatchSize);
         (await (0, pool_1.query)(`SELECT voter_id FROM citizens WHERE voter_id IN (${(0, pool_1.placeholders)(chunk.length)})`, chunk)).forEach((r) => existing.add(String(r.voter_id).toUpperCase()));
     }
+    let existingRows = 0;
     const final = valid.filter((v) => { if (v.voterId && existing.has(v.voterId)) {
-        bad(v.line, "voter_id already exists");
+        existingRows++;
         return false;
     } return true; });
     const pendingBoothCodes = [...new Set(final.filter((v) => !v.boothId).map((v) => v.boothCode))].sort();
+    const skippedRows = existingRows + duplicateRows;
     const id = (0, crypto_1.randomUUID)();
-    await (0, pool_1.exec)(`INSERT INTO import_jobs (id, organization_id, created_by, total_rows, valid_rows, error_count, errors, payload) VALUES (?,?,?,?,?,?,?,?)`, [id, c.user.organizationId, c.user.id, rows.length - 1, final.length, errorCount, JSON.stringify(errors), JSON.stringify(final)]);
-    return { id, status: "PREVIEW", totalRows: rows.length - 1, validRows: final.length, errorCount, errors: errors.slice(0, 50), pendingBoothCodes };
+    await (0, pool_1.exec)(`INSERT INTO import_jobs (id, organization_id, created_by, total_rows, valid_rows, error_count, skipped_rows, errors, payload) VALUES (?,?,?,?,?,?,?,?,?)`, [id, c.user.organizationId, c.user.id, rows.length - 1, final.length, errorCount, skippedRows, JSON.stringify(errors), JSON.stringify(final)]);
+    return { id, status: "PREVIEW", totalRows: rows.length - 1, validRows: final.length, skippedRows, errorCount, errors: errors.slice(0, 50), pendingBoothCodes };
 }
-const IMPORT_COLS = `id, status, total_rows AS totalRows, valid_rows AS validRows, error_count AS errorCount, processed_rows AS processedRows, result, last_error AS lastError, created_at AS createdAt, data_tracked AS dataTracked, (status = 'PREVIEW' OR (status NOT IN ('QUEUED','COMMITTING') AND data_tracked = 1)) AS canDelete`;
+const IMPORT_COLS = `id, status, total_rows AS totalRows, valid_rows AS validRows, skipped_rows AS skippedRows, error_count AS errorCount, processed_rows AS processedRows, result, last_error AS lastError, created_at AS createdAt, data_tracked AS dataTracked, (status = 'PREVIEW' OR (status NOT IN ('QUEUED','COMMITTING') AND data_tracked = 1)) AS canDelete`;
 async function getImportJob(c, id) {
     const j = (await (0, pool_1.query)(`SELECT ${IMPORT_COLS}, errors FROM import_jobs WHERE id = ? AND organization_id = ? AND deleted_at IS NULL`, [id, c.user.organizationId]))[0];
     if (!j)

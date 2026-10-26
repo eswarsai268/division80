@@ -342,15 +342,13 @@ body {
 
 .print-only { display: none; }
 @media print {
-  @page { margin: 14mm; }
+  @page { size: A4; margin: 16mm; }
   body { background: #fff !important; color: #111827 !important; }
   body * { visibility: hidden !important; }
   .print-only, .print-only * { visibility: visible !important; }
-  .print-only { display: block !important; position: absolute; inset: 0; width: 100%; }
-  .print-only h1 { margin: 0 0 6px; font-size: 20pt; }
-  .print-only > p { margin: 0 0 16px; }
-  .print-records { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .print-record { break-inside: avoid; border: 1px solid #9ca3af; border-radius: 8px; padding: 12px; }
-  .print-record h2 { margin: 0 0 8px; font-size: 14pt; }
-  .print-record p { margin: 4px 0; font-size: 10pt; }
+  .print-only { display: block !important; position: absolute; inset: 0; width: 100%; font-family: Arial, sans-serif; }
+  .print-only h1 { margin: 0 0 18pt; text-align: center; font-size: 16pt; }
+  .voter-print-table { width: 100%; border-collapse: collapse; margin: 0 0 20pt; font-size: 11pt; }
+  .voter-print-table th, .voter-print-table td { border: 1px solid #333; padding: 9pt 10pt; text-align: left; vertical-align: top; }
+  .voter-print-table th { width: 42%; font-weight: 700; }
 }

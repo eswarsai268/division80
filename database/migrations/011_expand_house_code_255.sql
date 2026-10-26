@@ -1,0 +1,2 @@
+ALTER TABLE households
+  MODIFY COLUMN house_code VARCHAR(255) NOT NULL;

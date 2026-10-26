@@ -48,7 +48,7 @@ function extendAdmin(ad) {
     ad.get("/citizens", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listCitizens((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery.extend({ search: zod_1.z.string().max(100).optional(), boothId: http_1.uuid.optional() }), req.query)))));
     ad.post("/citizens", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.createCitizen((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
         boothId: http_1.uuid,
-        houseCode: zod_1.z.string().regex(/^[A-Za-z0-9][A-Za-z0-9\-/]{0,31}$/),
+        houseCode: zod_1.z.string().min(1).max(255).refine((value) => !/[\u0000-\u001F\u007F]/.test(value)),
         address: zod_1.z.string().max(255).optional(),
         rollSerial: zod_1.z.string().max(32).optional(),
         fullName: zod_1.z.string().min(1).max(200),
