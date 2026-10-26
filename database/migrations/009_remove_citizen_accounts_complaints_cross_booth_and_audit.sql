@@ -22,21 +22,22 @@ DROP TABLE IF EXISTS attachments;
 DROP TABLE IF EXISTS complaint_status_history;
 DROP TABLE IF EXISTS complaints;
 
-CREATE TEMPORARY TABLE retired_cross_verified_households
-  SELECT DISTINCT household_id AS id FROM verifications WHERE cross_booth_request_id IS NOT NULL;
-DELETE FROM verifications WHERE cross_booth_request_id IS NOT NULL;
+-- Recalculate affected households while excluding cross-booth verification rows,
+-- then remove those rows. This avoids CREATE TABLE ... SELECT, unsupported by TiDB.
 UPDATE households h
 SET verification_status = CASE
   WHEN NOT EXISTS (SELECT 1 FROM citizens ci WHERE ci.household_id = h.id AND ci.deleted_at IS NULL) THEN 'PENDING'
   WHEN EXISTS (
     SELECT 1 FROM citizens ci
     WHERE ci.household_id = h.id AND ci.deleted_at IS NULL
-      AND (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED') < 6
+      AND (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED'
+           AND v.cross_booth_request_id IS NULL) < 6
   ) THEN 'IN_VERIFICATION'
   ELSE 'RESOLVED'
 END
-WHERE h.id IN (SELECT id FROM retired_cross_verified_households);
-DROP TEMPORARY TABLE retired_cross_verified_households;
+WHERE EXISTS (SELECT 1 FROM verifications retired
+              WHERE retired.household_id = h.id AND retired.cross_booth_request_id IS NOT NULL);
+DELETE FROM verifications WHERE cross_booth_request_id IS NOT NULL;
 
 DROP TABLE IF EXISTS cross_booth_requests;
 DROP TABLE IF EXISTS audit_logs;

@@ -339,3 +339,16 @@ body {
 .password-input::-ms-clear {
   display: none;
 }
+
+.print-only { display: none; }
+@media print {
+  @page { size: A4; margin: 16mm; }
+  body { background: #fff !important; color: #111827 !important; }
+  body * { visibility: hidden !important; }
+  .print-only, .print-only * { visibility: visible !important; }
+  .print-only { display: block !important; position: absolute; inset: 0; width: 100%; font-family: Arial, sans-serif; }
+  .print-only h1 { margin: 0 0 18pt; text-align: center; font-size: 16pt; }
+  .voter-print-table { width: 100%; border-collapse: collapse; margin: 0 0 20pt; font-size: 11pt; }
+  .voter-print-table th, .voter-print-table td { border: 1px solid #333; padding: 9pt 10pt; text-align: left; vertical-align: top; }
+  .voter-print-table th { width: 42%; font-weight: 700; }
+}

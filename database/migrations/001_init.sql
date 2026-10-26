@@ -35,7 +35,7 @@ CREATE TABLE sessions (
 CREATE TABLE booths (
   id CHAR(36) PRIMARY KEY,
   organization_id CHAR(36) NOT NULL,
-  code VARCHAR(32) NOT NULL,
+  code VARCHAR(255) NOT NULL,
   name VARCHAR(200) NOT NULL,
   status ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -63,7 +63,7 @@ CREATE TABLE households (
   id CHAR(36) PRIMARY KEY,
   organization_id CHAR(36) NOT NULL,
   booth_id CHAR(36) NOT NULL,
-  house_code VARCHAR(32) NOT NULL,
+  house_code VARCHAR(255) NOT NULL,
   address_line VARCHAR(255) NULL,
   verification_status ENUM('PENDING','IN_VERIFICATION','RESOLVED') NOT NULL DEFAULT 'PENDING',
   deleted_at DATETIME(3) NULL,

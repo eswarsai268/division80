@@ -5,6 +5,7 @@ CREATE TABLE import_jobs (
   status ENUM('PREVIEW','QUEUED','COMMITTING','COMMITTED','FAILED','CANCELLED') NOT NULL DEFAULT 'PREVIEW',
   total_rows INT NOT NULL DEFAULT 0,
   valid_rows INT NOT NULL DEFAULT 0,
+  skipped_rows INT NOT NULL DEFAULT 0,
   error_count INT NOT NULL DEFAULT 0,
   processed_rows INT NOT NULL DEFAULT 0,
   errors JSON NULL,
