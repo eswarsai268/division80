@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.maskVoter = void 0;
 exports.listBoothsForUser = listBoothsForUser;
 exports.listHouseholdsForUser = listHouseholdsForUser;
+exports.listOfflineRosterForUser = listOfflineRosterForUser;
 exports.getHouseholdForUser = getHouseholdForUser;
 exports.listCitizensForUser = listCitizensForUser;
 exports.updateVisitForUser = updateVisitForUser;
@@ -180,6 +181,48 @@ async function listHouseholdsForUser(u, f) {
         }
     }
     return { items, nextCursor: more ? items[items.length - 1].id : null, ...totals };
+}
+async function listOfflineRosterForUser(u, f) {
+    if (u.role !== "BOOTH_MEMBER")
+        throw (0, errors_1.forbidden)();
+    const page = await listHouseholdsForUser(u, f);
+    if (!page.items.length)
+        return { ...page, items: [] };
+    const ids = page.items.map((house) => house.id);
+    const marks = (0, pool_1.placeholders)(ids.length);
+    const [houses, citizens] = await Promise.all([
+        (0, pool_1.query)(`SELECT id, address_line AS address FROM households WHERE id IN (${marks}) AND organization_id = ?`, [...ids, u.organizationId]),
+        (0, pool_1.query)(`SELECT c.id, c.household_id AS householdId, c.booth_id AS boothId,
+                c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName,
+                c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus,
+                c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone,
+                c.not_here AS notHere, c.address_changed AS addressChanged,
+                c.new_address AS newAddress
+            FROM citizens c JOIN households h ON h.id = c.household_id AND h.booth_id = c.booth_id
+            JOIN booths b ON b.id = h.booth_id AND b.organization_id = h.organization_id AND b.status = 'ACTIVE'
+            WHERE c.household_id IN (${marks}) AND c.deleted_at IS NULL AND h.deleted_at IS NULL
+              AND h.organization_id = ?
+            ORDER BY c.household_id, c.relation, c.full_name`, [...ids, u.organizationId]),
+    ]);
+    const addressByHousehold = new Map(houses.map((house) => [house.id, house.address]));
+    const citizensByHousehold = new Map();
+    for (const citizen of citizens) {
+        const list = citizensByHousehold.get(citizen.householdId) ?? [];
+        list.push({
+            ...citizen,
+            voterId: u.boothIds.includes(citizen.boothId) ? citizen.voterId : (0, exports.maskVoter)(citizen.voterId),
+        });
+        citizensByHousehold.set(citizen.householdId, list);
+    }
+    return {
+        ...page,
+        items: page.items.map((house) => ({
+            ...house,
+            ownBooth: u.boothIds.includes(house.boothId),
+            address: addressByHousehold.get(house.id) ?? null,
+            citizens: citizensByHousehold.get(house.id) ?? [],
+        })),
+    };
 }
 /**
  * Booth members may read households in their organization. Full voter IDs and visit writes

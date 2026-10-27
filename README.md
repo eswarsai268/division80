@@ -24,6 +24,12 @@ Configure the variables in `.env.example`. Production API, worker and migration 
 - Booth members can edit door-to-door visit details only for booths where they have an active assignment. Verification records are visible and can be recorded across the organization.
 - Organization boundaries remain enforced for all roster reads.
 
+## Offline Booth Member search and printing
+
+After a Booth Member signs in online, the app downloads the organization's roster for offline search and printing. The copy is stored encrypted in that browser's IndexedDB and refreshed when it is older than six hours. It expires after seven days without a successful online identity check, is removed on logout or account change, and can be cleared from the app. Full voter IDs remain available only for the member's actively assigned booths; IDs in other booths stay masked, as they do online.
+
+Offline use is read-only: Booth Members can search roster names and print records already marked Verification done. Visit updates, verification actions, and all admin functions require internet. The first sign-in and roster download require internet. Device-level access to the unlocked browser profile can expose locally available records; Web Crypto encryption does not protect an unlocked session or a compromised app origin.
+
 ## Data import and exports
 
 Admins can import one CSV or `.xlsx` worksheet at a time, up to 50 MiB and 50,000 rows. The voter-list headers `Booth number`, `S. No`, `Voter Name`, `Father's Name/ Husband's Name`, `Door No`, and `Voter Id No` are accepted, alongside the existing normalized headers. Relationship defaults to `RESIDENT`; fields absent from a source sheet keep their existing defaults. The worker must be running to commit imports and generate exports. Imported roster rows and verification history are retained independently of login accounts.

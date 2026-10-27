@@ -51,7 +51,7 @@ export default function BoothDashboard() {
         </Link>)}</div> : <Empty text="Recorded verification activity will appear here."/>}</Async>
       </section>
 
-      <section><div className="section-heading"><h2>{t("Quick tools")}</h2></div><div className="grid grid-cols-3 gap-3">
+      <section><div className="section-heading"><h2>{t("Quick tools")}</h2></div><div className="grid grid-cols-2 gap-3">
         <Link to="/booth/verifications" className="tool-card"><span className="tool-icon"><ShieldCheck size={21}/></span><span>{t("Verifications")}</span></Link>
         <Link to="/booth/households" className="tool-card"><span className="tool-icon"><Users size={21}/></span><span>{t("Households")}</span></Link>
       </div></section>

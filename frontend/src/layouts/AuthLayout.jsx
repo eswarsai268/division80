@@ -30,7 +30,7 @@ export default function AuthLayout({ title, subtitle, children }) {
           </div>
           <p className="mb-1 text-sm font-bold text-amber-800">{t("Welcome")}</p>
           <h1 className="text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">{t(title)}</h1>
-          <p className="mb-5 mt-2 text-sm leading-6 text-slate-600">{t(subtitle || "Create your account to get started.")}</p>
+          <p className="mb-5 mt-2 text-sm leading-6 text-slate-600">{t(subtitle || "Sign in to continue.")}</p>
           {children}
           <div className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-500"><ShieldCheck size={15} className="text-emerald-700"/>{t("Secure sign in")}</div>
           {media.error && <p className="mt-3 text-center text-xs text-slate-500">{t("Login video is unavailable. You can still sign in.")}</p>}

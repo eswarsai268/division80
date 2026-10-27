@@ -20,7 +20,7 @@ const te = {
   "Secure access · Verified teams · Community first": "సురక్షిత ప్రవేశం · ధృవీకరించిన బృందాలు · సమాజమే ప్రథమం",
   "One secure place for citizen services, booth teams and local community work.": "పౌర సేవలు, బూత్ బృందాలు, స్థానిక సమాజ సేవల కోసం ఒక సురక్షిత వేదిక.",
   "Welcome": "స్వాగతం",
-  "Create your account to get started.": "ప్రారంభించడానికి మీ ఖాతాను సృష్టించండి.",
+  "Sign in to continue.": "కొనసాగించడానికి సైన్ ఇన్ చేయండి.",
   "Secure sign in": "సురక్షిత సైన్ ఇన్",
   "Your portal": "మీ పోర్టల్",
   "Login video is unavailable. You can still sign in.": "లాగిన్ వీడియో అందుబాటులో లేదు. అయినప్పటికీ సైన్ ఇన్ చేయవచ్చు.",

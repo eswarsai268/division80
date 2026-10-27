@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ArrowRight, Building2, ChevronDown, Search, Users, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api } from "../../api/client";
 import Async from "../../components/Async";
 import Empty from "../../components/Empty";
-import { useGet } from "../../hooks/useGet";
+import { readOfflineRoster, searchOfflineRoster } from "../../services/offlineRoster";
 import { t } from "../../i18n";
 
 const FILTERS = [
@@ -34,7 +34,19 @@ export default function Households() {
     const [debouncedSearch, setDebouncedSearch] = useState(() => (readFilters().search ?? "").trim());
     const [status, setStatus] = useState(() => readFilters().status ?? "");
     const [boothId, setBoothId] = useState(() => readFilters().boothId ?? "");
-    const booths = useGet(["booth", "organization-booths"], "/booth/booths");
+    const booths = useQuery({
+        queryKey: ["booth", "organization-booths"],
+        queryFn: async ({ signal }) => {
+            try {
+                return await api("/booth/booths", { signal });
+            } catch (error) {
+                if (error?.status !== 0) throw error;
+                const cached = await readOfflineRoster();
+                if (!cached) throw error;
+                return cached.booths;
+            }
+        },
+    });
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
         return () => clearTimeout(timer);
@@ -48,7 +60,7 @@ export default function Households() {
     const query = useInfiniteQuery({
         queryKey: ["booth", "households", boothId, debouncedSearch, status],
         initialPageParam: null,
-        queryFn: ({ pageParam, signal }) => {
+        queryFn: async ({ pageParam, signal }) => {
             const params = new URLSearchParams({ limit: "1000" });
             if (boothId)
                 params.set("boothId", boothId);
@@ -58,7 +70,14 @@ export default function Households() {
                 params.set("status", status);
             if (pageParam)
                 params.set("cursor", pageParam);
-            return api(`/booth/households?${params}`, { signal });
+            try {
+                return await api(`/booth/households?${params}`, { signal });
+            } catch (error) {
+                if (error?.status !== 0) throw error;
+                const cached = await readOfflineRoster();
+                if (!cached) throw error;
+                return searchOfflineRoster(cached, { search: debouncedSearch, status, boothId, cursor: pageParam });
+            }
         },
         getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     });
@@ -101,7 +120,7 @@ export default function Households() {
         {search && <button type="button" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 hover:bg-slate-100" onClick={() => { setSearch(""); saveFilters({ search: "", status, boothId }); }} aria-label={t("Clear search")} title={t("Clear search")}><X size={18}/></button>}
       </div>
 
-      {totals && <p role="status" className="rounded-xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">Database results for these filters: <strong className="text-slate-900">{totals.totalHouseholds.toLocaleString()} houses</strong> with <strong className="text-slate-900">{totals.totalPeople.toLocaleString()} people</strong>. Showing {orderedItems.length.toLocaleString()} house cards.</p>}
+      {totals && <p role="status" className="rounded-xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">{totals.offline || !navigator.onLine ? "Saved offline roster results:" : "Database results for these filters:"} <strong className="text-slate-900">{totals.totalHouseholds.toLocaleString()} houses</strong> with <strong className="text-slate-900">{totals.totalPeople.toLocaleString()} people</strong>. Showing {orderedItems.length.toLocaleString()} house cards.</p>}
       <Async q={query}>{() => items.length ? <section className="space-y-3" aria-label={t("House list")}>
         {orderedItems.map((house) => <div key={house.id}><Link to={`/booth/households/${house.id}`} className="flex min-h-24 items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 text-inherit no-underline shadow-sm transition hover:border-amber-300 hover:shadow-md">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-amber-100 bg-amber-50 text-amber-700"><Users size={23}/></span>
