@@ -1,4 +1,4 @@
-import { Bike, ShieldCheck } from "lucide-react";
+import { Fan, ShieldCheck } from "lucide-react";
 import { useGet } from "../hooks/useGet";
 import { APP_NAME } from "../utils/constants";
 import { t, useLanguage } from "../i18n";
@@ -11,12 +11,12 @@ export default function AuthLayout({ title, subtitle, children }) {
   const media = useGet(["public", "login-media"], "/auth/login-media", { staleTime: 60_000 });
   const backFallback = location.pathname === "/admin/login" ? "/booth/login" : "/admin/login";
   return (
-    <main className="min-h-screen bg-[#f3f4f8] px-4 py-6 sm:flex sm:items-center sm:justify-center sm:px-6">
+    <main className="min-h-screen bg-[#edf5f8] px-4 py-6 sm:flex sm:items-center sm:justify-center sm:px-6">
       <div className="mx-auto w-full max-w-md">
-        <header className="relative mb-4 overflow-hidden rounded-3xl bg-[#ffc400] p-5 text-stone-950 shadow-sm">
+        <header className="relative mb-4 overflow-hidden rounded-3xl bg-brand-600 p-5 text-white shadow-sm">
           {media.data?.loginVideoUrl && <video className="absolute inset-0 h-full w-full object-cover opacity-15" src={media.data.loginVideoUrl} autoPlay muted loop playsInline />}
           <div className="relative flex items-center gap-3">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white text-stone-900"><Bike size={26}/></span>
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white text-brand-700"><Fan size={26} aria-hidden="true"/></span>
             <div className="min-w-0"><p className="auth-brand-name">{APP_NAME}</p><p className="mt-1 text-xs font-medium">{t("Community services")}</p></div>
           </div>
         </header>

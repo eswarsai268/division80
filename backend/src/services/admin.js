@@ -17,6 +17,7 @@ const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
 const password_1 = require("../auth/password");
 const publicContent_1 = require("./publicContent");
+const phone_1 = require("../utils/phone");
 // Every query below is constrained by c.user.organizationId (admin scope), never by client input.
 const org = (c) => c.user.organizationId;
 async function createBooth(c, i) {
@@ -34,7 +35,7 @@ async function createBooth(c, i) {
     }
     catch (e) {
         if (e?.code === "ER_DUP_ENTRY")
-            throw (0, errors_1.conflict)(i.member ? "Booth code or member email already exists" : "Booth code already exists");
+            throw (0, errors_1.conflict)(i.member ? "Booth code or member phone already exists" : "Booth code already exists");
         throw e;
     }
 }
@@ -96,18 +97,21 @@ async function revokeAssignment(c, id) {
         throw (0, errors_1.notFound)();
     return { id };
 }
-const listUsers = (c, role) => (0, pool_1.query)(`SELECT id, email, full_name AS fullName, role, status FROM users WHERE organization_id = ? AND role IN ('ADMIN','BOOTH_MEMBER') ${role ? "AND role = ?" : ""} ORDER BY created_at DESC LIMIT 200`, role ? [org(c), role] : [org(c)]);
+const listUsers = (c, role) => (0, pool_1.query)(`SELECT id, email, phone, full_name AS fullName, role, status FROM users WHERE organization_id = ? AND role IN ('ADMIN','BOOTH_MEMBER') ${role ? "AND role = ?" : ""} ORDER BY created_at DESC LIMIT 200`, role ? [org(c), role] : [org(c)]);
 exports.listUsers = listUsers;
 /** Admins create booth members with a temporary password. Creating ADMINs is deliberately NOT possible via API. */
 async function createUser(c, i) {
     const id = (0, crypto_1.randomUUID)();
     if (i.role === "BOOTH_MEMBER" && !i.boothId)
         throw new errors_1.AppError(422, "BOOTH_REQUIRED", "Select a booth for this booth member");
+    const phone = (0, phone_1.normalizePhone)(i.phone);
+    if (!/^\+?[1-9]\d{7,14}$/.test(phone))
+        throw new errors_1.AppError(422, "INVALID_PHONE", "Enter a valid phone number");
     const passwordHash = await (0, password_1.hashPassword)(i.password);
     try {
         return await (0, pool_1.tx)(async (conn) => {
             if (i.role === "BOOTH_MEMBER") {
-                await createBoothMemberAccount(c, i.boothId, i, id, passwordHash, conn);
+                await createBoothMemberAccount(c, i.boothId, { ...i, phone }, id, passwordHash, conn);
                 return { id };
             }
             throw new errors_1.AppError(422, "INVALID_ROLE", "Only booth member accounts can be created here");
@@ -115,7 +119,7 @@ async function createUser(c, i) {
     }
     catch (e) {
         if (e?.code === "ER_DUP_ENTRY")
-            throw (0, errors_1.conflict)("A user with this email already exists");
+            throw (0, errors_1.conflict)("A user with this phone number already exists");
         throw e;
     }
 }
@@ -123,7 +127,10 @@ async function createBoothMemberAccount(c, boothId, member, userId, passwordHash
     const booth = (await (0, pool_1.query)("SELECT id FROM booths WHERE id = ? AND organization_id = ? AND status = 'ACTIVE' FOR UPDATE", [boothId, org(c)], conn))[0];
     if (!booth)
         throw (0, errors_1.notFound)();
-    await (0, pool_1.exec)("INSERT INTO users (id, organization_id, email, password_hash, full_name, role) VALUES (?,?,?,?,?,'BOOTH_MEMBER')", [userId, org(c), member.email.toLowerCase(), passwordHash, member.fullName], conn);
+    const phone = (0, phone_1.normalizePhone)(member.phone);
+    if (!/^\+?[1-9]\d{7,14}$/.test(phone))
+        throw new errors_1.AppError(422, "INVALID_PHONE", "Enter a valid phone number");
+    await (0, pool_1.exec)("INSERT INTO users (id, organization_id, email, phone, password_hash, full_name, role) VALUES (?,?,NULL,?,?,?,'BOOTH_MEMBER')", [userId, org(c), phone, passwordHash, member.fullName], conn);
     const assignmentId = (0, crypto_1.randomUUID)();
     await (0, pool_1.exec)("INSERT INTO booth_assignments (id, booth_id, user_id, created_by) VALUES (?,?,?,?)", [assignmentId, boothId, userId, c.user.id], conn);
     return { id: userId, assignmentId };

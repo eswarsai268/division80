@@ -1,4 +1,4 @@
-const CACHE = 'samasya-v1';
+const CACHE = 'booth-verification-v2';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg'];
 
 self.addEventListener('install', (e) => {

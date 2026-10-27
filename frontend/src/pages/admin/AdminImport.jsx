@@ -175,7 +175,7 @@ export default function AdminImport() {
       </div>
       {sheetNames.length > 1 && <label className="block space-y-1 text-sm"><span className="font-medium">{t("Worksheet to import")}</span><select className="input" value={sheetName} onChange={(event) => selectSheet(event.target.value)}>{sheetNames.map((name) => <option key={name} value={name}>{name}</option>)}</select><span className="block text-xs text-slate-500">{t("Only one worksheet is imported at a time. The ALL worksheet is selected by default when available.")}</span></label>}
       <p className="text-xs leading-5 text-slate-600">{t("Use one person per row. These screenshot-style headings are accepted:")} <code>SN, SERIAL NO, DOOR NO, NAME, VOTER ID, GENDER, BOOTH NO</code><br/>{t("Optional visit headings:")} <code>VERIFICATION DONE, DEAD, NOT HERE, ADDRESS CHANGED, NEW ADDRESS, ADDITIONAL NOTES</code></p>
-      <p className="text-xs leading-5 text-slate-500">{t("Printed voter photos are not imported. Maximum 50,000 rows; formula cells are rejected.")}</p>
+      <p className="text-xs leading-5 text-slate-500">{t("Printed voter photos are not imported. Maximum 50,000 rows. Formula-like values are stored as text and escaped in CSV exports.")}</p>
       {fileError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{fileError}</p>}
       {create.error && <ErrorBox error={create.error}/>}
       <button className="btn w-full" disabled={!uploadBody || create.isPending} onClick={() => create.mutate(undefined)}>{create.isPending ? t("Checking file…") : t("Check file before importing")}</button></div>

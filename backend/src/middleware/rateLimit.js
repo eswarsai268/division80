@@ -17,13 +17,16 @@ const limiter = (name, limit, windowMs, key) => (0, express_rate_limit_1.default
 });
 exports.limiter = limiter;
 const byUser = (r) => r.user?.id ?? r.ip ?? "unknown";
+const loginIdentity = (r) => {
+    const value = String(r.body?.phone ?? r.body?.email ?? "").toLowerCase().slice(0, 100);
+    return r.body?.phone ? value.replace(/[()\s-]/g, "") : value;
+};
 const MIN = 60_000, HOUR = 60 * MIN;
 exports.limits = {
     global: (0, exports.limiter)("global", 600, MIN),
-    login: (0, exports.limiter)("login", 10, 15 * MIN, (r) => `${r.ip}:${String(r.body?.email ?? "").toLowerCase().slice(0, 100)}`),
-    // Include the source IP so a remote attacker cannot lock a known account out
-    // merely by exhausting an email-only bucket.
-    loginEmail: (0, exports.limiter)("loginEmail", 20, HOUR, (r) => `${r.ip ?? "unknown"}:${String(r.body?.email ?? "").toLowerCase().slice(0, 100)}`),
+    login: (0, exports.limiter)("login", 10, 15 * MIN, (r) => `${r.ip ?? "unknown"}:${loginIdentity(r)}`),
+    // Include the source IP so attackers cannot lock a known phone or email out from elsewhere.
+    loginEmail: (0, exports.limiter)("loginIdentifier", 20, HOUR, (r) => `${r.ip ?? "unknown"}:${loginIdentity(r)}`),
     passwordChange: (0, exports.limiter)("passwordChange", 5, HOUR, byUser),
     refresh: (0, exports.limiter)("refresh", 60, 15 * MIN),
     search: (0, exports.limiter)("search", 120, MIN, byUser),

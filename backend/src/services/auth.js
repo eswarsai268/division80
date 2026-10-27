@@ -9,6 +9,7 @@ const crypto_1 = require("crypto");
 const env_1 = require("../config/env");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
+const phone_1 = require("../utils/phone");
 const password_1 = require("../auth/password");
 const tokens_1 = require("../auth/tokens");
 async function createSession(userId, conn) {
@@ -18,14 +19,18 @@ async function createSession(userId, conn) {
      VALUES (?,?,?, DATE_ADD(NOW(3), INTERVAL ${env_1.env.REFRESH_TOKEN_TTL_DAYS} DAY))`, [sessionId, userId, (0, tokens_1.sha256)(refreshToken)], conn);
     return { accessToken: (0, tokens_1.signAccess)(userId, sessionId), refreshToken, sessionId };
 }
-async function login(email, password) {
-    const u = (await (0, pool_1.query)("SELECT id, password_hash, status FROM users WHERE email = ? AND role IN ('ADMIN','BOOTH_MEMBER')", [email.toLowerCase()]))[0];
+async function login(identifier, password, method = "email") {
+    const isPhone = method === "phone";
+    const normalizedPhone = isPhone ? (0, phone_1.normalizePhone)(identifier) : null;
+    const u = (await (0, pool_1.query)(isPhone
+        ? "SELECT id, password_hash, status FROM users WHERE phone = ? AND role = 'BOOTH_MEMBER'"
+        : "SELECT id, password_hash, status FROM users WHERE email = ? AND role IN ('ADMIN','BOOTH_MEMBER')",
+    [isPhone ? normalizedPhone : String(identifier).toLowerCase()]))[0];
     const valid = await (0, password_1.verifyPassword)(u?.password_hash ?? (await (0, password_1.dummyHash)()), password);
     if (!u || !valid || u.status !== "ACTIVE") {
-        throw new errors_1.AppError(401, "INVALID_CREDENTIALS", "Invalid email or password"); // generic
+        throw new errors_1.AppError(401, "INVALID_CREDENTIALS", "Invalid identifier or password");
     }
-    const t = await createSession(u.id);
-    return t;
+    return createSession(u.id);
 }
 /** Refresh-token rotation with reuse detection: replaying an old token revokes the whole session. */
 async function refresh(presented) {
@@ -67,7 +72,7 @@ async function logoutByTokens(access, refresh) {
     return userId;
 }
 async function me(userId) {
-    const u = (await (0, pool_1.query)("SELECT id, email, full_name AS fullName, role FROM users WHERE id = ?", [userId]))[0];
+    const u = (await (0, pool_1.query)("SELECT id, email, phone, full_name AS fullName, role FROM users WHERE id = ?", [userId]))[0];
     if (!u)
         throw (0, errors_1.unauthorized)();
     return u;

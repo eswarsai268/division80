@@ -53,12 +53,12 @@ export default function InstallApp() {
         <div className="flex items-center gap-3">
           <img src="/favicon.svg" alt="" className="h-12 w-12 rounded-xl" />
           <div>
-            <p className="font-bold text-black">Samasya Medhi App</p>
+            <p className="font-bold text-black">Booth Verification</p>
             <p className="text-sm text-gray-600">{text}</p>
           </div>
         </div>
         <div className="mt-4 flex gap-2">
-          <button onClick={install} className="flex-1 rounded-xl bg-yellow-400 py-3 font-semibold text-black">
+          <button onClick={install} className="flex-1 rounded-xl bg-brand-600 py-3 font-semibold text-white">
             {installPrompt ? "Install" : showInstructions ? "Got it" : "How to install"}
           </button>
           <button onClick={close} className="rounded-xl px-4 py-3 text-gray-600">Not now</button>
