@@ -54,7 +54,9 @@ async function createImportJob(c, csv) {
     if (rows.length - 1 > MAX_ROWS)
         throw new errors_1.AppError(422, "TOO_MANY_ROWS", `Max ${MAX_ROWS} rows per import`);
     const header = (rows[0] ?? []).map(normalizeHeader);
-    const missing = REQUIRED.filter((r) => !header.includes(r));
+    const headerIndex = new Map();
+    header.forEach((name, index) => { if (!headerIndex.has(name)) headerIndex.set(name, index); });
+    const missing = REQUIRED.filter((r) => !headerIndex.has(r));
     if (missing.length)
         throw new errors_1.AppError(422, "MISSING_COLUMNS", `Missing columns: ${missing.join(", ")}`);
     const boothRows = await (0, pool_1.query)("SELECT id, code, status FROM booths WHERE organization_id = ?", [c.user.organizationId]);
@@ -71,7 +73,7 @@ async function createImportJob(c, csv) {
     for (let i = 1; i < rows.length; i++) {
         const r = rows[i] ?? [];
         const line = i + 1;
-        const get = (n) => { const k = header.indexOf(n); return k < 0 ? "" : (r[k] ?? "").trim(); };
+        const get = (n) => { const k = headerIndex.get(n); return k === undefined ? "" : (r[k] ?? "").trim(); };
         const f = {
             booth: get("booth_code"),
             house: get("house_code"),
