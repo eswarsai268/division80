@@ -6,6 +6,7 @@ const STORES = ["identity", "roster", "keys"];
 const CURRENT = "current";
 const DISABLED_KEY_PREFIX = "samasya-offline-disabled:";
 const SYNC_PAGE_SIZE = 1000;
+const FRESH_OFFLINE_COPY_MS = 6 * 60 * 60 * 1000;
 let activeSync;
 let activeSyncOwner;
 let memoryRoster;
@@ -135,7 +136,7 @@ export async function readOfflineRoster() {
   return memoryRoster;
 }
 
-export async function saveOfflineRoster(identity, data) {
+export async function saveOfflineRoster(identity, data, serverRevision) {
   const priorIdentity = await read("identity");
   if (!priorIdentity || priorIdentity.userId !== identity.id || priorIdentity.organizationId !== identity.organizationId) {
     throw new Error("Sign in again before saving this roster offline.");
@@ -145,7 +146,7 @@ export async function saveOfflineRoster(identity, data) {
   const bytes = new TextEncoder().encode(JSON.stringify(data));
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, bytes);
   const peopleCount = data.households.reduce((count, house) => count + house.citizens.length, 0);
-  const updatedAt = Date.now();
+  const updatedAt = Math.max(Date.now(), (memoryRosterUpdatedAt ?? 0) + 1);
   const db = await openDatabase();
   try {
     await new Promise((resolve, reject) => {
@@ -158,6 +159,7 @@ export async function saveOfflineRoster(identity, data) {
         ciphertext,
         householdCount: data.households.length,
         peopleCount,
+        serverRevision,
         updatedAt,
       });
       tx.objectStore("keys").put({ id: CURRENT, cryptoKey });
@@ -184,6 +186,17 @@ export function syncOfflineRoster(identity, onProgress = () => {}) {
 }
 
 async function downloadAndSaveRoster(identity, onProgress) {
+  const [localIdentity, localRoster, currentRevision] = await Promise.all([
+    read("identity"),
+    read("roster"),
+    api("/booth/offline-roster/revision"),
+  ]);
+  if (localIdentity?.userId === identity.id && localIdentity?.organizationId === identity.organizationId
+      && localRoster?.userId === identity.id && localRoster?.organizationId === identity.organizationId
+      && localRoster.serverRevision === currentRevision.revision
+      && Date.now() - localRoster.updatedAt < FRESH_OFFLINE_COPY_MS) {
+    return { updatedAt: localRoster.updatedAt, householdCount: localRoster.householdCount, peopleCount: localRoster.peopleCount };
+  }
   const households = [];
   let cursor;
   let totalHouseholds = null;
@@ -197,7 +210,7 @@ async function downloadAndSaveRoster(identity, onProgress) {
     onProgress({ completed: households.length, total: totalHouseholds });
   } while (cursor);
   const booths = [...new Map(households.map(({ boothId, boothCode, boothName }) => [boothId, { id: boothId, code: boothCode, name: boothName }])).values()];
-  return saveOfflineRoster(identity, { booths, households });
+  return saveOfflineRoster(identity, { booths, households }, currentRevision.revision);
 }
 
 function normalize(value) {

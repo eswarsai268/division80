@@ -95,6 +95,7 @@ function extendAdmin(ad) {
 function extendBooth(b) {
     const idp = (req, name) => (0, http_1.parse)(http_1.uuid, req.params[name]);
     b.get("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await households.listBoothsForUser((0, http_1.ctx)(req).user))));
+    b.get("/offline-roster/revision", rateLimit_1.limits.search, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await households.getOfflineRosterRevisionForUser((0, http_1.ctx)(req).user))));
     b.get("/offline-roster", rateLimit_1.limits.search, (0, http_1.h)(async (req, res) => {
         const q = (0, http_1.parse)(http_1.pageQuery.extend({ limit: zod_1.z.coerce.number().int().min(1).max(1000).default(500) }), req.query);
         (0, http_1.ok)(req, res, await households.listOfflineRosterForUser((0, http_1.ctx)(req).user, q));

@@ -252,19 +252,76 @@ async function deleteImportJob(c, id) {
         const tracked = Number(job.dataTracked) === 1;
         if (job.status !== "PREVIEW" && !tracked)
             throw new errors_1.AppError(409, "IMPORT_NOT_TRACKED", "This older import has no safe record mapping and cannot be deleted here");
+        let candidateBoothIds = [];
+        let candidateHouseholdIds = [];
         if (tracked) {
-            await (0, pool_1.exec)("UPDATE citizens SET deleted_at = NOW(3) WHERE source_import_job_id = ? AND deleted_at IS NULL", [id], conn);
-            await (0, pool_1.exec)(`UPDATE households h SET deleted_at = NOW(3)
-                WHERE h.deleted_at IS NULL
-                  AND (h.source_import_job_id = ? OR EXISTS (
+            candidateBoothIds = (await (0, pool_1.query)(`SELECT b.id FROM booths b
+                WHERE b.organization_id = ?
+                  AND (b.source_import_job_id = ? OR EXISTS (
+                    SELECT 1 FROM households h WHERE h.booth_id = b.id
+                      AND (h.source_import_job_id = ? OR h.address_source_import_job_id = ?)
+                  )) FOR UPDATE`, [c.user.organizationId, id, id], conn)).map((b) => b.id);
+            candidateHouseholdIds = (await (0, pool_1.query)(`SELECT h.id FROM households h
+                WHERE h.organization_id = ?
+                  AND (h.source_import_job_id = ? OR h.address_source_import_job_id = ? OR EXISTS (
                     SELECT 1 FROM citizens ci WHERE ci.household_id = h.id AND ci.source_import_job_id = ?
-                  ))
-                  AND NOT EXISTS (
-                    SELECT 1 FROM citizens active WHERE active.household_id = h.id AND active.deleted_at IS NULL
-                  )`, [id, id], conn);
+                  )) FOR UPDATE`, [c.user.organizationId, id, id, id], conn)).map((h) => h.id);
+            await (0, pool_1.exec)(`DELETE FROM verifications
+                WHERE citizen_id IN (SELECT id FROM citizens WHERE source_import_job_id = ?)`, [id], conn);
+            await (0, pool_1.exec)("DELETE FROM citizens WHERE source_import_job_id = ?", [id], conn);
+            await (0, pool_1.exec)(`DELETE FROM households h
+                WHERE (h.source_import_job_id = ? OR h.address_source_import_job_id = ?)
+                  AND NOT EXISTS (SELECT 1 FROM citizens ci WHERE ci.household_id = h.id)`, [id, id], conn);
+            if (candidateHouseholdIds.length) {
+                const marks = (0, pool_1.placeholders)(candidateHouseholdIds.length);
+                await (0, pool_1.exec)(`UPDATE households h SET
+                    address_line = IF(h.address_source_import_job_id = ?, NULL, h.address_line),
+                    address_source_import_job_id = IF(h.address_source_import_job_id = ?, NULL, h.address_source_import_job_id),
+                    verification_status = CASE
+                      WHEN NOT EXISTS (SELECT 1 FROM citizens ci WHERE ci.household_id = h.id AND ci.deleted_at IS NULL) THEN 'PENDING'
+                      WHEN EXISTS (
+                        SELECT 1 FROM citizens ci WHERE ci.household_id = h.id AND ci.deleted_at IS NULL
+                          AND (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED') < 6
+                      ) THEN 'IN_VERIFICATION'
+                      ELSE 'RESOLVED'
+                    END
+                    WHERE h.id IN (${marks})`, [id, id, ...candidateHouseholdIds], conn);
+            }
+            if (candidateBoothIds.length) {
+                const marks = (0, pool_1.placeholders)(candidateBoothIds.length);
+                // Carry legacy booths into the same deferred cleanup pipeline if another
+                // import is still running and the booth becomes empty in this transaction.
+                await (0, pool_1.exec)(`UPDATE booths b SET source_import_job_id = ?
+                    WHERE b.organization_id = ? AND b.id IN (${marks})
+                      AND NOT EXISTS (SELECT 1 FROM households h WHERE h.booth_id = b.id)`,
+                [id, c.user.organizationId, ...candidateBoothIds], conn);
+            }
         }
-        await (0, pool_1.exec)(`UPDATE import_jobs SET deleted_at = NOW(3), payload = NULL, errors = NULL
+        await (0, pool_1.exec)(`UPDATE import_jobs SET deleted_at = NOW(3), payload = NULL, errors = NULL,
+                result = NULL, last_error = NULL, total_rows = 0, valid_rows = 0,
+                skipped_rows = 0, error_count = 0, processed_rows = 0
             WHERE id = ? AND organization_id = ? AND deleted_at IS NULL`, [id, c.user.organizationId], conn);
+        if (tracked) {
+            // Previously generated exports are snapshots and may still contain this roster.
+            // Expire them atomically; a worker finishing concurrently must not republish one.
+            await (0, pool_1.exec)(`UPDATE export_jobs SET status = 'EXPIRED', content = NULL,
+                    row_count = 0, expires_at = NOW(3), last_error = NULL, locked_by = NULL, locked_at = NULL
+                WHERE organization_id = ? AND status IN ('PENDING','PROCESSING','READY','FAILED')`, [c.user.organizationId], conn);
+            if (candidateBoothIds.length) {
+                const marks = (0, pool_1.placeholders)(candidateBoothIds.length);
+                const emptyBoothIds = (await (0, pool_1.query)(`SELECT b.id FROM booths b
+                    WHERE b.id IN (${marks})
+                      AND NOT EXISTS (SELECT 1 FROM households h WHERE h.booth_id = b.id)
+                      AND NOT EXISTS (SELECT 1 FROM import_jobs pending WHERE pending.organization_id = b.organization_id AND pending.status IN ('QUEUED','COMMITTING'))
+                    FOR UPDATE`, candidateBoothIds, conn)).map((b) => b.id);
+                if (emptyBoothIds.length) {
+                    const emptyMarks = (0, pool_1.placeholders)(emptyBoothIds.length);
+                    await (0, pool_1.exec)(`DELETE FROM verifications WHERE booth_id IN (${emptyMarks})`, emptyBoothIds, conn);
+                    await (0, pool_1.exec)(`DELETE FROM booth_assignments WHERE booth_id IN (${emptyMarks})`, emptyBoothIds, conn);
+                    await (0, pool_1.exec)(`DELETE FROM booths WHERE organization_id = ? AND id IN (${emptyMarks})`, [c.user.organizationId, ...emptyBoothIds], conn);
+                }
+            }
+        }
         return { id, deleted: true };
     });
 }
