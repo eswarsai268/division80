@@ -1,4 +1,5 @@
-const configuredBase = (import.meta.env.VITE_API_BASE_URL?.trim() || "/api/v1").replace(/\/+$/, "");
+// Production web builds stay on the Vercel origin so auth cookies remain first-party.
+const configuredBase = (import.meta.env.PROD ? "/api/v1" : import.meta.env.VITE_API_BASE_URL?.trim() || "/api/v1").replace(/\/+$/, "");
 if (configuredBase.includes("\\") || configuredBase.startsWith("//") || /[?#]/.test(configuredBase)) {
     throw new TypeError("VITE_API_BASE_URL must be a path or HTTP(S) URL without query parameters");
 }

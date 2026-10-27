@@ -5,7 +5,6 @@ const VERSION = 1;
 const STORES = ["identity", "roster", "keys"];
 const CURRENT = "current";
 const DISABLED_KEY_PREFIX = "samasya-offline-disabled:";
-const MAX_OFFLINE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const SYNC_PAGE_SIZE = 1000;
 let activeSync;
 let activeSyncOwner;
@@ -21,7 +20,7 @@ export function setOfflineRosterDisabled(userId, disabled) {
   try {
     if (disabled) localStorage.setItem(`${DISABLED_KEY_PREFIX}${userId}`, "1");
     else localStorage.removeItem(`${DISABLED_KEY_PREFIX}${userId}`);
-  } catch { /* The cache remains governed by logout and expiry if preferences cannot be stored. */ }
+  } catch { /* Logout still clears the cache when storage preferences are unavailable. */ }
 }
 
 function openDatabase() {
@@ -109,23 +108,20 @@ export async function saveOfflineIdentity(identity) {
 
 export async function getOfflineIdentity() {
   const record = await read("identity");
-  if (!record || Date.now() - record.savedAt > MAX_OFFLINE_AGE_MS) {
-    if (record) await clearOfflineRoster();
-    return null;
-  }
-  return { ...record.profile, isOffline: true, offlineExpiresAt: record.savedAt + MAX_OFFLINE_AGE_MS };
+  if (!record || record.profile?.role !== "BOOTH_MEMBER" || !record.userId || !record.organizationId) return null;
+  return { ...record.profile, isOffline: true };
 }
 
 export async function getOfflineInfo() {
   const [identity, roster] = await Promise.all([read("identity"), read("roster")]);
-  if (!identity || !roster || Date.now() - identity.savedAt > MAX_OFFLINE_AGE_MS
+  if (!identity || !roster || identity.profile?.role !== "BOOTH_MEMBER"
       || roster.userId !== identity.userId || roster.organizationId !== identity.organizationId) return null;
   return { updatedAt: roster.updatedAt, householdCount: roster.householdCount, peopleCount: roster.peopleCount };
 }
 
 export async function readOfflineRoster() {
   const [identity, roster, keyRecord] = await Promise.all([read("identity"), read("roster"), read("keys")]);
-  if (!identity || !roster || !keyRecord || Date.now() - identity.savedAt > MAX_OFFLINE_AGE_MS
+  if (!identity || !roster || !keyRecord || identity.profile?.role !== "BOOTH_MEMBER"
       || roster.userId !== identity.userId || roster.organizationId !== identity.organizationId) return null;
   if (memoryRoster && memoryRosterOwner === identity.userId && memoryRosterUpdatedAt === roster.updatedAt) return memoryRoster;
   const decrypted = await crypto.subtle.decrypt(

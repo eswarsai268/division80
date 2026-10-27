@@ -1,4 +1,4 @@
-# Samasya Meedi Parishkaram Maadi
+# Booth Verification
 
 Booth and household verification platform for booth members and administrators. Imported voter records remain the application’s roster data; citizens do not have login accounts.
 
@@ -26,13 +26,19 @@ Configure the variables in `.env.example`. Production API, worker and migration 
 
 ## Offline Booth Member search and printing
 
-After a Booth Member signs in online, the app downloads the organization's roster for offline search and printing. The copy is stored encrypted in that browser's IndexedDB and refreshed when it is older than six hours. It expires after seven days without a successful online identity check, is removed on logout or account change, and can be cleared from the app. Full voter IDs remain available only for the member's actively assigned booths; IDs in other booths stay masked, as they do online.
+After a Booth Member signs in online, the app downloads the organization's roster for offline search and printing. The copy is stored encrypted in that browser's IndexedDB and refreshed when it is older than six hours. It remains on that device until the member logs out, clears the offline copy, the account/booth assignment changes on a later online sign-in, or app/browser data is removed. Offline access cannot receive account revocations until the device reconnects; keep the device physically secured. Logging out removes the local roster and offline identity. The device/browser may still evict stored data, and offline visit changes cannot be submitted until connectivity returns. Full voter IDs remain available only for the member's actively assigned booths; IDs in other booths stay masked, as they do online.
 
 Offline use is read-only: Booth Members can search roster names and print records already marked Verification done. Visit updates, verification actions, and all admin functions require internet. The first sign-in and roster download require internet. Device-level access to the unlocked browser profile can expose locally available records; Web Crypto encryption does not protect an unlocked session or a compromised app origin.
 
+<<<<<<< HEAD
 ## Voter slip printing
 
 Voter slips use a narrow 52 mm layout. In a regular mobile browser, Print opens the system print flow, where the user can select a printer or save a PDF. In the Android Capacitor app, users can choose a previously paired Bluetooth device for direct thermal printing or use the system print flow instead. Direct printing currently sends monochrome raster images using ESC/POS over Bluetooth Classic (SPP); it does not scan for devices, so the printer must first be paired in Android Bluetooth settings. The printer must support this transport and command format. The SHREYANS 588 product material reviewed for this feature does not confirm those details, so printing to that model needs a real-device check. Other Capacitor platforms and browser sessions use system printing; direct Bluetooth support is not provided there.
+=======
+## Booth member phone sign-in
+
+New booth-member accounts are created by an Admin with a phone number, a password of at least 12 characters, and a booth assignment. The database enforces unique phone numbers. Existing Admin accounts and existing booth accounts can continue using email sign-in. Apply migration `015_booth_member_phone_login.sql` before deploying the updated backend.
+>>>>>>> 27a3c0db4e26e3e2eacf4bd689c4537b3a633163
 
 ## Data import and exports
 
