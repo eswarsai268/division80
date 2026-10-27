@@ -30,6 +30,10 @@ After a Booth Member signs in online, the app downloads the organization's roste
 
 Offline use is read-only: Booth Members can search roster names and print records already marked Verification done. Visit updates, verification actions, and all admin functions require internet. The first sign-in and roster download require internet. Device-level access to the unlocked browser profile can expose locally available records; Web Crypto encryption does not protect an unlocked session or a compromised app origin.
 
+## Voter slip printing
+
+Voter slips use a narrow 52 mm layout. In a regular mobile browser, Print opens the system print flow, where the user can select a printer or save a PDF. In the Android Capacitor app, users can choose a previously paired Bluetooth device for direct thermal printing or use the system print flow instead. Direct printing currently sends monochrome raster images using ESC/POS over Bluetooth Classic (SPP); it does not scan for devices, so the printer must first be paired in Android Bluetooth settings. The printer must support this transport and command format. The SHREYANS 588 product material reviewed for this feature does not confirm those details, so printing to that model needs a real-device check. Other Capacitor platforms and browser sessions use system printing; direct Bluetooth support is not provided there.
+
 ## Data import and exports
 
 Admins can import one CSV or `.xlsx` worksheet at a time, up to 50 MiB and 50,000 rows. The voter-list headers `Booth number`, `S. No`, `Voter Name`, `Father's Name/ Husband's Name`, `Door No`, and `Voter Id No` are accepted, alongside the existing normalized headers. Relationship defaults to `RESIDENT`; fields absent from a source sheet keep their existing defaults. The worker must be running to commit imports and generate exports. Imported roster rows and verification history are retained independently of login accounts.
