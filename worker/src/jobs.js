@@ -5,7 +5,7 @@ exports.processExports = processExports;
 exports.maintenance = maintenance;
 const crypto_1 = require("crypto");
 const db_1 = require("./db");
-const BATCH = 1000, PAGE = 2000, MAX_EXPORT_ROWS = 200_000;
+const BATCH = 3000, PAGE = 2000, MAX_EXPORT_ROWS = 200_000;
 const FORMULA = /^[=+\-@\t\r]/;
 const cell = (v) => { let s = v == null ? "" : String(v); if (FORMULA.test(s))
     s = "'" + s; return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
