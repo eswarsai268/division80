@@ -17,6 +17,10 @@ npm run dev:worker
 
 Configure the variables in `.env.example`. Production API, worker and migration processes require `DATABASE_SSL=true` with certificate validation enabled. The frontend calls `/api/v1`; Vite proxies `/api` to `http://localhost:4000` for local development.
 
+## Redis caching
+
+When `REDIS_URL` is configured, Redis shares API rate-limit state across instances and caches public event/announcement responses plus admin and booth dashboard counts. Dashboard cache keys are organization-scoped, contain only aggregate counts, and expire after 10 seconds; dashboard totals may briefly lag behind roster changes. Redis is not a source of truth, and dashboard requests fall back to SQL if the cache is unavailable. Redis does not provide phone offline access; the booth roster's encrypted browser storage handles that separately.
+
 ## Roles and visibility
 
 - Admins manage booths, booth member accounts, assignments, imported rosters, exports, events and settings.
