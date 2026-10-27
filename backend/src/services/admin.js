@@ -18,6 +18,8 @@ const errors_1 = require("../errors");
 const password_1 = require("../auth/password");
 const publicContent_1 = require("./publicContent");
 const phone_1 = require("../utils/phone");
+const redis_1 = require("../cache/redis");
+const jsonCache_1 = require("../cache/jsonCache");
 // Every query below is constrained by c.user.organizationId (admin scope), never by client input.
 const org = (c) => c.user.organizationId;
 async function createBooth(c, i) {
@@ -153,13 +155,16 @@ async function updateUser(c, id, i) {
 }
 async function dashboard(c) {
     const o = org(c);
-    const one = async (sql, p = [o]) => Number((await (0, pool_1.query)(sql, p))[0].n);
-    return {
-        booths: await one("SELECT COUNT(*) n FROM booths WHERE organization_id = ? AND status='ACTIVE'"),
-        boothMembers: await one("SELECT COUNT(DISTINCT a.user_id) n FROM booth_assignments a JOIN booths b ON b.id=a.booth_id WHERE b.organization_id=? AND a.revoked_at IS NULL"),
-        households: await one("SELECT COUNT(*) n FROM households WHERE organization_id = ? AND deleted_at IS NULL"),
-        upcomingEvents: await one("SELECT COUNT(*) n FROM events WHERE organization_id = ? AND status='PUBLISHED' AND starts_at > NOW(3)"),
-    };
+    const key = (0, jsonCache_1.redisCacheKey)("dashboard", "admin", o);
+    return (0, jsonCache_1.getOrLoadJson)(redis_1.redis, key, 10, async () => {
+        const one = async (sql, p = [o]) => Number((await (0, pool_1.query)(sql, p))[0].n);
+        return {
+            booths: await one("SELECT COUNT(*) n FROM booths WHERE organization_id = ? AND status='ACTIVE'"),
+            boothMembers: await one("SELECT COUNT(DISTINCT a.user_id) n FROM booth_assignments a JOIN booths b ON b.id=a.booth_id WHERE b.organization_id=? AND a.revoked_at IS NULL"),
+            households: await one("SELECT COUNT(*) n FROM households WHERE organization_id = ? AND deleted_at IS NULL"),
+            upcomingEvents: await one("SELECT COUNT(*) n FROM events WHERE organization_id = ? AND status='PUBLISHED' AND starts_at > NOW(3)"),
+        };
+    });
 }
 async function createEvent(c, i) {
     const id = (0, crypto_1.randomUUID)();
