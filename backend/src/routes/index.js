@@ -50,12 +50,6 @@ const households_1 = require("../repositories/households");
 const extra_1 = require("./extra");
 const router = (0, express_1.Router)();
 const password = zod_1.z.string().min(12).max(128);
-const registrationPassword = zod_1.z.string().min(8, "Password must contain at least 8 characters").max(128);
-const boothMemberCredentials = zod_1.z.object({
-    email: zod_1.z.string().email().max(255),
-    fullName: zod_1.z.string().min(2).max(200),
-    password,
-});
 const ACCESS_MS = env_1.env.ACCESS_TOKEN_TTL_SECONDS * 1000;
 const REFRESH_MS = env_1.env.REFRESH_TOKEN_TTL_DAYS * 86_400_000;
 function setCookies(res, t) {
@@ -68,7 +62,7 @@ const clearCookies = (res) => { res.clearCookie("access_token", { path: "/" }); 
 const a = (0, express_1.Router)();
 a.post("/login", rateLimit_1.limits.login, rateLimit_1.limits.loginEmail, (0, http_1.h)(async (req, res) => {
     const body = (0, http_1.parse)(zod_1.z.object({ email: zod_1.z.string().email().max(255), password: zod_1.z.string().min(1).max(128) }), req.body);
-    setCookies(res, await auth.login(body.email, body.password));
+    setCookies(res, await auth.login(body.email, body.password, String(req.id)));
     (0, http_1.ok)(req, res, { loggedIn: true });
 }));
 a.post("/refresh", rateLimit_1.limits.refresh, (0, http_1.h)(async (req, res) => {
@@ -93,7 +87,7 @@ a.post("/logout", (0, http_1.h)(async (req, res) => {
 }));
 a.get("/me", authenticate_1.authenticate, (0, http_1.h)(async (req, res) => {
     const c = (0, http_1.ctx)(req);
-    (0, http_1.ok)(req, res, { ...(await auth.me(c.user.id)), boothIds: c.user.boothIds });
+    (0, http_1.ok)(req, res, { ...(await auth.me(c.user.id)), organizationId: c.user.organizationId, boothIds: c.user.boothIds });
 }));
 a.get("/login-media", (0, http_1.h)(async (req, res) => {
     (0, http_1.ok)(req, res, await publicContent.getLoginMedia());
@@ -132,7 +126,6 @@ ad.get("/dashboard", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, 
 ad.post("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.createBooth((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
     code: zod_1.z.string().min(1).max(255).refine((value) => !/[\u0000-\u001F\u007F]/.test(value)),
     name: zod_1.z.string().min(2).max(200),
-    member: boothMemberCredentials.optional(),
 }), req.body)), 201)));
 ad.get("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.listBooths((0, http_1.ctx)(req)))));
 ad.get("/booths/:boothId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.getBooth((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.boothId)))));
@@ -148,7 +141,7 @@ ad.post("/users", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, awa
     role: zod_1.z.literal("BOOTH_MEMBER"),
     boothId: http_1.uuid.optional(),
 }).superRefine((value, ctx) => {
-    if (value.role === "BOOTH_MEMBER" && !value.boothId) {
+    if (!value.boothId) {
         ctx.addIssue({ code: zod_1.z.ZodIssueCode.custom, path: ["boothId"], message: "Select a booth for this booth member" });
     }
 }), req.body)), 201)));
