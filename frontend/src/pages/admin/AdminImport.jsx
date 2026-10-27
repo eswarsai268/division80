@@ -25,7 +25,7 @@ export default function AdminImport() {
     const [isDragging, setIsDragging] = useState(false);
     const fileInput = useRef(null);
     const workbookRef = useRef(null);
-    const jobs = useGet(["admin", "imports"], "/admin/import-jobs", { refetchInterval: 4000 });
+    const jobs = useGet(["admin", "imports"], "/admin/import-jobs", { refetchInterval: 1000 });
     const [preview, setPreview] = useState(null);
     const create = useAct(() => api("/admin/import-jobs", {
         method: "POST",
