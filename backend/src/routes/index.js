@@ -87,7 +87,7 @@ a.post("/logout", (0, http_1.h)(async (req, res) => {
 }));
 a.get("/me", authenticate_1.authenticate, (0, http_1.h)(async (req, res) => {
     const c = (0, http_1.ctx)(req);
-    (0, http_1.ok)(req, res, { ...(await auth.me(c.user.id)), boothIds: c.user.boothIds, approverBoothIds: c.user.approverBoothIds });
+    (0, http_1.ok)(req, res, { ...(await auth.me(c.user.id)), organizationId: c.user.organizationId, boothIds: c.user.boothIds });
 }));
 a.get("/login-media", (0, http_1.h)(async (req, res) => {
     (0, http_1.ok)(req, res, await publicContent.getLoginMedia());
@@ -98,8 +98,6 @@ const pub = (0, express_1.Router)();
 pub.get("/events", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await publicContent.getPublicContent("EVENT"))));
 pub.get("/announcements", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await publicContent.getPublicContent("ANNOUNCEMENT"))));
 router.use("/public", pub);
-router.use("/profile", extra_1.profileRouter);
-router.use("/files", extra_1.filesRouter);
 /* ------------------------------ BOOTH MEMBER ------------------------------ */
 const b = (0, express_1.Router)();
 b.use(authenticate_1.authenticate, (0, authorize_1.authorize)("BOOTH_MEMBER"));
@@ -126,7 +124,7 @@ const ad = (0, express_1.Router)();
 ad.use(authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), rateLimit_1.limits.admin);
 ad.get("/dashboard", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.dashboard((0, http_1.ctx)(req)))));
 ad.post("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.createBooth((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
-    code: zod_1.z.string().min(1).max(32),
+    code: zod_1.z.string().min(1).max(255).refine((value) => !/[\u0000-\u001F\u007F]/.test(value)),
     name: zod_1.z.string().min(2).max(200),
 }), req.body)), 201)));
 ad.get("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.listBooths((0, http_1.ctx)(req)))));

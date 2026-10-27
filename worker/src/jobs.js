@@ -43,7 +43,7 @@ async function processImports() {
                 const boothBatch = missingCodes.slice(offset, offset + 5000);
                 await db_1.pool.execute(
                     `INSERT IGNORE INTO booths (id, organization_id, code, name) VALUES ${boothBatch.map(() => "(?,?,?,?)").join(",")}`,
-                    boothBatch.flatMap((code) => [(0, crypto_1.randomUUID)(), job.organization_id, code, `Booth ${code}`])
+                    boothBatch.flatMap((code) => [(0, crypto_1.randomUUID)(), job.organization_id, code, `Booth ${String(code).slice(0, 194)}`])
                 );
             }
             const [b] = await db_1.pool.execute("SELECT id, code FROM booths WHERE organization_id = ? AND status = 'ACTIVE'", [job.organization_id]);
