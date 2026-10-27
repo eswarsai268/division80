@@ -8,6 +8,7 @@ import Empty from "../../components/Empty";
 import ErrorBox from "../../components/ErrorBox";
 import { api, patch } from "../../api/client";
 import { findOfflineHousehold, readOfflineRoster } from "../../services/offlineRoster";
+import { getPairedThermalPrinters, getVoterSlipContent, isAndroidNative, openBluetoothSettings, printVoterSlips } from "../../services/thermalPrinter";
 import { t } from "../../i18n";
 
 export default function HouseholdDetail() {
@@ -35,10 +36,56 @@ export default function HouseholdDetail() {
     const [drafts, setDrafts] = useState({});
     const [selectedIds, setSelectedIds] = useState([]);
     const [printRecords, setPrintRecords] = useState([]);
+    const [pendingPrintRecords, setPendingPrintRecords] = useState([]);
+    const [printerDialogOpen, setPrinterDialogOpen] = useState(false);
+    const [pairedPrinters, setPairedPrinters] = useState([]);
+    const [selectedPrinterAddress, setSelectedPrinterAddress] = useState("");
+    const [printerLoading, setPrinterLoading] = useState(false);
+    const [printerPrinting, setPrinterPrinting] = useState(false);
+    const [printerError, setPrinterError] = useState("");
+    const [printNotice, setPrintNotice] = useState("");
+    const refreshPairedPrinters = async () => {
+        setPrinterLoading(true);
+        setPrinterError("");
+        try {
+            const devices = await getPairedThermalPrinters();
+            setPairedPrinters(devices);
+            setSelectedPrinterAddress((current) => devices.some((device) => device.address === current) ? current : "");
+        } catch (error) {
+            setPrinterError(error?.message || "Could not load paired Bluetooth devices.");
+        } finally {
+            setPrinterLoading(false);
+        }
+    };
     const printRecordsNow = (records) => {
         const verifiedRecords = records.filter((record) => Boolean(record?.verificationDone));
         if (!verifiedRecords.length) return;
+        setPrintNotice("");
         flushSync(() => setPrintRecords(verifiedRecords));
+        if (isAndroidNative()) {
+            setPendingPrintRecords(verifiedRecords);
+            setPrinterDialogOpen(true);
+            refreshPairedPrinters();
+        } else {
+            window.print();
+        }
+    };
+    const sendToBluetoothPrinter = async () => {
+        if (!selectedPrinterAddress || !pendingPrintRecords.length) return;
+        setPrinterPrinting(true);
+        setPrinterError("");
+        try {
+            await printVoterSlips(selectedPrinterAddress, pendingPrintRecords, household);
+            setPrinterDialogOpen(false);
+            setPrintNotice(t("Print job sent to the printer."));
+        } catch (error) {
+            setPrinterError(error?.message || t("Could not print. Check the printer connection and try again."));
+        } finally {
+            setPrinterPrinting(false);
+        }
+    };
+    const useSystemPrint = () => {
+        setPrinterDialogOpen(false);
         window.print();
     };
     return <Async q={q}>{({ household, citizens }) => {
@@ -54,6 +101,7 @@ export default function HouseholdDetail() {
       <p className="w-full text-xs text-slate-500" aria-live="polite">{selectedIds.filter((selectedId) => citizens.some((citizen) => citizen.id === selectedId && Boolean(citizen.verificationDone))).length > 0 ? <>{selectedIds.filter((selectedId) => citizens.some((citizen) => citizen.id === selectedId && Boolean(citizen.verificationDone))).length} {t("verified records selected")}</> : <>{t("No saved verified records yet. Check Verification done on a person and save the visit details before selecting records to print.")}</>}</p>
     </section>
     {citizens.length === 0 && <Empty text="No family members on record."/>}
+    {printNotice && <p role="status" className="no-print rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">{printNotice}</p>}
     {citizens.map((c) => {
       const saved = {
         lifeStatus: c.lifeStatus,
@@ -89,7 +137,34 @@ export default function HouseholdDetail() {
       {canEdit && <button className="btn w-full" disabled={visit.isPending || JSON.stringify(draft) === JSON.stringify(saved)} onClick={() => visit.mutate({ citizenId: c.id, ...draft })}>{t(visit.isPending ? "Saving…" : "Save visit details")}</button>}
       </div>;
     })}
-    <section className="print-only"><h1>VOTER DETAILS</h1>{printRecords.map((c) => <table className="voter-print-table" key={c.id}><tbody><tr><th>Booth Number</th><td>{household.boothCode}</td></tr><tr><th>S. No</th><td>{c.rollSerial}</td></tr><tr><th>Voter Name</th><td>{c.fullName}</td></tr><tr><th>Father's Name / Husband's Name</th><td>{c.fatherOrHusbandName}</td></tr><tr><th>Door No</th><td>{household.houseCode}</td></tr><tr><th>Voter ID No</th><td>{c.voterId}</td></tr></tbody></table>)}</section>
+    {printerDialogOpen && <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-3 sm:items-center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !printerPrinting) setPrinterDialogOpen(false); }}>
+      <section className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="printer-dialog-title">
+        <h2 id="printer-dialog-title" className="text-lg font-bold">{t("Print voter slips")}</h2>
+        <p className="mt-1 text-sm text-slate-600">{t("Choose the printer you paired. Other Bluetooth devices may also be listed. You can also use the phone's print and PDF options.")}</p>
+        <p className="mt-2 text-xs text-slate-500">{t("Direct Bluetooth printing requires an ESC/POS printer with Bluetooth Classic support.")}</p>
+        {printerError && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">{printerError}</p>}
+        {printerLoading ? <p className="mt-4 text-sm" aria-live="polite">{t("Loading paired devices…")}</p> : pairedPrinters.length ? <label className="mt-4 block text-sm font-medium">{t("Paired Bluetooth devices")}
+          <select className="input mt-1" value={selectedPrinterAddress} onChange={(event) => setSelectedPrinterAddress(event.target.value)}>
+            <option value="">{t("Select a printer")}</option>
+            {pairedPrinters.map((device) => <option key={device.address} value={device.address}>{device.name} (…{device.address.slice(-5)})</option>)}
+          </select>
+        </label> : <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{t("No paired devices found. Pair the printer in Bluetooth settings, then refresh this list.")}</p>}
+        <div className="mt-5 grid gap-2">
+          <button type="button" className="btn w-full" disabled={!selectedPrinterAddress || printerLoading || printerPrinting} onClick={sendToBluetoothPrinter}>{printerPrinting ? t("Sending print job…") : t("Print to Bluetooth printer")}</button>
+          <button type="button" className="btn-ghost w-full" disabled={printerLoading || printerPrinting} onClick={async () => { setPrinterError(""); try { await openBluetoothSettings(); } catch (error) { setPrinterError(error?.message || t("Could not open Bluetooth settings.")); } }}>{t("Pair or manage Bluetooth devices")}</button>
+          <button type="button" className="btn-ghost w-full" disabled={printerPrinting} onClick={refreshPairedPrinters}>{t("Refresh paired devices")}</button>
+          <button type="button" className="btn-ghost w-full" disabled={printerPrinting} onClick={useSystemPrint}>{t("Use system print / Save as PDF")}</button>
+          <button type="button" className="min-h-10 rounded-lg px-3 text-sm font-semibold text-slate-600" disabled={printerPrinting} onClick={() => setPrinterDialogOpen(false)}>{t("Cancel")}</button>
+        </div>
+      </section>
+    </div>}
+    <section className="print-only"><h1>VOTER DETAILS</h1>{printRecords.map((c) => {
+      const content = getVoterSlipContent(c, household);
+      return <article className="voter-slip" key={c.id}>
+        {content.fields.map((field) => <div className="voter-slip-row" key={field.label}><span>{field.label}</span><strong>{field.value}</strong></div>)}
+        <p className="voter-slip-summary">{content.summary.map((item) => t(item)).join(" · ")}</p>
+      </article>;
+    })}</section>
     <p className="text-xs text-slate-500">{t("This checkbox saves the door-to-door visit. Official verification steps are in the Verifications page.")}</p>
   </div>; }}</Async>;
 }

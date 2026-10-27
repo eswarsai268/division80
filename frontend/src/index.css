@@ -345,13 +345,15 @@ body {
 
 .print-only { display: none; }
 @media print {
-  @page { size: A4; margin: 16mm; }
+  @page { size: auto; margin: 2mm; }
   body { background: #fff !important; color: #111827 !important; }
   body * { visibility: hidden !important; }
   .print-only, .print-only * { visibility: visible !important; }
   .print-only { display: block !important; position: absolute; inset: 0; width: 100%; font-family: Arial, sans-serif; }
-  .print-only h1 { margin: 0 0 18pt; text-align: center; font-size: 16pt; }
-  .voter-print-table { width: 100%; border-collapse: collapse; margin: 0 0 20pt; font-size: 11pt; }
-  .voter-print-table th, .voter-print-table td { border: 1px solid #333; padding: 9pt 10pt; text-align: left; vertical-align: top; }
-  .voter-print-table th { width: 42%; font-weight: 700; }
+  .print-only h1 { margin: 0 0 3mm; text-align: center; font-size: 10pt; }
+  .voter-slip { box-sizing: border-box; width: 52mm; max-width: 100%; margin: 0 auto 4mm; padding: 2mm; border: 0.25mm solid #555; border-radius: 2mm; break-inside: avoid; page-break-inside: avoid; color: #111; }
+  .voter-slip-row { margin: 0 0 2mm; }
+  .voter-slip-row span { display: block; margin-bottom: 0.5mm; font-size: 7pt; color: #333; }
+  .voter-slip-row strong { display: block; font-size: 10pt; line-height: 1.2; overflow-wrap: anywhere; }
+  .voter-slip-summary { margin: 2mm 0 0; padding-top: 2mm; border-top: 0.2mm solid #888; font-size: 7pt; }
 }
