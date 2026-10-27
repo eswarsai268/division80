@@ -50,6 +50,7 @@ const households_1 = require("../repositories/households");
 const extra_1 = require("./extra");
 const router = (0, express_1.Router)();
 const password = zod_1.z.string().min(12).max(128);
+const phone = zod_1.z.string().min(8).max(24).regex(/^\+?[0-9 ()-]+$/).refine((value) => /^\+?[1-9]\d{7,14}$/.test(value.replace(/[()\s-]/g, "")), "Enter a valid phone number");
 const ACCESS_MS = env_1.env.ACCESS_TOKEN_TTL_SECONDS * 1000;
 const REFRESH_MS = env_1.env.REFRESH_TOKEN_TTL_DAYS * 86_400_000;
 function setCookies(res, t) {
@@ -61,8 +62,12 @@ const clearCookies = (res) => { res.clearCookie("access_token", { path: "/" }); 
 /* ------------------------------ AUTH ------------------------------ */
 const a = (0, express_1.Router)();
 a.post("/login", rateLimit_1.limits.login, rateLimit_1.limits.loginEmail, (0, http_1.h)(async (req, res) => {
-    const body = (0, http_1.parse)(zod_1.z.object({ email: zod_1.z.string().email().max(255), password: zod_1.z.string().min(1).max(128) }), req.body);
-    setCookies(res, await auth.login(body.email, body.password, String(req.id)));
+    const body = (0, http_1.parse)(zod_1.z.object({
+        email: zod_1.z.string().email().max(255).optional(),
+        phone: phone.optional(),
+        password: zod_1.z.string().min(1).max(128),
+    }).refine((value) => Boolean(value.email) !== Boolean(value.phone), "Provide either email or phone"), req.body);
+    setCookies(res, await auth.login(body.phone ?? body.email, body.password, body.phone ? "phone" : "email", String(req.id)));
     (0, http_1.ok)(req, res, { loggedIn: true });
 }));
 a.post("/refresh", rateLimit_1.limits.refresh, (0, http_1.h)(async (req, res) => {
@@ -126,6 +131,7 @@ ad.get("/dashboard", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, 
 ad.post("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.createBooth((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
     code: zod_1.z.string().min(1).max(255).refine((value) => !/[\u0000-\u001F\u007F]/.test(value)),
     name: zod_1.z.string().min(2).max(200),
+    member: zod_1.z.object({ phone, fullName: zod_1.z.string().min(2).max(200), password }).optional(),
 }), req.body)), 201)));
 ad.get("/booths", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.listBooths((0, http_1.ctx)(req)))));
 ad.get("/booths/:boothId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.getBooth((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.boothId)))));
@@ -135,7 +141,7 @@ ad.get("/booths/:boothId/assignments", (0, http_1.h)(async (req, res) => (0, htt
 ad.delete("/assignments/:assignmentId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.revokeAssignment((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.assignmentId)))));
 ad.get("/users", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.listUsers((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.enum(["ADMIN", "BOOTH_MEMBER"]).optional(), req.query.role)))));
 ad.post("/users", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.createUser((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
-    email: zod_1.z.string().email().max(255),
+    phone,
     fullName: zod_1.z.string().min(2).max(200),
     password,
     role: zod_1.z.literal("BOOTH_MEMBER"),

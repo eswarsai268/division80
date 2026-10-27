@@ -14,7 +14,7 @@ const TOOLS = [
 export default function AdminDashboard() {
   const q = useGet(["admin", "dash"], "/admin/dashboard");
   return <div className="space-y-5">
-    <section className="rounded-3xl bg-[#ffc400] p-5 text-stone-950 shadow-sm">
+    <section className="rounded-3xl bg-brand-600 p-5 text-white shadow-sm">
       <p className="text-xs font-bold uppercase tracking-wider">{t("Admin home")}</p>
       <h1 className="mt-1 text-2xl font-extrabold">{t("All booths and houses")}</h1>
       <p className="mt-2 text-sm">{t("Use the buttons below to manage every booth, house and voter in your organisation.")}</p>

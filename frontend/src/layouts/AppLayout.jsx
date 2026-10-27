@@ -82,9 +82,9 @@ export default function AppLayout() {
   };
   return (
     <div className="app-shell mx-auto min-h-screen max-w-3xl">
-      <AppHeader me={me} />
+      <AppHeader me={me} onLogout={onLogout} />
       {me.role === "BOOTH_MEMBER" && (offlineMode || syncProgress || syncError || offlineInfo || offlineDisabled) && <div className={`mx-4 mt-3 flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-xs ${offlineMode ? "bg-amber-100 text-amber-950" : syncError ? "bg-red-50 text-red-800" : "bg-emerald-50 text-emerald-900"}`} role="status">
-        <span>{offlineDisabled ? "Offline copy removed from this device." : offlineMode ? "Offline mode: searching and printing use the saved roster. Verification and admin functions need internet." : syncProgress ? `Preparing offline roster: ${syncProgress.completed.toLocaleString()}${syncProgress.total ? ` of ${syncProgress.total.toLocaleString()}` : ""} houses.` : syncError || `Offline roster ready: ${offlineInfo?.householdCount.toLocaleString()} houses and ${offlineInfo?.peopleCount.toLocaleString()} people. It refreshes when you are online.`}</span>
+        <span>{offlineDisabled ? "Offline copy removed from this device." : offlineMode ? "Offline mode: search and printing use the saved roster, which may be out of date. Verification and admin functions need internet. Log out to remove this device copy." : syncProgress ? `Preparing offline roster: ${syncProgress.completed.toLocaleString()}${syncProgress.total ? ` of ${syncProgress.total.toLocaleString()}` : ""} houses.` : syncError || `Offline roster ready: ${offlineInfo?.householdCount.toLocaleString()} houses and ${offlineInfo?.peopleCount.toLocaleString()} people. It refreshes when you are online.`}</span>
         {offlineDisabled ? <button className="shrink-0 font-bold underline disabled:opacity-50" type="button" disabled={!online} onClick={() => {
           setOfflineRosterDisabled(me.id, false);
           setOfflineDisabled(false);

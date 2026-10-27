@@ -1,9 +1,9 @@
 {
   "appId": "com.yourname.samasyamedhi",
-  "appName": "Samasya Medhi",
-  "webDir": "dist",
+  "appName": "Booth Verification",
+  "webDir": "frontend/dist",
   "server": {
-    "url": "https://samysa-medhi-project.vercel.app",
+    "url": "https://division80-frontend.vercel.app",
     "cleartext": false
   }
 }

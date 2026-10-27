@@ -89,7 +89,7 @@ export default function Households() {
     const totals = query.data?.pages[0];
 
     return <div className="space-y-4">
-      <header className="rounded-3xl bg-[#ffc400] p-5 text-stone-950 shadow-sm">
+      <header className="rounded-3xl bg-brand-600 p-5 text-white shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wider">{t("Door-to-door visit")}</p>
         <h1 className="mt-1 text-2xl font-extrabold">{t("Organization houses")}</h1>
         <p className="mt-2 text-sm">{t("View houses across your organization. Visit updates are limited to your assigned booths.")}</p>
@@ -109,7 +109,7 @@ export default function Households() {
 
       <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white p-1.5 shadow-sm" role="tablist" aria-label={t("Filter houses")}>
         {FILTERS.map(([value, label]) => <button key={value || "all"} type="button" role="tab" aria-selected={status === value} onClick={() => { setStatus(value); saveFilters({ search, status: value, boothId }); }}
-          className={`min-h-11 rounded-xl px-2 text-sm font-semibold ${status === value ? "bg-[#ffc400] text-stone-950 shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}>{t(label)}</button>)}
+          className={`min-h-11 rounded-xl px-2 text-sm font-semibold ${status === value ? "bg-brand-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}>{t(label)}</button>)}
       </div>
 
       <div className="flex min-h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm">

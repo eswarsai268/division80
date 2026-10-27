@@ -80,7 +80,7 @@ async function createImportJob(c, csv) {
             name: get("full_name"),
             fatherOrHusbandName: get("father_or_husband_name"),
             rel: get("relation"),
-            voter: get("voter_id").toUpperCase(),
+            voter: get("voter_id"),
             age: get("age"),
             gender: (get("gender") || "UNKNOWN").trim().toUpperCase(),
             dead: get("dead"),
@@ -91,10 +91,8 @@ async function createImportJob(c, csv) {
             newAddress: get("new_address"),
             visitNotes: get("visit_notes"),
         };
-        if (Object.values(f).some((v) => csv_1.FORMULA.test(v))) {
-            bad(line, "Cell starts with a formula character (= + - @)");
-            continue;
-        }
+        // CSV/XLSX values are parsed as strings and never evaluated. Formula-leading
+        // text is stored literally; CSV exports escape it before spreadsheet use.
         const boothCode = f.booth.normalize("NFKC").toUpperCase();
         if (!boothCode || boothCode.length > 255 || /[\u0000-\u001F\u007F]/.test(boothCode)) {
             bad(line, "Invalid booth_code");
@@ -149,8 +147,8 @@ async function createImportJob(c, csv) {
             bad(line, "new_address must be at most 255 characters and visit_notes at most 1000 characters");
             continue;
         }
-        if (f.serial && !/^[A-Za-z0-9][A-Za-z0-9/-]{0,31}$/.test(f.serial)) {
-            bad(line, "Invalid roll_serial");
+        if (f.serial && ([...f.serial].length > 32 || /[\u0000-\u001F\u007F]/.test(f.serial))) {
+            bad(line, "Invalid roll_serial: use at most 32 printable characters");
             continue;
         }
         const age = f.age ? Number(f.age) : null;
@@ -169,11 +167,12 @@ async function createImportJob(c, csv) {
             continue;
         }
         if (f.voter) {
-            if (!/^[A-Z0-9]{6,20}$/.test(f.voter)) {
-                bad(line, "Invalid voter_id");
+            if ([...f.voter].length > 32 || /[\u0000-\u001F\u007F]/.test(f.voter)) {
+                bad(line, "Invalid voter_id: use at most 32 printable characters");
                 continue;
             }
-            if (seen.has(f.voter)) {
+            const voterKey = f.voter.toUpperCase();
+            if (seen.has(voterKey)) {
                 duplicateRows++;
                 continue;
             }
@@ -187,7 +186,7 @@ async function createImportJob(c, csv) {
         if (f.address)
             householdAddresses.set(householdKey, f.address);
         if (f.voter)
-            seen.add(f.voter);
+            seen.add(f.voter.toUpperCase());
         valid.push({
             boothId: boothId ?? null,
             boothCode,
@@ -219,7 +218,7 @@ async function createImportJob(c, csv) {
         (await (0, pool_1.query)(`SELECT voter_id FROM citizens WHERE voter_id IN (${(0, pool_1.placeholders)(chunk.length)})`, chunk)).forEach((r) => existing.add(String(r.voter_id).toUpperCase()));
     }
     let existingRows = 0;
-    const final = valid.filter((v) => { if (v.voterId && existing.has(v.voterId)) {
+    const final = valid.filter((v) => { if (v.voterId && existing.has(v.voterId.toUpperCase())) {
         existingRows++;
         return false;
     } return true; });

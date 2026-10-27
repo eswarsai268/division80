@@ -13,7 +13,7 @@ export default function LoginPage({ portal }) {
       </nav>
       <LoginForm portal={portal} />
       <div className="mt-4 space-y-1 text-center text-sm">
-        {portal === "BOOTH_MEMBER" && <p className="text-xs text-slate-500">{t("Booth logins are created and assigned by an administrator. Use the email and temporary password they provided.")}</p>}
+        {portal === "BOOTH_MEMBER" && <p className="text-xs text-slate-500">{t("Booth accounts are created by an administrator. Sign in with your phone number and password. Existing booth accounts can still use their email.")}</p>}
       </div>
     </AuthLayout>
   );

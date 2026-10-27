@@ -1,9 +1,9 @@
 {
-  "name": "Samasya Meedi Parishkaram Maadi",
-  "short_name": "Samasya Meedi Parishkaram Maadi",
+  "name": "Booth Verification",
+  "short_name": "Booth Verification",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fff7e5",
-  "theme_color": "#efb900",
+  "background_color": "#edf5f8",
+  "theme_color": "#075081",
   "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

@@ -14,7 +14,7 @@ export default function BoothDashboard() {
   const events = useGet(["public", "events"], "/public/events");
   return (
     <div className="space-y-5">
-      <section className="rounded-3xl bg-[#ffc400] p-5 text-stone-950 shadow-sm">
+      <section className="rounded-3xl bg-brand-600 p-5 text-white shadow-sm">
         <p className="text-xs font-bold uppercase tracking-[0.14em]">{t("Booth member home")}</p>
         <h1 className="mt-1 text-2xl font-extrabold">{t("Door-to-door visit")}</h1>
         <p className="mt-2 text-sm">{t("Start with your assigned houses. Your saved work stays in the system.")}</p>
