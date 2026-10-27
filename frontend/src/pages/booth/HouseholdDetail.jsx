@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { useState } from "react";
 import { flushSync } from "react-dom";
@@ -6,14 +6,28 @@ import { Printer } from "lucide-react";
 import Async from "../../components/Async";
 import Empty from "../../components/Empty";
 import ErrorBox from "../../components/ErrorBox";
-import { patch } from "../../api/client";
-import { useGet } from "../../hooks/useGet";
+import { api, patch } from "../../api/client";
+import { findOfflineHousehold, readOfflineRoster } from "../../services/offlineRoster";
 import { t } from "../../i18n";
 
 export default function HouseholdDetail() {
     const { id } = useParams();
     const qc = useQueryClient();
-    const q = useGet(["booth", "household", id], `/booth/households/${id}/citizens`);
+    const q = useQuery({
+        queryKey: ["booth", "household", id],
+        queryFn: async ({ signal }) => {
+            try {
+                return await api(`/booth/households/${id}/citizens`, { signal });
+            } catch (error) {
+                if (error?.status !== 0) throw error;
+                const cached = await readOfflineRoster();
+                const record = cached && findOfflineHousehold(cached, id);
+                if (!record) throw error;
+                const { citizens, ...household } = record;
+                return { household: { ...household, offline: true }, citizens };
+            }
+        },
+    });
     const visit = useMutation({
         mutationFn: ({ citizenId, ...data }) => patch(`/booth/citizens/${citizenId}/visit`, data),
         onSuccess: () => qc.invalidateQueries({ queryKey: ["booth", "household", id] }),
@@ -27,8 +41,11 @@ export default function HouseholdDetail() {
         flushSync(() => setPrintRecords(verifiedRecords));
         window.print();
     };
-    return <Async q={q}>{({ household, citizens }) => <div className="space-y-3">
+    return <Async q={q}>{({ household, citizens }) => {
+    const canEdit = household.ownBooth && !household.offline && navigator.onLine;
+    return <div className="space-y-3">
     <div className="card"><h1 className="font-semibold">{t("House")} {household.houseCode}</h1><p className="mt-1 text-xs text-slate-500">{t("Booth")} {household.boothCode}{household.address ? ` · ${household.address}` : ""}</p><p className="mt-2 text-sm font-semibold text-emerald-700">{t("Visit progress")}: {citizens.filter((citizen) => citizen.verificationDone).length}/{citizens.length} {t("people visited")}</p></div>
+    {household.offline && <div className="card bg-amber-50 text-sm text-amber-900">Offline copy: printing verified records is available; visit updates require internet.</div>}
     {!household.ownBooth && <div className="card bg-amber-50 text-sm text-amber-900">{t("Read-only view. Visit updates are available only for your assigned booths.")}</div>}
     {visit.error && <ErrorBox error={visit.error}/>}
     <section className="no-print sticky top-2 z-10 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-200 bg-white p-3 shadow-md">
@@ -62,17 +79,17 @@ export default function HouseholdDetail() {
         <p className="mt-3 border-t border-amber-200 pt-2 text-sm text-slate-600">{t(c.relation)} · {c.age ?? "—"} {t("years")} · {t(c.gender)}</p>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.verificationDone} disabled={!household.ownBooth} onChange={(event) => setDraft("verificationDone", event.target.checked)}/>{t("Verification done")}</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.lifeStatus === "DECEASED"} disabled={!household.ownBooth} onChange={(event) => setDraft("lifeStatus", event.target.checked ? "DECEASED" : "ALIVE")}/>{t("Dead")}</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.notHere} disabled={!household.ownBooth} onChange={(event) => setDraft("notHere", event.target.checked)}/>{t("Not here")}</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.addressChanged} disabled={!household.ownBooth} onChange={(event) => setDraft("addressChanged", event.target.checked)}/>{t("Address changed / shifted")}</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.verificationDone} disabled={!canEdit} onChange={(event) => setDraft("verificationDone", event.target.checked)}/>{t("Verification done")}</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.lifeStatus === "DECEASED"} disabled={!canEdit} onChange={(event) => setDraft("lifeStatus", event.target.checked ? "DECEASED" : "ALIVE")}/>{t("Dead")}</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.notHere} disabled={!canEdit} onChange={(event) => setDraft("notHere", event.target.checked)}/>{t("Not here")}</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.addressChanged} disabled={!canEdit} onChange={(event) => setDraft("addressChanged", event.target.checked)}/>{t("Address changed / shifted")}</label>
       </div>
-      {draft.addressChanged && <label className="block text-sm">{t("New address")}<input className="input mt-1" maxLength={255} value={draft.newAddress} disabled={!household.ownBooth} placeholder={t("Enter changed address")} onChange={(event) => setDraft("newAddress", event.target.value)}/></label>}
-      <label className="block text-sm">{t("Additional notes")}<textarea className="input mt-1 min-h-24" maxLength={1000} value={draft.visitNotes} disabled={!household.ownBooth} placeholder={t("Write any additional details for this person")} onChange={(event) => setDraft("visitNotes", event.target.value)}/></label>
-      {household.ownBooth && <button className="btn w-full" disabled={visit.isPending || JSON.stringify(draft) === JSON.stringify(saved)} onClick={() => visit.mutate({ citizenId: c.id, ...draft })}>{t(visit.isPending ? "Saving…" : "Save visit details")}</button>}
+      {draft.addressChanged && <label className="block text-sm">{t("New address")}<input className="input mt-1" maxLength={255} value={draft.newAddress} disabled={!canEdit} placeholder={t("Enter changed address")} onChange={(event) => setDraft("newAddress", event.target.value)}/></label>}
+      <label className="block text-sm">{t("Additional notes")}<textarea className="input mt-1 min-h-24" maxLength={1000} value={draft.visitNotes} disabled={!canEdit} placeholder={t("Write any additional details for this person")} onChange={(event) => setDraft("visitNotes", event.target.value)}/></label>
+      {canEdit && <button className="btn w-full" disabled={visit.isPending || JSON.stringify(draft) === JSON.stringify(saved)} onClick={() => visit.mutate({ citizenId: c.id, ...draft })}>{t(visit.isPending ? "Saving…" : "Save visit details")}</button>}
       </div>;
     })}
     <section className="print-only"><h1>VOTER DETAILS</h1>{printRecords.map((c) => <table className="voter-print-table" key={c.id}><tbody><tr><th>Booth Number</th><td>{household.boothCode}</td></tr><tr><th>S. No</th><td>{c.rollSerial}</td></tr><tr><th>Voter Name</th><td>{c.fullName}</td></tr><tr><th>Father's Name / Husband's Name</th><td>{c.fatherOrHusbandName}</td></tr><tr><th>Door No</th><td>{household.houseCode}</td></tr><tr><th>Voter ID No</th><td>{c.voterId}</td></tr></tbody></table>)}</section>
     <p className="text-xs text-slate-500">{t("This checkbox saves the door-to-door visit. Official verification steps are in the Verifications page.")}</p>
-  </div>}</Async>;
+  </div>; }}</Async>;
 }
