@@ -10,8 +10,6 @@ import { logout } from "../services/authService";
 import { clearOfflineRoster, getOfflineInfo, isOfflineRosterDisabled, setOfflineRosterDisabled, syncOfflineRoster } from "../services/offlineRoster";
 import { useLanguage } from "../i18n";
 
-const FRESH_OFFLINE_COPY_MS = 6 * 60 * 60 * 1000;
-
 /** Shell for signed-in pages: header + content + bottom navigation (mobile first). */
 export default function AppLayout() {
   const { data: me } = useMe();
@@ -38,6 +36,11 @@ export default function AppLayout() {
     };
   }, []);
   useEffect(() => {
+    if (!online || me?.role !== "BOOTH_MEMBER" || me.isOffline) return undefined;
+    const timer = window.setInterval(() => setSyncCheck((value) => value + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, [me?.role, me?.isOffline, online]);
+  useEffect(() => {
     if (!me?.id) return;
     setOfflineDisabled(isOfflineRosterDisabled(me.id));
     setOfflinePreferenceReady(true);
@@ -48,10 +51,8 @@ export default function AppLayout() {
     (async () => {
       const saved = await getOfflineInfo().catch(() => null);
       if (active) setOfflineInfo(saved);
-      if (saved && Date.now() - saved.updatedAt < FRESH_OFFLINE_COPY_MS) return;
       if (active) {
         setSyncError("");
-        setSyncProgress({ completed: 0, total: saved?.householdCount ?? null });
       }
       try {
         const next = await syncOfflineRoster(me, (progress) => {

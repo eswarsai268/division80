@@ -56,7 +56,7 @@ async function updateCitizen(c, id, i) {
 async function createCitizen(c, input) {
     const id = require("crypto").randomUUID();
     return (0, pool_1.tx)(async (conn) => {
-        const booth = (await (0, pool_1.query)("SELECT id FROM booths WHERE id = ? AND organization_id = ? AND status = 'ACTIVE'", [input.boothId, org(c)], conn))[0];
+        const booth = (await (0, pool_1.query)("SELECT id FROM booths WHERE id = ? AND organization_id = ? AND status = 'ACTIVE' FOR UPDATE", [input.boothId, org(c)], conn))[0];
         if (!booth)
             throw (0, errors_1.notFound)();
         const voterId = input.voterId?.toUpperCase() ?? null;

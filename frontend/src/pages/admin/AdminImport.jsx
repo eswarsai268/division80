@@ -195,7 +195,7 @@ export default function AdminImport() {
       {j.status === "COMMITTED" && <div role="status" className="rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-900">{t("Saved into the database:")} {j.processedRows} {t("people")}. {t("Booth members assigned to the matching booth can now open these households.")}</div>}
       {j.status === "PREVIEW" && j.validRows > 0 && <button type="button" className="btn w-full" disabled={confirmM.isPending} onClick={() => confirm(`Save ${j.validRows} valid people to the database? Invalid rows are skipped.`) && confirmM.mutate(j.id)}>{confirmM.isPending ? t("Saving people…") : <>{t("Save valid people to database")} ({j.validRows})</>}</button>}
       {j.canDelete
-        ? <button type="button" className="btn-ghost text-red-700" disabled={deleteImport.isPending} onClick={() => confirm(t("Delete this import and archive the roster records created by it? Verification history will be kept.")) && deleteImport.mutate(j.id)}>{t("Delete import")}</button>
+        ? <button type="button" className="btn-ghost text-red-700" disabled={deleteImport.isPending} onClick={() => confirm(t("Permanently delete this import and its verification history? Empty booths and their assignments will be removed, and all current organization exports will expire. Shared roster records will be kept.")) && deleteImport.mutate(j.id)}>{t("Delete import")}</button>
         : (j.status === "COMMITTED" || j.status === "FAILED") && <p className="text-xs text-amber-800">{t("This older import cannot be safely deleted because its records were not linked to the import.")}</p>}
     </div>)}</> : <Empty text="No imports yet."/>}</Async></div>;
 }
