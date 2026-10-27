@@ -1,12 +1,31 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "app": {
+      "root": ".",
+      "runtime": "container"
+    },
+    "backend": {
+      "root": "backend",
+      "framework": "express"
+    },
+    "frontend": {
+      "root": "frontend",
+      "framework": "vite"
+    }
+  },
   "rewrites": [
     {
-      "source": "/api/v1/:path*",
-      "destination": "https://samysa-medhi-project.onrender.com/api/v1/:path*"
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "backend"
+      }
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": {
+        "service": "app"
+      }
     }
   ]
 }
