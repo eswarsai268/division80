@@ -11,8 +11,8 @@ const cell = (v) => { let s = v == null ? "" : String(v); if (FORMULA.test(s))
     s = "'" + s; return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 const mask = (v) => (v ? `****${v.slice(-4)}` : "");
 const importFailureMessage = (e) => e?.code === "ER_DUP_ENTRY"
-    ? "A record conflicted with data saved after preview. Some rows may already be saved; delete this import to archive them before retrying."
-    : "Import could not be completed. Some rows may already be saved; delete this import to archive them before retrying.";
+    ? "A record conflicted with data saved after preview. Some rows may already be saved; delete this import to permanently remove them before retrying."
+    : "Import could not be completed. Some rows may already be saved; delete this import to permanently remove them before retrying.";
 const exportFailureMessage = (e) => e?.message === "Export too large; filter by booth"
     ? "Export is too large. Filter by booth and try again."
     : "Export could not be generated. Try again or contact support.";
@@ -42,8 +42,8 @@ async function processImports() {
             for (let offset = 0; offset < missingCodes.length; offset += 5000) {
                 const boothBatch = missingCodes.slice(offset, offset + 5000);
                 await db_1.pool.execute(
-                    `INSERT IGNORE INTO booths (id, organization_id, code, name) VALUES ${boothBatch.map(() => "(?,?,?,?)").join(",")}`,
-                    boothBatch.flatMap((code) => [(0, crypto_1.randomUUID)(), job.organization_id, code, `Booth ${String(code).slice(0, 194)}`])
+                    `INSERT IGNORE INTO booths (id, organization_id, code, name, source_import_job_id) VALUES ${boothBatch.map(() => "(?,?,?,?,?)").join(",")}`,
+                    boothBatch.flatMap((code) => [(0, crypto_1.randomUUID)(), job.organization_id, code, `Booth ${String(code).slice(0, 194)}`, job.id])
                 );
             }
             const [b] = await db_1.pool.execute("SELECT id, code FROM booths WHERE organization_id = ? AND status = 'ACTIVE'", [job.organization_id]);
@@ -69,7 +69,11 @@ async function processImports() {
                             houseMap.set(key, row);
                     }
                     const houses = [...houseMap.values()];
-                    await conn.execute(`INSERT INTO households (id, organization_id, booth_id, house_code, address_line, source_import_job_id) VALUES ${houses.map(() => "(?,?,?,?,?,?)").join(",")} ON DUPLICATE KEY UPDATE address_line = COALESCE(VALUES(address_line), address_line)`, houses.flatMap((r) => [(0, crypto_1.randomUUID)(), job.organization_id, r.boothId, r.houseCode, r.addressLine ?? null, job.id]));
+                    // Imports fill a missing address but don't overwrite a pre-existing one;
+                    // the source marker lets import deletion remove this value later.
+                    await conn.execute(`INSERT INTO households (id, organization_id, booth_id, house_code, address_line, source_import_job_id, address_source_import_job_id) VALUES ${houses.map(() => "(?,?,?,?,?,?,?)").join(",")} ON DUPLICATE KEY UPDATE
+                        address_source_import_job_id = IF(address_line IS NULL AND VALUES(address_line) IS NOT NULL, VALUES(address_source_import_job_id), address_source_import_job_id),
+                        address_line = COALESCE(address_line, VALUES(address_line))`, houses.flatMap((r) => [(0, crypto_1.randomUUID)(), job.organization_id, r.boothId, r.houseCode, r.addressLine ?? null, job.id, r.addressLine ? job.id : null]));
                     const [hid] = await conn.execute(`SELECT id, booth_id, house_code FROM households WHERE deleted_at IS NULL AND (booth_id, house_code) IN (${houses.map(() => "(?,?)").join(",")})`, houses.flatMap((r) => [r.boothId, r.houseCode]));
                     const map = new Map(hid.map((h) => [`${h.booth_id}|${h.house_code}`, h.id]));
                     const people = slice.filter((r) => map.has(`${r.boothId}|${r.houseCode}`));
@@ -169,11 +173,11 @@ async function processExports() {
                 if (rows.length < PAGE)
                     break;
             }
-            await db_1.pool.execute("UPDATE export_jobs SET status = 'READY', content = ?, row_count = ?, expires_at = DATE_ADD(NOW(3), INTERVAL 24 HOUR), locked_by = NULL WHERE id = ?", [lines.join("\n"), n, job.id]);
+            await db_1.pool.execute("UPDATE export_jobs SET status = 'READY', content = ?, row_count = ?, expires_at = DATE_ADD(NOW(3), INTERVAL 24 HOUR), locked_by = NULL WHERE id = ? AND status = 'PROCESSING' AND locked_by = ?", [lines.join("\n"), n, job.id, db_1.WORKER_ID]);
         }
         catch (e) {
             const message = exportFailureMessage(e);
-            await db_1.pool.execute("UPDATE export_jobs SET status = 'FAILED', last_error = ?, locked_by = NULL WHERE id = ?", [message, job.id]);
+            await db_1.pool.execute("UPDATE export_jobs SET status = 'FAILED', last_error = ?, locked_by = NULL WHERE id = ? AND status = 'PROCESSING' AND locked_by = ?", [message, job.id, db_1.WORKER_ID]);
             db_1.log.error({ jobId: job.id, code: safeErrorCode(e) }, "export failed");
         }
     }
@@ -185,4 +189,14 @@ async function maintenance() {
     await db_1.pool.execute("UPDATE export_jobs SET status = 'EXPIRED', content = NULL WHERE status = 'READY' AND expires_at < NOW(3)");
     await db_1.pool.execute("UPDATE export_jobs SET status = 'PENDING', locked_by = NULL WHERE status = 'PROCESSING' AND locked_at < DATE_SUB(NOW(3), INTERVAL 10 MINUTE)");
     await db_1.pool.execute("UPDATE notification_outbox SET status = 'PENDING', locked_by = NULL WHERE status = 'PROCESSING' AND locked_at < DATE_SUB(NOW(3), INTERVAL 5 MINUTE)");
+    const orphanedImportBooths = `SELECT b.id FROM booths b
+        JOIN import_jobs owner ON owner.id = b.source_import_job_id AND owner.deleted_at IS NOT NULL
+        WHERE NOT EXISTS (SELECT 1 FROM households h WHERE h.booth_id = b.id)
+          AND NOT EXISTS (SELECT 1 FROM import_jobs pending WHERE pending.organization_id = b.organization_id AND pending.status IN ('QUEUED','COMMITTING'))`;
+    await db_1.pool.execute(`DELETE FROM verifications WHERE booth_id IN (${orphanedImportBooths})`);
+    await db_1.pool.execute(`DELETE FROM booth_assignments WHERE booth_id IN (${orphanedImportBooths})`);
+    await db_1.pool.execute(`DELETE b FROM booths b
+        JOIN import_jobs owner ON owner.id = b.source_import_job_id AND owner.deleted_at IS NOT NULL
+        WHERE NOT EXISTS (SELECT 1 FROM households h WHERE h.booth_id = b.id)
+          AND NOT EXISTS (SELECT 1 FROM import_jobs pending WHERE pending.organization_id = b.organization_id AND pending.status IN ('QUEUED','COMMITTING'))`);
 }

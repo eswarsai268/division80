@@ -284,7 +284,7 @@ const te = {
   "Required columns:": "తప్పనిసరి కాలమ్‌లు:",
   "Printed voter photos are not imported. Maximum 50,000 rows; formula cells are rejected.": "ముద్రించిన ఓటరు ఫోటోలు దిగుమతి చేయబడవు. గరిష్ఠంగా 50,000 వరుసలు; ఫార్ములా సెల్‌లు తిరస్కరించబడతాయి.",
   "Delete import": "దిగుమతిని తొలగించండి",
-  "Delete this import and archive the roster records created by it? Verification history will be kept.": "ఈ దిగుమతిని మరియు దాని ద్వారా సృష్టించిన ఓటరు వివరాలను ఆర్కైవ్ చేయాలా? ధృవీకరణ చరిత్ర అలాగే ఉంటుంది.",
+  "Permanently delete this import and its verification history? Empty booths and their assignments will be removed, and all current organization exports will expire. Shared roster records will be kept.": "ఈ దిగుమతి మరియు దాని ధృవీకరణ చరిత్రను శాశ్వతంగా తొలగించాలా? ఖాళీ బూత్‌లు మరియు వాటి కేటాయింపులు తొలగించబడతాయి; సంస్థలోని ప్రస్తుత ఎగుమతులన్నీ గడువు ముగిసినవిగా మారతాయి. పంచుకున్న జాబితా వివరాలు అలాగే ఉంటాయి.",
   "This older import cannot be safely deleted because its records were not linked to the import.": "ఈ పాత దిగుమతిలోని రికార్డులు దిగుమతితో అనుసంధానించబడలేదు కాబట్టి సురక్షితంగా తొలగించలేము.",
   "Whole organisation": "మొత్తం సంస్థ",
   "Printed voter photos are not imported.": "ముద్రించిన ఓటరు ఫోటోలు దిగుమతి చేయబడవు.",

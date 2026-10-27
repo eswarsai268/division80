@@ -4,6 +4,7 @@ exports.maskVoter = void 0;
 exports.listBoothsForUser = listBoothsForUser;
 exports.listHouseholdsForUser = listHouseholdsForUser;
 exports.listOfflineRosterForUser = listOfflineRosterForUser;
+exports.getOfflineRosterRevisionForUser = getOfflineRosterRevisionForUser;
 exports.getHouseholdForUser = getHouseholdForUser;
 exports.listCitizensForUser = listCitizensForUser;
 exports.updateVisitForUser = updateVisitForUser;
@@ -223,6 +224,14 @@ async function listOfflineRosterForUser(u, f) {
             citizens: citizensByHousehold.get(house.id) ?? [],
         })),
     };
+}
+async function getOfflineRosterRevisionForUser(u) {
+    if (u.role !== "BOOTH_MEMBER")
+        throw (0, errors_1.forbidden)();
+    const rows = await (0, pool_1.query)(`SELECT CONCAT(COUNT(*), ':',
+        COALESCE(DATE_FORMAT(MAX(updated_at), '%Y%m%d%H%i%s%f'), '')) AS revision
+        FROM import_jobs WHERE organization_id = ? AND deleted_at IS NOT NULL`, [u.organizationId]);
+    return { revision: String(rows[0]?.revision ?? "") };
 }
 /**
  * Booth members may read households in their organization. Full voter IDs and visit writes
