@@ -52,5 +52,20 @@ export default function AdminAssignments() {
       {(assign.error || revoke.error) && <ErrorBox error={assign.error ?? revoke.error}/>}
       <button className="btn w-full" disabled={!boothIds.length || !userId || assign.isPending} onClick={() => assign.mutate(undefined)}>{assign.isPending ? "Assigning booths…" : `Assign ${boothIds.length || "selected"} booth${boothIds.length === 1 ? "" : "s"}`}</button>
     </div>
-    <Async q={q}>{(data) => data.length ? <>{data.map((assignment) => <div key={assignment.id} className="card mb-2 flex items-center justify-between text-sm"><span>{assignment.boothCode} · {assignment.fullName}</span><button className="btn-ghost" onClick={() => confirm("Revoke this assignment?") && revoke.mutate(assignment.id)}>{t("Revoke")}</button></div>)}</> : <Empty text="No active assignments."/>}</Async></div>;
+    <Async q={q}>{(data) => {
+      if (!data.length) return <Empty text="No active assignments."/>;
+      const groups = new Map();
+      data.forEach((assignment) => {
+        const member = groups.get(assignment.userId) ?? { id: assignment.userId, name: assignment.fullName, assignments: [] };
+        member.assignments.push(assignment);
+        groups.set(assignment.userId, member);
+      });
+      return <div className="space-y-2">{[...groups.values()].sort((a, b) => a.name.localeCompare(b.name)).map((member) => <details key={member.id} className="card overflow-hidden p-0">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
+          <span className="font-medium">{member.name} <span className="text-sm font-normal text-slate-500">({member.assignments.length} {member.assignments.length === 1 ? "booth" : "booths"})</span></span>
+          <span aria-hidden="true" className="text-slate-500">⌄</span>
+        </summary>
+        <div className="space-y-2 border-t border-slate-200 p-3">{member.assignments.sort((a, b) => a.boothCode.localeCompare(b.boothCode, undefined, { numeric: true })).map((assignment) => <div key={assignment.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm"><span>Booth {assignment.boothCode}</span><button type="button" className="btn-ghost" disabled={revoke.isPending} onClick={() => confirm(`Revoke ${member.name} from booth ${assignment.boothCode}?`) && revoke.mutate(assignment.id)}>{t("Revoke")}</button></div>)}</div>
+      </details>)}</div>;
+    }}</Async></div>;
 }
