@@ -9,7 +9,7 @@ This document describes implemented controls and known gaps. It does not establi
 | Privilege escalation | The server loads role and assignments from the database for each authenticated request. Only admins and booth members can authenticate; admin APIs create booth-member accounts only. |
 | Stolen or replayed refresh token | Refresh rotation and reuse detection revoke the session. |
 | CSRF | HttpOnly, SameSite=Strict cookies, `X-Requested-With` header and Origin checks. |
-| Credential stuffing | Argon2id password hashes, per-IP and email login rate limits, generic errors and timing equalization. |
+| Credential stuffing | Argon2id password hashes, generic errors and timing equalization. Login rate limits are disabled; repeated password guesses are not throttled by this application. |
 | Evidence tampering and duplicate writes | Verification history is append-only, passed steps are unique, steps are ordered, and idempotency keys are supported. |
 | Data leakage | Voter IDs are masked outside assigned booths and in exports; API query strings are omitted from request logs. |
 | Injection | Parameterized SQL, escaped search patterns and Zod validation at API boundaries. |
