@@ -17,6 +17,8 @@ npm run dev:worker
 
 Configure the variables in `.env.example`. Production API, worker and migration processes require `DATABASE_SSL=true` with certificate validation enabled. The frontend calls `/api/v1`; Vite proxies `/api` to `http://localhost:4000` for local development.
 
+Before deploying code that uses new database fields or tables, apply the pending migrations to the intended database and confirm their entries in `schema_migrations`. Review pending migrations before running `npm run migrate` against an existing production database; older unapplied migrations may include data removal.
+
 ## Roles and visibility
 
 - Admins manage booths, booth member accounts, assignments, imported rosters, exports, events and settings.
@@ -42,7 +44,6 @@ npm run build
 ```
 
 Database-backed authorization tests require `TEST_DB=1` and a dedicated synthetic database. Never point them at production or real citizen data. The API contract is in `docs/api/openapi.json`; security assumptions and known gaps are in `docs/security/threat-model.md`.
-
 
 
 

@@ -19,6 +19,11 @@ describe("import deletion", () => {
     vi.spyOn(db, "tx").mockImplementation(async (work) => work(connection));
     const query = vi.spyOn(db, "query")
       .mockResolvedValueOnce([{ status: "COMMITTED", dataTracked: 1 }])
+      .mockResolvedValueOnce([
+        { tableName: "import_phone_contacts" },
+        { tableName: "whatsapp_campaign_jobs" },
+        { tableName: "whatsapp_campaign_recipients" },
+      ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: "booth-1" }])
       .mockResolvedValueOnce([{ id: "house-1" }])
@@ -34,7 +39,7 @@ describe("import deletion", () => {
       expect.stringContaining("DELETE FROM citizens WHERE source_import_job_id = ?"),
       expect.stringContaining("DELETE FROM households h"),
       expect.stringContaining("UPDATE households h SET"),
-      expect.stringContaining("UPDATE booths b SET source_import_job_id = ?"),
+      expect.stringContaining("UPDATE booths b SET source_import_job_id = CASE"),
       expect.stringContaining("DELETE FROM booth_assignments"),
       expect.stringContaining("UPDATE export_jobs SET status = 'EXPIRED', content = NULL"),
       expect.stringContaining("DELETE FROM booths WHERE organization_id = ?"),
@@ -43,17 +48,23 @@ describe("import deletion", () => {
     expect(exec.mock.calls[0][0]).toContain("DELETE FROM import_phone_contacts");
     expect(exec.mock.calls[0][1]).toEqual([jobId, context.user.organizationId]);
     expect(exec.mock.calls[3][0]).toContain("NOT EXISTS (SELECT 1 FROM citizens ci WHERE ci.household_id = h.id)");
-    expect(query.mock.calls[2][0]).toContain("h.source_import_job_id = ?");
-    expect(query.mock.calls[3][0]).toContain("h.address_source_import_job_id = ?");
-    expect(query.mock.calls[4][0]).toContain("NOT EXISTS (SELECT 1 FROM households h WHERE h.booth_id = b.id)");
+    expect(query.mock.calls[3][0]).toContain("h.source_import_job_id = ?");
+    expect(query.mock.calls[4][0]).toContain("h.address_source_import_job_id = ?");
+    expect(query.mock.calls[5][0]).toContain("NOT EXISTS (SELECT 1 FROM households h WHERE h.booth_id = b.id)");
     expect(exec.mock.calls[4][0]).toContain("verification_status = CASE");
+    expect(exec.mock.calls[4][0]).toContain("source_import_job_id = IF(h.source_import_job_id = ?, NULL, h.source_import_job_id)");
     expect(exec.mock.calls[4][0]).toContain("address_line = IF(h.address_source_import_job_id = ?, NULL, h.address_line)");
   });
 
-  it("scrubs queued and historical campaign phone snapshots for contacts from the deleted import", async () => {
+  it("purges linked campaign recipients and recalculates or removes campaign summaries", async () => {
     vi.spyOn(db, "tx").mockImplementation(async (work) => work({}));
     const query = vi.spyOn(db, "query")
       .mockResolvedValueOnce([{ status: "COMMITTED", dataTracked: 1 }])
+      .mockResolvedValueOnce([
+        { tableName: "import_phone_contacts" },
+        { tableName: "whatsapp_campaign_jobs" },
+        { tableName: "whatsapp_campaign_recipients" },
+      ])
       .mockResolvedValueOnce([{ jobId: "campaign-1" }])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
@@ -62,12 +73,32 @@ describe("import deletion", () => {
 
     await deleteImportJob(context, jobId);
 
-    expect(exec.mock.calls[0][0]).toContain("UPDATE whatsapp_campaign_recipients r");
-    expect(exec.mock.calls[0][0]).toContain("SOURCE_IMPORT_DELETED");
-    expect(exec.mock.calls[0][0]).toContain("r.recipient_phone = NULL");
-    expect(exec.mock.calls[1][0]).toContain("UPDATE whatsapp_campaign_jobs j SET");
-    expect(exec.mock.calls[2][0]).toContain("DELETE FROM import_phone_contacts");
+    expect(exec.mock.calls[0][0]).toContain("DELETE r FROM whatsapp_campaign_recipients r");
+    expect(exec.mock.calls[1][0]).toContain("recipient_count = (SELECT COUNT(*)");
+    expect(exec.mock.calls[1][0]).toContain("invalid_phone_count = 0");
+    expect(exec.mock.calls[2][0]).toContain("DELETE j FROM whatsapp_campaign_jobs j");
+    expect(exec.mock.calls[3][0]).toContain("DELETE FROM import_phone_contacts");
     expect(query).toHaveBeenCalled();
+  });
+
+  it("still deletes tracked roster data when optional WhatsApp migrations are absent", async () => {
+    vi.spyOn(db, "tx").mockImplementation(async (work) => work({}));
+    vi.spyOn(db, "query")
+      .mockResolvedValueOnce([{ status: "COMMITTED", dataTracked: 1 }])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    const exec = vi.spyOn(db, "exec").mockResolvedValue({ affectedRows: 1 });
+
+    await expect(deleteImportJob(context, jobId)).resolves.toEqual({ id: jobId, deleted: true });
+
+    expect(exec).toHaveBeenCalledWith(
+      expect.stringContaining("DELETE FROM citizens WHERE source_import_job_id = ?"),
+      [jobId],
+      expect.any(Object),
+    );
+    expect(exec.mock.calls.some(([sql]) => sql.includes("whatsapp_campaign_"))).toBe(false);
+    expect(exec.mock.calls.some(([sql]) => sql.includes("import_phone_contacts"))).toBe(false);
   });
 
   it("refuses to purge a legacy committed import without source tracking", async () => {
