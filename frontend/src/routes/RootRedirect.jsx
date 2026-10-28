@@ -11,3 +11,12 @@ export default function RootRedirect() {
   }
   return <Navigate to={me ? homeFor(me.role) : "/booth/login"} replace />;
 }
+
+
+
+
+
+
+
+
+
