@@ -265,7 +265,7 @@ async function createImportJob(c, csv) {
         pendingBoothCodes,
     };
 }
-const IMPORT_COLS = `id, status, total_rows AS totalRows, valid_rows AS validRows, skipped_rows AS skippedRows, error_count AS errorCount, processed_rows AS processedRows, result, last_error AS lastError, created_at AS createdAt, data_tracked AS dataTracked, (status = 'PREVIEW' OR (status NOT IN ('QUEUED','COMMITTING') AND data_tracked = 1)) AS canDelete`;
+const IMPORT_COLS = `id, status, total_rows AS totalRows, valid_rows AS validRows, skipped_rows AS skippedRows, error_count AS errorCount, processed_rows AS processedRows, result, last_error AS lastError, created_at AS createdAt, data_tracked AS dataTracked, (status = 'PREVIEW' OR status = 'QUEUED' OR (status NOT IN ('COMMITTING') AND data_tracked = 1)) AS canDelete`;
 async function getImportJob(c, id) {
     const j = (await (0, pool_1.query)(`SELECT ${IMPORT_COLS}, errors FROM import_jobs WHERE id = ? AND organization_id = ? AND deleted_at IS NULL`, [id, c.user.organizationId]))[0];
     if (!j)
@@ -319,7 +319,7 @@ async function deleteImportJob(c, id) {
                   AND (b.source_import_job_id = ? OR EXISTS (
                     SELECT 1 FROM households h WHERE h.booth_id = b.id
                       AND (h.source_import_job_id = ? OR h.address_source_import_job_id = ?)
-                  )) FOR UPDATE`, [c.user.organizationId, id, id], conn)).map((b) => b.id);
+                  )) FOR UPDATE`, [c.user.organizationId, id, id, id], conn)).map((b) => b.id);
             candidateHouseholdIds = (await (0, pool_1.query)(`SELECT h.id FROM households h
                 WHERE h.organization_id = ?
                   AND (h.source_import_job_id = ? OR h.address_source_import_job_id = ? OR EXISTS (

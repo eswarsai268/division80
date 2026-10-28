@@ -141,9 +141,10 @@ export default function Households() {
         {orderedItems.map((house) => <div key={house.id}><Link to={`/booth/households/${house.id}`} className="flex min-h-24 items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 text-inherit no-underline shadow-sm transition hover:border-amber-300 hover:shadow-md">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-amber-100 bg-amber-50 text-amber-700"><Users size={23}/></span>
           <span className="min-w-0 flex-1">
-            <span className="block text-lg font-extrabold text-slate-900">{t("House")} {house.houseCode}</span>
+            <span className="block text-xl font-extrabold text-slate-900">{t("House")} {house.houseCode}</span>
             <span className="mt-1 block truncate text-xs text-slate-500">{house.boothName} · {t("Booth")} {house.boothCode} · {house.citizenCount} {t("people")}</span>
             <span className="mt-1 block text-xs font-semibold text-emerald-700">{t("Visited")}: {house.visitedCount}/{house.citizenCount}</span>
+{house.status === "RESOLVED" && <span className="mt-1 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">{t("Verified")}</span>}
           </span>
           <ArrowRight className="shrink-0 text-slate-500" size={21}/>
         </Link>
