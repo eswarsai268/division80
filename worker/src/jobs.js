@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.processImports = processImports;
 exports.processExports = processExports;
 exports.maintenance = maintenance;
+exports.processWhatsAppCampaigns = processWhatsAppCampaigns;
 const crypto_1 = require("crypto");
 const db_1 = require("./db");
 const BATCH = 3000, PAGE = 2000, MAX_EXPORT_ROWS = 200_000;
@@ -17,6 +18,97 @@ const exportFailureMessage = (e) => e?.message === "Export too large; filter by 
     ? "Export is too large. Filter by booth and try again."
     : "Export could not be generated. Try again or contact support.";
 const safeErrorCode = (e) => typeof e?.code === "string" && /^[A-Z0-9_]{1,40}$/i.test(e.code) ? e.code : "UNKNOWN";
+const waRecipient = (value) => {
+    const config = db_1.config;
+    const raw = String(value ?? "").trim();
+    if (!raw || raw.length > 32 || !/^\+?[\d\s()-]+$/.test(raw)) return null;
+    let digits = raw.replace(/[+\s()-]/g, "");
+    if (raw.startsWith("+")) return /^[1-9]\d{7,14}$/.test(digits) ? digits : null;
+    if (digits.startsWith("0")) digits = digits.replace(/^0+/, "");
+    const cc = config.whatsappDefaultCountryCode;
+    if (digits.startsWith(cc) && digits.length > 10 && digits.length <= 15) return /^[1-9]\d{7,14}$/.test(digits) ? digits : null;
+    const intl = `${cc}${digits}`;
+    return /^[1-9]\d{7,14}$/.test(intl) ? intl : null;
+};
+async function updateWhatsAppJob(jobId) {
+    const counts = (await db_1.pool.execute(`SELECT
+        SUM(status = 'ACCEPTED') AS acceptedCount,
+        SUM(status = 'FAILED') AS failedCount,
+        SUM(status = 'SKIPPED') AS skippedCount,
+        SUM(status IN ('PENDING','PROCESSING')) AS openCount
+      FROM whatsapp_campaign_recipients WHERE job_id = ?`, [jobId]))[0][0];
+    const accepted = Number(counts.acceptedCount ?? 0);
+    const failed = Number(counts.failedCount ?? 0);
+    const skipped = Number(counts.skippedCount ?? 0);
+    const open = Number(counts.openCount ?? 0);
+    const status = open ? "PROCESSING" : failed ? (accepted || skipped ? "COMPLETED_WITH_ERRORS" : "FAILED") : "COMPLETED";
+    await db_1.pool.execute(`UPDATE whatsapp_campaign_jobs SET accepted_count = ?, failed_count = ?, skipped_count = invalid_phone_count + ?, status = ?,
+        finished_at = IF(? = 0, COALESCE(finished_at, NOW(3)), NULL) WHERE id = ?`, [accepted, failed, skipped, status, open, jobId]);
+}
+/** Sends approved templates only. A stale PROCESSING recipient is failed as delivery-unknown, never retried blindly. */
+async function processWhatsAppCampaigns() {
+    const cfg = db_1.config;
+    if (!cfg.whatsappAccessToken || !cfg.whatsappPhoneNumberId || !cfg.whatsappApiVersion) return 0;
+    const [staleJobs] = await db_1.pool.execute(`SELECT DISTINCT job_id AS jobId FROM whatsapp_campaign_recipients
+      WHERE status = 'PROCESSING' AND locked_at < DATE_SUB(NOW(3), INTERVAL 10 MINUTE)`);
+    await db_1.pool.execute(`UPDATE whatsapp_campaign_recipients SET status = 'FAILED', error_code = 'WORKER_TIMEOUT_UNKNOWN', locked_by = NULL, locked_at = NULL
+      WHERE status = 'PROCESSING' AND locked_at < DATE_SUB(NOW(3), INTERVAL 10 MINUTE)`);
+    for (const stale of staleJobs) await updateWhatsAppJob(stale.jobId);
+    const [claim] = await db_1.pool.execute(`UPDATE whatsapp_campaign_recipients r
+      JOIN whatsapp_campaign_jobs j ON j.id = r.job_id
+      SET r.status = 'PROCESSING', r.locked_by = ?, r.locked_at = NOW(3), r.attempts = r.attempts + 1,
+          j.status = 'PROCESSING'
+      WHERE r.status = 'PENDING' AND r.next_attempt_at <= NOW(3) AND j.status IN ('PENDING','PROCESSING')
+      ORDER BY r.created_at LIMIT 1`, [db_1.WORKER_ID]);
+    if (!claim.affectedRows) return 0;
+      const [rows] = await db_1.pool.execute(`SELECT r.id, r.job_id AS jobId, r.phone_contact_id AS phoneContactId, r.recipient_phone AS recipientPhone, r.attempts,
+        j.organization_id AS organizationId,
+        j.template_name AS templateName, j.template_language AS language, j.template_parameters AS parameters
+      FROM whatsapp_campaign_recipients r JOIN whatsapp_campaign_jobs j ON j.id = r.job_id
+      WHERE r.status = 'PROCESSING' AND r.locked_by = ? ORDER BY r.locked_at LIMIT 1`, [db_1.WORKER_ID]);
+    const recipient = rows[0];
+    if (!recipient) return 1;
+    let nextStatus = "FAILED", errorCode = null, providerMessageId = null;
+    try {
+        const [contacts] = await db_1.pool.execute(`SELECT pc.phone FROM import_phone_contacts pc
+          JOIN import_jobs ij ON ij.id = pc.import_job_id AND ij.organization_id = pc.organization_id
+          WHERE pc.id = ? AND pc.organization_id = ? AND ij.status = 'COMMITTED' AND ij.deleted_at IS NULL`, [recipient.phoneContactId, recipient.organizationId]);
+        if (!contacts[0] || waRecipient(contacts[0].phone) !== recipient.recipientPhone) {
+            nextStatus = "SKIPPED";
+            errorCode = "CONTACT_CHANGED_OR_WITHDRAWN";
+        }
+        else {
+            const parameters = typeof recipient.parameters === "string" ? JSON.parse(recipient.parameters) : recipient.parameters;
+            const template = { name: recipient.templateName, language: { code: recipient.language } };
+            if (Array.isArray(parameters) && parameters.length) template.components = [{ type: "body", parameters: parameters.map((value) => ({ type: "text", text: String(value) })) }];
+            const response = await fetch(`https://graph.facebook.com/${cfg.whatsappApiVersion}/${cfg.whatsappPhoneNumberId}/messages`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${cfg.whatsappAccessToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: recipient.recipientPhone, type: "template", template }),
+                signal: AbortSignal.timeout(15_000),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (response.ok) {
+                nextStatus = "ACCEPTED";
+                providerMessageId = payload?.messages?.[0]?.id ?? null;
+            }
+            else if (response.status === 429 && recipient.attempts < 3) {
+                await db_1.pool.execute(`UPDATE whatsapp_campaign_recipients SET status = 'PENDING', error_code = 'PROVIDER_RATE_LIMIT', locked_by = NULL, locked_at = NULL,
+                    next_attempt_at = DATE_ADD(NOW(3), INTERVAL 30 SECOND) WHERE id = ? AND locked_by = ?`, [recipient.id, db_1.WORKER_ID]);
+                await updateWhatsAppJob(recipient.jobId);
+                return 1;
+            }
+            else errorCode = `PROVIDER_${response.status}_${String(payload?.error?.code ?? "ERROR").slice(0, 20)}`;
+        }
+    }
+    catch (e) {
+        errorCode = e?.name === "TimeoutError" || e?.name === "AbortError" ? "DELIVERY_UNKNOWN_TIMEOUT" : "PROVIDER_UNAVAILABLE";
+    }
+    await db_1.pool.execute(`UPDATE whatsapp_campaign_recipients SET status = ?, error_code = ?, provider_message_id = ?, locked_by = NULL, locked_at = NULL
+      WHERE id = ? AND locked_by = ?`, [nextStatus, errorCode, providerMessageId, recipient.id, db_1.WORKER_ID]);
+    await updateWhatsAppJob(recipient.jobId);
+    return 1;
+}
 /** IMPORT_CITIZENS: claims one QUEUED job (or resumes a stale one), commits in atomic batches with progress tracking. */
 async function processImports() {
     await db_1.pool.execute(`UPDATE import_jobs SET status = 'FAILED', last_error = 'Import stopped before roster tracking was enabled', locked_by = NULL
@@ -29,7 +121,23 @@ async function processImports() {
     const [jobs] = await db_1.pool.execute("SELECT id, organization_id, created_by, payload, processed_rows FROM import_jobs WHERE locked_by = ? AND status = 'COMMITTING'", [db_1.WORKER_ID]);
     for (const job of jobs) {
         try {
-            const rows = JSON.parse(job.payload);
+            const payload = JSON.parse(job.payload);
+            const rows = Array.isArray(payload) ? payload : (payload.records ?? []);
+            const phoneContacts = Array.isArray(payload) ? [] : (payload.phoneContacts ?? []);
+            for (let offset = 0; offset < phoneContacts.length; offset += 500) {
+                const batch = phoneContacts.slice(offset, offset + 500);
+                const conn = await db_1.pool.getConnection();
+                try {
+                    await conn.beginTransaction();
+                    await conn.execute(`INSERT IGNORE INTO import_phone_contacts (id, import_job_id, organization_id, phone)
+                        VALUES ${batch.map(() => "(?,?,?,?)").join(",")}`,
+                    batch.flatMap((contact) => [(0, crypto_1.randomUUID)(), job.id, job.organization_id, contact.phone]));
+                    await conn.commit();
+                } catch (e) {
+                    await conn.rollback().catch(() => undefined);
+                    throw e;
+                } finally { conn.release(); }
+            }
             // CSV booth codes that are not configured yet become active booth records
             // at commit time. Admins can then assign booth members from the portal.
             const codes = [...new Set(rows.map((r) => r.boothCode).filter(Boolean))];
@@ -93,7 +201,7 @@ async function processImports() {
                     conn.release();
                 }
             }
-            await db_1.pool.execute("UPDATE import_jobs SET status = 'COMMITTED', result = ?, payload = NULL, locked_by = NULL WHERE id = ?", [JSON.stringify({ rowsProcessed: rows.length }), job.id]);
+            await db_1.pool.execute("UPDATE import_jobs SET status = 'COMMITTED', result = ?, payload = NULL, locked_by = NULL WHERE id = ?", [JSON.stringify({ rowsProcessed: rows.length, phoneContacts: phoneContacts.length }), job.id]);
             db_1.log.info({ jobId: job.id, rows: rows.length }, "import committed");
         }
         catch (e) {
@@ -189,6 +297,9 @@ async function maintenance() {
     await db_1.pool.execute("UPDATE export_jobs SET status = 'EXPIRED', content = NULL WHERE status = 'READY' AND expires_at < NOW(3)");
     await db_1.pool.execute("UPDATE export_jobs SET status = 'PENDING', locked_by = NULL WHERE status = 'PROCESSING' AND locked_at < DATE_SUB(NOW(3), INTERVAL 10 MINUTE)");
     await db_1.pool.execute("UPDATE notification_outbox SET status = 'PENDING', locked_by = NULL WHERE status = 'PROCESSING' AND locked_at < DATE_SUB(NOW(3), INTERVAL 5 MINUTE)");
+    await db_1.pool.execute("DELETE FROM whatsapp_campaign_recipients WHERE created_at < DATE_SUB(NOW(3), INTERVAL 30 DAY) AND status IN ('ACCEPTED','FAILED','SKIPPED')");
+    await db_1.pool.execute(`UPDATE whatsapp_campaign_jobs SET template_parameters = JSON_ARRAY()
+        WHERE status IN ('COMPLETED','COMPLETED_WITH_ERRORS','FAILED') AND finished_at < DATE_SUB(NOW(3), INTERVAL 30 DAY)`);
     const orphanedImportBooths = `SELECT b.id FROM booths b
         JOIN import_jobs owner ON owner.id = b.source_import_job_id AND owner.deleted_at IS NOT NULL
         WHERE NOT EXISTS (SELECT 1 FROM households h WHERE h.booth_id = b.id)

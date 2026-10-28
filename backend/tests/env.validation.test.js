@@ -121,6 +121,21 @@ describe("worker environment validation", () => {
         expect(() => getWorkerConfig(validWorkerEnv({ NODE_ENV: "production" }))).toThrow("DATABASE_SSL");
     });
 
+    it("loads optional WhatsApp sender settings without requiring them for the worker", () => {
+        const unconfigured = getWorkerConfig(validWorkerEnv());
+        expect(unconfigured.whatsappAccessToken).toBe("");
+        const configured = getWorkerConfig(validWorkerEnv({
+            WHATSAPP_ACCESS_TOKEN: "synthetic-token",
+            WHATSAPP_PHONE_NUMBER_ID: "123456",
+            WHATSAPP_API_VERSION: "v99.0",
+            WHATSAPP_DEFAULT_COUNTRY_CODE: "91",
+        }));
+        expect(configured.whatsappPhoneNumberId).toBe("123456");
+        expect(configured.whatsappApiVersion).toBe("v99.0");
+        expect(() => getWorkerConfig(validWorkerEnv({ WHATSAPP_PHONE_NUMBER_ID: "invalid-id" })))
+            .toThrow("WHATSAPP_PHONE_NUMBER_ID");
+    });
+
     it("requires database host and user and validates the port", () => {
         expect(() => getWorkerConfig(validWorkerEnv({ DATABASE_HOST: "" }))).toThrow("DATABASE_HOST");
         expect(() => getWorkerConfig(validWorkerEnv({ DATABASE_USER: "" }))).toThrow("DATABASE_USER");

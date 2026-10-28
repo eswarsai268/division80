@@ -34,6 +34,11 @@ const schema = zod_1.z.object({
     TRUST_PROXY_HOPS: zod_1.z.coerce.number().int().min(0).max(5).default(0),
     UPLOAD_DIR: zod_1.z.string().default("./uploads"),
     LOG_LEVEL: zod_1.z.string().default("info"),
+    WHATSAPP_ACCESS_TOKEN: zod_1.z.string().optional(),
+    WHATSAPP_PHONE_NUMBER_ID: zod_1.z.string().regex(/^\d{1,32}$/).optional(),
+    WHATSAPP_BUSINESS_ACCOUNT_ID: zod_1.z.string().regex(/^\d{1,32}$/).optional(),
+    WHATSAPP_API_VERSION: zod_1.z.string().regex(/^v\d+\.\d+$/).optional(),
+    WHATSAPP_DEFAULT_COUNTRY_CODE: zod_1.z.string().regex(/^[1-9]\d{0,3}$/).default("91"),
 }).superRefine((config, ctx) => {
     if (config.NODE_ENV === "production" && config.DATABASE_SSL !== "true") {
         ctx.addIssue({
