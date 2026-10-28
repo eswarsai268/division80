@@ -43,7 +43,13 @@ function createApp(dependencies = {}) {
             res.status(503).json({ status: "unavailable" });
         }
     });
-    app.use(rateLimit_1.limits.global);
+    // Keep the shared API ceiling for application routes but exempt the login endpoint.
+    app.use((req, res, next) => {
+        const path = req.originalUrl.split("?", 1)[0].toLowerCase();
+        if (req.method === "POST" && ["/api/v1/auth/login", "/api/v1/auth/login/"].includes(path))
+            return next();
+        return rateLimit_1.limits.global(req, res, next);
+    });
     app.use("/api/v1/admin/import-jobs", express_1.default.text({ type: "text/csv", limit: "50mb" }));
     app.use("/api/v1/admin/import-jobs", express_1.default.json({ limit: "102mb" })); // 50 MiB CSV plus JSON escaping
     app.use(express_1.default.json({ limit: "100kb" }));
