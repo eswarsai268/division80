@@ -44,8 +44,8 @@ export default function InstallApp() {
   if (!open) return null;
 
   const text = showInstructions
-    ? "In your browser menu, choose Install app or Add to Home screen. Open it once while online to save the roster for offline search and printing."
-    : "Install for faster access. Your roster can be saved for offline search and printing after you sign in online.";
+    ? "In your browser menu, choose Install app or Add to Home screen. Then sign in as a booth member while online and wait for the offline roster download to finish."
+    : "Install for faster access. Sign in as a booth member while online and wait for the roster download to finish before using offline search and printing.";
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 p-4">

@@ -14,6 +14,14 @@ const FILTERS = [
     ["", "All houses"],
 ];
 const FILTER_STORAGE_KEY = "boothHouseholdFilters";
+const OFFLINE_ROSTER_MESSAGE = "No offline roster is saved on this device yet. Reconnect, sign in as a booth member, and wait until the offline roster download is complete.";
+
+async function getOfflineRoster() {
+    const cached = await readOfflineRoster();
+    if (!cached) throw new Error(OFFLINE_ROSTER_MESSAGE);
+    return cached;
+}
+
 function readFilters() {
     try {
         return JSON.parse(sessionStorage.getItem(FILTER_STORAGE_KEY) ?? "{}") ?? {};
@@ -37,12 +45,15 @@ export default function Households() {
     const booths = useQuery({
         queryKey: ["booth", "organization-booths"],
         queryFn: async ({ signal }) => {
+            if (!navigator.onLine) {
+                const cached = await getOfflineRoster();
+                return cached.booths;
+            }
             try {
                 return await api("/booth/booths", { signal });
             } catch (error) {
                 if (error?.status !== 0) throw error;
-                const cached = await readOfflineRoster();
-                if (!cached) throw error;
+                const cached = await getOfflineRoster();
                 return cached.booths;
             }
         },
@@ -61,6 +72,10 @@ export default function Households() {
         queryKey: ["booth", "households", boothId, debouncedSearch, status],
         initialPageParam: null,
         queryFn: async ({ pageParam, signal }) => {
+            if (!navigator.onLine) {
+                const cached = await getOfflineRoster();
+                return searchOfflineRoster(cached, { search: debouncedSearch, status, boothId, cursor: pageParam });
+            }
             const params = new URLSearchParams({ limit: "1000" });
             if (boothId)
                 params.set("boothId", boothId);
@@ -74,8 +89,7 @@ export default function Households() {
                 return await api(`/booth/households?${params}`, { signal });
             } catch (error) {
                 if (error?.status !== 0) throw error;
-                const cached = await readOfflineRoster();
-                if (!cached) throw error;
+                const cached = await getOfflineRoster();
                 return searchOfflineRoster(cached, { search: debouncedSearch, status, boothId, cursor: pageParam });
             }
         },
