@@ -7,6 +7,7 @@ const CURRENT = "current";
 const DISABLED_KEY_PREFIX = "samasya-offline-disabled:";
 const SYNC_PAGE_SIZE = 1000;
 const FRESH_OFFLINE_COPY_MS = 6 * 60 * 60 * 1000;
+const OFFLINE_SNAPSHOT_NAMES = ["dashboard", "verifications", "events", "announcements"];
 let activeSync;
 let activeSyncOwner;
 let memoryRoster;
@@ -136,6 +137,11 @@ export async function readOfflineRoster() {
   return memoryRoster;
 }
 
+export async function readOfflineSnapshot(name) {
+  const roster = await readOfflineRoster();
+  return roster?.snapshots?.[name] ?? null;
+}
+
 export async function saveOfflineRoster(identity, data, serverRevision) {
   const priorIdentity = await read("identity");
   if (!priorIdentity || priorIdentity.userId !== identity.id || priorIdentity.organizationId !== identity.organizationId) {
@@ -159,6 +165,7 @@ export async function saveOfflineRoster(identity, data, serverRevision) {
         ciphertext,
         householdCount: data.households.length,
         peopleCount,
+        snapshotNames: Object.keys(data.snapshots ?? {}),
         serverRevision,
         updatedAt,
       });
@@ -194,6 +201,7 @@ async function downloadAndSaveRoster(identity, onProgress) {
   if (localIdentity?.userId === identity.id && localIdentity?.organizationId === identity.organizationId
       && localRoster?.userId === identity.id && localRoster?.organizationId === identity.organizationId
       && localRoster.serverRevision === currentRevision.revision
+      && OFFLINE_SNAPSHOT_NAMES.every((name) => localRoster.snapshotNames?.includes(name))
       && Date.now() - localRoster.updatedAt < FRESH_OFFLINE_COPY_MS) {
     return { updatedAt: localRoster.updatedAt, householdCount: localRoster.householdCount, peopleCount: localRoster.peopleCount };
   }
@@ -210,11 +218,25 @@ async function downloadAndSaveRoster(identity, onProgress) {
     onProgress({ completed: households.length, total: totalHouseholds });
   } while (cursor);
   const booths = [...new Map(households.map(({ boothId, boothCode, boothName }) => [boothId, { id: boothId, code: boothCode, name: boothName }])).values()];
-  return saveOfflineRoster(identity, { booths, households }, currentRevision.revision);
+  const previous = await readOfflineRoster().catch(() => null);
+  const snapshotRequests = {
+    dashboard: () => api("/booth/dashboard"),
+    verifications: () => api("/booth/verifications"),
+    events: () => api("/public/events"),
+    announcements: () => api("/public/announcements"),
+  };
+  const snapshotResults = await Promise.allSettled(Object.entries(snapshotRequests).map(([, request]) => request()));
+  const snapshots = Object.fromEntries(Object.keys(snapshotRequests).map((name, index) => [
+    name,
+    snapshotResults[index].status === "fulfilled"
+      ? snapshotResults[index].value
+      : previous?.snapshots?.[name],
+  ]).filter(([, value]) => value !== undefined));
+  return saveOfflineRoster(identity, { booths, households, snapshots }, currentRevision.revision);
 }
 
 function normalize(value) {
-  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleUpperCase();
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleUpperCase().replace(/\s+/g, " ").trim();
 }
 
 export function searchOfflineRoster(data, { search = "", status = "", boothId = "", cursor = null, limit = 100 } = {}) {
@@ -224,13 +246,17 @@ export function searchOfflineRoster(data, { search = "", status = "", boothId = 
     if (boothId && house.boothId !== boothId) return [];
     if (status === "UNVERIFIED" && !house.citizens.some((citizen) => !citizen.verificationDone)) return [];
     if (status === "RESOLVED" && (!house.citizens.length || house.citizens.some((citizen) => !citizen.verificationDone))) return [];
+    const houseValues = Object.entries(house)
+      .filter(([key, value]) => !["id", "boothId", "citizens", "matchingCitizens"].includes(key) && (typeof value === "string" || typeof value === "number" || typeof value === "boolean"))
+      .map(([, value]) => normalize(value));
     const citizens = house.citizens.filter((citizen) => {
       if (!tokens.length) return true;
-      const fields = [citizen.fullName, citizen.fatherOrHusbandName, citizen.rollSerial, citizen.voterId, house.houseCode, house.boothCode, house.boothName];
-      const values = fields.map(normalize);
+      const values = Object.entries(citizen)
+        .filter(([key, value]) => !["id", "householdId", "boothId"].includes(key) && (typeof value === "string" || typeof value === "number" || typeof value === "boolean"))
+        .map(([, value]) => normalize(value));
       return tokens.every((token) => values.some((value) => value.includes(token)));
     });
-    const houseMatch = normalize(house.houseCode).includes(query);
+    const houseMatch = tokens.length > 0 && tokens.every((token) => houseValues.some((value) => value.includes(token)));
     if (tokens.length && !citizens.length && !houseMatch) return [];
     return [{ ...house, matchingCitizens: tokens.length ? citizens.map(({ id, fullName, fatherOrHusbandName }) => ({ id, fullName, fatherOrHusbandName })) : [] }];
   });
@@ -248,6 +274,10 @@ export function searchOfflineRoster(data, { search = "", status = "", boothId = 
     totalHouseholds: ordered.length,
     totalPeople: ordered.reduce((count, house) => count + Number(house.citizenCount ?? 0), 0),
   };
+}
+
+export function isOfflineFallbackError(error) {
+  return error?.status === 0 || error?.status === 429 || error?.status >= 500;
 }
 
 export function findOfflineHousehold(data, id) {

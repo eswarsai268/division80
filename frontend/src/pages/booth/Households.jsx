@@ -5,7 +5,8 @@ import { Link } from "react-router-dom";
 import { api } from "../../api/client";
 import Async from "../../components/Async";
 import Empty from "../../components/Empty";
-import { readOfflineRoster, searchOfflineRoster } from "../../services/offlineRoster";
+import { isOfflineFallbackError, readOfflineRoster, searchOfflineRoster } from "../../services/offlineRoster";
+import { useMe } from "../../auth/useMe";
 import { t } from "../../i18n";
 
 const FILTERS = [
@@ -38,6 +39,7 @@ function saveFilters(filters) {
 }
 
 export default function Households() {
+    const { data: me } = useMe();
     const [search, setSearch] = useState(() => readFilters().search ?? "");
     const [debouncedSearch, setDebouncedSearch] = useState(() => (readFilters().search ?? "").trim());
     const [status, setStatus] = useState(() => readFilters().status ?? "");
@@ -45,14 +47,14 @@ export default function Households() {
     const booths = useQuery({
         queryKey: ["booth", "organization-booths"],
         queryFn: async ({ signal }) => {
-            if (!navigator.onLine) {
+            if (me?.isOffline || !navigator.onLine) {
                 const cached = await getOfflineRoster();
                 return cached.booths;
             }
             try {
                 return await api("/booth/booths", { signal });
             } catch (error) {
-                if (error?.status !== 0) throw error;
+                if (!isOfflineFallbackError(error)) throw error;
                 const cached = await getOfflineRoster();
                 return cached.booths;
             }
@@ -72,7 +74,7 @@ export default function Households() {
         queryKey: ["booth", "households", boothId, debouncedSearch, status],
         initialPageParam: null,
         queryFn: async ({ pageParam, signal }) => {
-            if (!navigator.onLine) {
+            if (me?.isOffline || !navigator.onLine) {
                 const cached = await getOfflineRoster();
                 return searchOfflineRoster(cached, { search: debouncedSearch, status, boothId, cursor: pageParam });
             }
@@ -88,7 +90,7 @@ export default function Households() {
             try {
                 return await api(`/booth/households?${params}`, { signal });
             } catch (error) {
-                if (error?.status !== 0) throw error;
+                if (!isOfflineFallbackError(error)) throw error;
                 const cached = await getOfflineRoster();
                 return searchOfflineRoster(cached, { search: debouncedSearch, status, boothId, cursor: pageParam });
             }

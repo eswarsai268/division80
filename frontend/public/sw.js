@@ -1,4 +1,4 @@
-const CACHE = 'booth-verification-v3';
+const CACHE = 'booth-verification-v4';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg'];
 
 self.addEventListener('install', (e) => {
