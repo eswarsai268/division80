@@ -198,7 +198,7 @@ async function listOfflineRosterForUser(u, f) {
                 c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus,
                 c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone,
                 c.not_here AS notHere, c.address_changed AS addressChanged,
-                c.new_address AS newAddress
+                c.new_address AS newAddress, c.visit_notes AS visitNotes
             FROM citizens c JOIN households h ON h.id = c.household_id AND h.booth_id = c.booth_id
             JOIN booths b ON b.id = h.booth_id AND b.organization_id = h.organization_id AND b.status = 'ACTIVE'
             WHERE c.household_id IN (${marks}) AND c.deleted_at IS NULL AND h.deleted_at IS NULL

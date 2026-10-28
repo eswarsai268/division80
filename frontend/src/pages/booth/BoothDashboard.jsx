@@ -6,12 +6,33 @@ import Feed from "../../components/Feed";
 import { ArrowRight, CheckCircle2, Clock3, Home, Search, ShieldCheck, Users } from "lucide-react";
 import { fmt } from "../../utils/format";
 import { useGet } from "../../hooks/useGet";
+import { useMe } from "../../auth/useMe";
+import { isOfflineFallbackError, readOfflineSnapshot } from "../../services/offlineRoster";
+import { api } from "../../api/client";
 import { t } from "../../i18n";
 
 export default function BoothDashboard() {
-  const q = useGet(["booth", "dashboard"], "/booth/dashboard");
-  const verifications = useGet(["booth", "verifications", "recent"], "/booth/verifications");
-  const events = useGet(["public", "events"], "/public/events");
+  const { data: me } = useMe();
+  const offline = Boolean(me?.isOffline || !navigator.onLine);
+  const cachedGet = (path, snapshot, fallback) => async ({ signal }) => {
+    if (offline) {
+      const saved = await readOfflineSnapshot(snapshot);
+      if (saved !== null) return saved;
+      if (fallback !== undefined) return fallback;
+      throw new Error("This information has not been saved on this device. Reconnect and open this page to cache it.");
+    }
+    try { return await api(path, { signal }); }
+    catch (error) {
+      if (!isOfflineFallbackError(error)) throw error;
+      const saved = await readOfflineSnapshot(snapshot);
+      if (saved !== null) return saved;
+      if (fallback !== undefined) return fallback;
+      throw error;
+    }
+  };
+  const q = useGet(["booth", "dashboard"], "/booth/dashboard", { queryFn: cachedGet("/booth/dashboard", "dashboard") });
+  const verifications = useGet(["booth", "verifications", "recent"], "/booth/verifications", { queryFn: cachedGet("/booth/verifications", "verifications", []) });
+  const events = useGet(["public", "events"], "/public/events", { queryFn: cachedGet("/public/events", "events", []) });
   return (
     <div className="space-y-5">
       <section className="rounded-3xl bg-brand-600 p-5 text-white shadow-sm">

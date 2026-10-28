@@ -7,17 +7,19 @@ import Async from "../../components/Async";
 import Empty from "../../components/Empty";
 import ErrorBox from "../../components/ErrorBox";
 import { api, patch } from "../../api/client";
-import { findOfflineHousehold, readOfflineRoster } from "../../services/offlineRoster";
+import { findOfflineHousehold, isOfflineFallbackError, readOfflineRoster } from "../../services/offlineRoster";
+import { useMe } from "../../auth/useMe";
 import { getPairedThermalPrinters, getVoterSlipContent, isAndroidNative, openBluetoothSettings, printVoterSlips } from "../../services/thermalPrinter";
 import { t } from "../../i18n";
 
 export default function HouseholdDetail() {
     const { id } = useParams();
+    const { data: me } = useMe();
     const qc = useQueryClient();
     const q = useQuery({
         queryKey: ["booth", "household", id],
         queryFn: async ({ signal }) => {
-            if (!navigator.onLine) {
+            if (me?.isOffline || !navigator.onLine) {
                 const cached = await readOfflineRoster();
                 const record = cached && findOfflineHousehold(cached, id);
                 if (!record) throw new Error("This household is not available in the offline roster saved on this device.");
@@ -27,7 +29,7 @@ export default function HouseholdDetail() {
             try {
                 return await api(`/booth/households/${id}/citizens`, { signal });
             } catch (error) {
-                if (error?.status !== 0) throw error;
+                if (!isOfflineFallbackError(error)) throw error;
                 const cached = await readOfflineRoster();
                 const record = cached && findOfflineHousehold(cached, id);
                 if (!record) throw error;
