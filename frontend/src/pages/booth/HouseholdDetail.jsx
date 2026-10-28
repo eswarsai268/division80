@@ -17,6 +17,13 @@ export default function HouseholdDetail() {
     const q = useQuery({
         queryKey: ["booth", "household", id],
         queryFn: async ({ signal }) => {
+            if (!navigator.onLine) {
+                const cached = await readOfflineRoster();
+                const record = cached && findOfflineHousehold(cached, id);
+                if (!record) throw new Error("This household is not available in the offline roster saved on this device.");
+                const { citizens, ...household } = record;
+                return { household: { ...household, offline: true }, citizens };
+            }
             try {
                 return await api(`/booth/households/${id}/citizens`, { signal });
             } catch (error) {
