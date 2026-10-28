@@ -219,6 +219,7 @@ async function createImportJob(c, csv) {
             fatherOrHusbandName: f.fatherOrHusbandName || null,
             relation: rel,
             voterId: f.voter || null,
+            phone: phoneResult ?? null,
             age,
             gender,
             lifeStatus,

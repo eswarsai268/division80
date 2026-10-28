@@ -10,6 +10,8 @@ exports.listCitizensForUser = listCitizensForUser;
 exports.updateVisitForUser = updateVisitForUser;
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
+const env_1 = require("../config/env");
+const importPhone_1 = require("../utils/importPhone");
 const boothAssignments_1 = require("./boothAssignments");
 const maskVoter = (v) => (v ? `****${v.slice(-4)}` : null);
 exports.maskVoter = maskVoter;
@@ -195,7 +197,7 @@ async function listOfflineRosterForUser(u, f) {
         (0, pool_1.query)(`SELECT id, address_line AS address FROM households WHERE id IN (${marks}) AND organization_id = ?`, [...ids, u.organizationId]),
         (0, pool_1.query)(`SELECT c.id, c.household_id AS householdId, c.booth_id AS boothId,
                 c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName,
-                c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus,
+                c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus, c.phone,
                 c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone,
                 c.not_here AS notHere, c.address_changed AS addressChanged,
                 c.new_address AS newAddress, c.visit_notes AS visitNotes
@@ -209,9 +211,13 @@ async function listOfflineRosterForUser(u, f) {
     const citizensByHousehold = new Map();
     for (const citizen of citizens) {
         const list = citizensByHousehold.get(citizen.householdId) ?? [];
+        const { phone, ...citizenRecord } = citizen;
         list.push({
-            ...citizen,
+            ...citizenRecord,
             voterId: u.boothIds.includes(citizen.boothId) ? citizen.voterId : (0, exports.maskVoter)(citizen.voterId),
+            whatsappPhone: u.boothIds.includes(citizen.boothId)
+                ? (0, importPhone_1.toWhatsAppRecipient)(phone, env_1.env.WHATSAPP_DEFAULT_COUNTRY_CODE)
+                : null,
         });
         citizensByHousehold.set(citizen.householdId, list);
     }
@@ -263,7 +269,7 @@ async function getHouseholdForUser(u, householdId) {
 }
 async function listCitizensForUser(u, householdId) {
     const house = await getHouseholdForUser(u, householdId); // authorisation first
-    const rows = await (0, pool_1.query)(`SELECT c.id, c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName, c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus,
+    const rows = await (0, pool_1.query)(`SELECT c.id, c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName, c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus, c.phone,
             c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone,
             c.not_here AS notHere, c.address_changed AS addressChanged,
             c.new_address AS newAddress, c.visit_notes AS visitNotes,
@@ -271,7 +277,14 @@ async function listCitizensForUser(u, householdId) {
        FROM citizens c WHERE c.household_id = ? AND c.booth_id = ? AND c.deleted_at IS NULL ORDER BY c.relation, c.full_name`, [householdId, house.boothId]);
     return {
         household: house,
-        citizens: rows.map((r) => ({ ...r, voterId: house.ownBooth ? r.voterId : (0, exports.maskVoter)(r.voterId), passedSteps: Number(r.passedSteps) })),
+        citizens: rows.map(({ phone, ...r }) => ({
+            ...r,
+            voterId: house.ownBooth ? r.voterId : (0, exports.maskVoter)(r.voterId),
+            whatsappPhone: house.ownBooth
+                ? (0, importPhone_1.toWhatsAppRecipient)(phone, env_1.env.WHATSAPP_DEFAULT_COUNTRY_CODE)
+                : null,
+            passedSteps: Number(r.passedSteps),
+        })),
     };
 }
 async function updateVisitForUser(c, citizenId, input) {

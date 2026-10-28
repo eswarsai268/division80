@@ -9,6 +9,7 @@ const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const env_1 = require("../config/env");
 const errors_1 = require("../errors");
+const importPhone_1 = require("../utils/importPhone");
 const whatsapp_templates_1 = require("./whatsapp_templates");
 
 const MAX_RECIPIENTS = 50_000;
@@ -21,22 +22,7 @@ const settings = () => ({
 });
 const configured = (s) => Boolean(s.token && s.phoneNumberId && s.businessAccountId && s.version);
 
-function toWhatsAppRecipient(value, countryCode) {
-    const raw = String(value ?? "").trim();
-    if (!raw || raw.length > 32 || !/^\+?[\d\s()-]+$/.test(raw))
-        return null;
-    let digits = raw.replace(/[+\s()-]/g, "");
-    if (raw.startsWith("+")) {
-        if (!/^[1-9]\d{7,14}$/.test(digits)) return null;
-        return digits;
-    }
-    if (digits.startsWith("0")) digits = digits.replace(/^0+/, "");
-    if (digits.startsWith(countryCode) && digits.length > 10 && digits.length <= 15)
-        return /^[1-9]\d{7,14}$/.test(digits) ? digits : null;
-    if (!/^[1-9]\d{7,14}$/.test(digits)) return null;
-    const international = `${countryCode}${digits}`;
-    return /^[1-9]\d{7,14}$/.test(international) ? international : null;
-}
+const toWhatsAppRecipient = importPhone_1.toWhatsAppRecipient;
 
 function describeTemplate(template) {
     const components = Array.isArray(template.components) ? template.components : [];
