@@ -529,7 +529,7 @@
      "admin"
     ],
     "summary": "POST /api/v1/admin/users",
-    "description": "Creates and assigns a booth member account. Only BOOTH_MEMBER accounts can be created here; passwords are never returned.",
+    "description": "Creates an unassigned BOOTH_MEMBER account. Assign it to a booth using POST /api/v1/admin/booths/{boothId}/assignments; passwords are never returned.",
     "responses": {
      "200": {
       "description": "OK: {success,data,requestId}"
