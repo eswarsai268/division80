@@ -42,9 +42,23 @@ const a2 = __importStar(require("../services/admin2"));
 const households = __importStar(require("../repositories/households"));
 const ie = __importStar(require("../services/importExport"));
 const auth = __importStar(require("../services/auth"));
+const whatsapp = __importStar(require("../services/whatsapp"));
 /** Admin routes (auth + ADMIN role + rate limit are already applied by the parent router). */
 function extendAdmin(ad) {
     const idp = (req, n) => (0, http_1.parse)(http_1.uuid, req.params[n]);
+    ad.get("/whatsapp/status", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await whatsapp.getWhatsAppStatus((0, http_1.ctx)(req)))));
+    ad.get("/whatsapp/templates", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await whatsapp.listApprovedTemplates())));
+    ad.get("/whatsapp/campaigns", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await whatsapp.listTemplateCampaigns((0, http_1.ctx)(req)))));
+    ad.get("/whatsapp/campaigns/:campaignId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await whatsapp.getTemplateCampaign((0, http_1.ctx)(req), idp(req, "campaignId")))));
+    ad.post("/whatsapp/campaigns", rateLimit_1.limits.exportJobs, (0, http_1.h)(async (req, res) => {
+        const body = (0, http_1.parse)(zod_1.z.object({
+            templateName: zod_1.z.string().min(1).max(512).regex(/^[a-z0-9_]+$/),
+            language: zod_1.z.string().min(2).max(32).regex(/^[a-zA-Z0-9_-]+$/),
+            parameters: zod_1.z.array(zod_1.z.string().trim().min(1).max(1024).refine((value) => !/[\u0000-\u001F\u007F]/.test(value))).max(20),
+            permissionConfirmed: zod_1.z.literal(true),
+        }), req.body);
+        (0, http_1.ok)(req, res, await whatsapp.createTemplateCampaign((0, http_1.ctx)(req), body), 201);
+    }));
     ad.get("/citizens", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listCitizens((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery.extend({ search: zod_1.z.string().max(100).optional(), boothId: http_1.uuid.optional() }), req.query)))));
     ad.post("/citizens", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.createCitizen((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
         boothId: http_1.uuid,

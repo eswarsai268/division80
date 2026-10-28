@@ -1,4 +1,4 @@
-# Booth Verification
+# Samasya Meedi Parishkaram Maadi
 
 Booth and household verification platform for booth members and administrators. Imported voter records remain the application’s roster data; citizens do not have login accounts.
 
@@ -17,10 +17,6 @@ npm run dev:worker
 
 Configure the variables in `.env.example`. Production API, worker and migration processes require `DATABASE_SSL=true` with certificate validation enabled. The frontend calls `/api/v1`; Vite proxies `/api` to `http://localhost:4000` for local development.
 
-## Redis caching
-
-When `REDIS_URL` is configured, Redis shares API rate-limit state across instances and caches public event/announcement responses plus admin and booth dashboard counts. Dashboard cache keys are organization-scoped, contain only aggregate counts, and expire after 10 seconds; dashboard totals may briefly lag behind roster changes. Redis is not a source of truth, and dashboard requests fall back to SQL if the cache is unavailable. Redis does not provide phone offline access; the booth roster's encrypted browser storage handles that separately.
-
 ## Roles and visibility
 
 - Admins manage booths, booth member accounts, assignments, imported rosters, exports, events and settings.
@@ -28,25 +24,9 @@ When `REDIS_URL` is configured, Redis shares API rate-limit state across instanc
 - Booth members can edit door-to-door visit details only for booths where they have an active assignment. Verification records are visible and can be recorded across the organization.
 - Organization boundaries remain enforced for all roster reads.
 
-## Offline Booth Member search and printing
-
-Open the production app at `https://division80-frontend.vercel.app`, install it from the browser menu if desired, then sign in as a Booth Member while online. Keep the app open until its status says **Offline roster ready**; that confirms the organization's roster has been downloaded to this device. No API URL needs to be entered for production: the frontend calls its same-origin `/api/v1` path and Vercel rewrites it to the Render API. `VITE_API_BASE_URL` is only for local development.
-
-The roster is stored encrypted in that browser's IndexedDB. While online, the app revalidates the member identity and checks a lightweight organization change marker about once per minute and when the app returns to the foreground. Household/citizen edits, booth or assignment changes, verification activity, event changes, and import deletions trigger a background roster and snapshot refresh; unchanged data is not downloaded again. A six-hour refresh is also used as a fallback. Data changed on another device can therefore take up to about a minute plus the refresh time to appear offline. A device that remains offline cannot receive newer data. The copy remains on that device until refreshed, the member logs out, clears the offline copy, or app/browser data is removed. Logging out removes the local roster and offline identity. The device/browser may still evict stored data, and offline visit changes cannot be submitted until connectivity returns. Full voter IDs remain available only for the member's actively assigned booths; IDs in other booths stay masked, as they do online.
-
-Offline use is read-only: Booth Members can search roster names and print records already marked Verification done. Visit updates, verification actions, and all admin functions require internet. The first sign-in and roster download require internet. Device-level access to the unlocked browser profile can expose locally available records; Web Crypto encryption does not protect an unlocked session or a compromised app origin.
-
-## Voter slip printing
-
-Voter slips use a narrow 52 mm layout. In a regular mobile browser, Print opens the system print flow, where the user can select a printer or save a PDF. In the Android Capacitor app, users can choose a previously paired Bluetooth device for direct thermal printing or use the system print flow instead. Direct printing currently sends monochrome raster images using ESC/POS over Bluetooth Classic (SPP); it does not scan for devices, so the printer must first be paired in Android Bluetooth settings. The printer must support this transport and command format. The SHREYANS 588 product material reviewed for this feature does not confirm those details, so printing to that model needs a real-device check. Other Capacitor platforms and browser sessions use system printing; direct Bluetooth support is not provided there.
-
-## Booth member phone sign-in
-
-New booth-member accounts are created by an Admin with a phone number, a password of at least 12 characters, and a booth assignment. The database enforces unique phone numbers. Existing Admin accounts and existing booth accounts can continue using email sign-in. Apply migration `015_booth_member_phone_login.sql` before deploying the updated backend.
-
 ## Data import and exports
 
-Admins can import one CSV or `.xlsx` worksheet at a time, up to 50 MiB and 50,000 rows. The voter-list headers `Booth number`, `S. No`, `Voter Name`, `Father's Name/ Husband's Name`, `Door No`, and `Voter Id No` are accepted, alongside the existing normalized headers. Relationship defaults to `RESIDENT`; fields absent from a source sheet keep their existing defaults. The worker must be running to commit imports and generate exports. Imports fill a missing household address without overwriting a pre-existing address. Deleting a tracked import permanently removes its imported citizens and their verification history, clears addresses first supplied by that import, and recalculates verification status for affected households. It removes an empty household and its booth assignments only when no other citizens or households remain. Existing organization export snapshots are expired because they may contain the removed records. Shared households and booths with remaining roster data are retained. Imports created before source tracking was enabled cannot be safely deleted through this action.
+Admins can import one CSV or `.xlsx` worksheet at a time, up to 50 MiB and 50,000 rows. The voter-list headers `Booth number`, `S. No`, `Voter Name`, `Father's Name/ Husband's Name`, `Door No`, and `Voter Id No` are accepted, alongside the existing normalized headers. Relationship defaults to `RESIDENT`; fields absent from a source sheet keep their existing defaults. The worker must be running to commit imports and generate exports. Imported roster rows and verification history are retained independently of login accounts.
 
 Exports include active roster, shifted and deceased people, D2D status, households and verification progress. Voter IDs are masked in exports; generated files expire after 24 hours.
 
@@ -62,3 +42,7 @@ npm run build
 ```
 
 Database-backed authorization tests require `TEST_DB=1` and a dedicated synthetic database. Never point them at production or real citizen data. The API contract is in `docs/api/openapi.json`; security assumptions and known gaps are in `docs/security/threat-model.md`.
+
+
+
+

@@ -1028,6 +1028,119 @@
      }
     }
    }
+  },
+  "/api/v1/admin/whatsapp/status": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/whatsapp/status",
+    "description": "Reports WhatsApp configuration and eligible imported phone contacts for the current organization.",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/whatsapp/templates": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/whatsapp/templates",
+    "description": "Returns only the six configured templates whose exact bodies are approved by WhatsApp. Provider approval and business-platform eligibility are required before sending.",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "503": {
+      "description": "WhatsApp Business Platform credentials are not configured"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/whatsapp/campaigns": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/whatsapp/campaigns",
+    "description": "Lists recent WhatsApp campaigns for the current organization.",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "POST /api/v1/admin/whatsapp/campaigns",
+    "description": "Queues an approved configured template for eligible contacts from confirmed imports. Requires permissionConfirmed=true and a parameter array matching the provider template.",
+    "responses": {
+     "201": {
+      "description": "Campaign queued"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "413": {
+      "description": "Recipient limit exceeded"
+     },
+     "422": {
+      "description": "Validation error, unsupported template, or missing permission confirmation"
+     },
+     "503": {
+      "description": "WhatsApp Business Platform credentials are not configured"
+     }
+    }
+   }
+  },
+  "/api/v1/admin/whatsapp/campaigns/{campaignId}": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "GET /api/v1/admin/whatsapp/campaigns/{campaignId}",
+    "description": "Returns one campaign belonging to the current organization.",
+    "responses": {
+     "200": {
+      "description": "OK: {success,data,requestId}"
+     },
+     "401": {
+      "description": "Unauthenticated"
+     },
+     "403": {
+      "description": "Forbidden"
+     },
+     "404": {
+      "description": "Campaign not found"
+     }
+    }
+   }
   }
  }
 }
