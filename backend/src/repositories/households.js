@@ -228,9 +228,22 @@ async function listOfflineRosterForUser(u, f) {
 async function getOfflineRosterRevisionForUser(u) {
     if (u.role !== "BOOTH_MEMBER")
         throw (0, errors_1.forbidden)();
-    const rows = await (0, pool_1.query)(`SELECT CONCAT(COUNT(*), ':',
-        COALESCE(DATE_FORMAT(MAX(updated_at), '%Y%m%d%H%i%s%f'), '')) AS revision
-        FROM import_jobs WHERE organization_id = ? AND deleted_at IS NOT NULL`, [u.organizationId]);
+    const rows = await (0, pool_1.query)(`SELECT SHA2(CONCAT_WS('|',
+        (SELECT CONCAT(COUNT(*), ':', COALESCE(DATE_FORMAT(MAX(h.updated_at), '%Y%m%d%H%i%s%f'), ''))
+           FROM households h WHERE h.organization_id = ?),
+        (SELECT CONCAT(COUNT(*), ':', COALESCE(DATE_FORMAT(MAX(c.updated_at), '%Y%m%d%H%i%s%f'), ''))
+           FROM citizens c JOIN households h ON h.id = c.household_id WHERE h.organization_id = ?),
+        (SELECT CONCAT(COUNT(*), ':', COALESCE(DATE_FORMAT(MAX(b.updated_at), '%Y%m%d%H%i%s%f'), ''))
+           FROM booths b WHERE b.organization_id = ?),
+        (SELECT CONCAT(COUNT(*), ':', COALESCE(DATE_FORMAT(MAX(COALESCE(a.revoked_at, a.created_at)), '%Y%m%d%H%i%s%f'), ''))
+           FROM booth_assignments a JOIN booths b ON b.id = a.booth_id WHERE b.organization_id = ?),
+        (SELECT CONCAT(COUNT(*), ':', COALESCE(DATE_FORMAT(MAX(v.created_at), '%Y%m%d%H%i%s%f'), ''))
+           FROM verifications v JOIN booths b ON b.id = v.booth_id WHERE b.organization_id = ?),
+        (SELECT CONCAT(COUNT(*), ':', COALESCE(DATE_FORMAT(MAX(e.updated_at), '%Y%m%d%H%i%s%f'), ''))
+           FROM events e WHERE e.organization_id = ?),
+        (SELECT CONCAT(COUNT(*), ':', COALESCE(DATE_FORMAT(MAX(j.updated_at), '%Y%m%d%H%i%s%f'), ''))
+           FROM import_jobs j WHERE j.organization_id = ? AND j.deleted_at IS NOT NULL)
+    ), 256) AS revision`, Array(7).fill(u.organizationId));
     return { revision: String(rows[0]?.revision ?? "") };
 }
 /**

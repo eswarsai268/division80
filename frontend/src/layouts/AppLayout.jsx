@@ -44,11 +44,16 @@ export default function AppLayout() {
   }, [me?.id]);
   useEffect(() => {
     if (!offlinePreferenceReady || me?.role !== "BOOTH_MEMBER" || !me.id || me.isOffline || !online || offlineDisabled || isOfflineRosterDisabled(me.id)) return undefined;
-    syncOfflineRoster(me).catch(() => {
+    const refreshIdentityAndRoster = async () => {
+      await qc.refetchQueries({ queryKey: ["me"], exact: true });
+      const currentMe = qc.getQueryData(["me"]);
+      if (currentMe?.role === "BOOTH_MEMBER" && !currentMe.isOffline) await syncOfflineRoster(currentMe);
+    };
+    refreshIdentityAndRoster().catch(() => {
       // Keep the previous local copy when a refresh cannot complete.
     });
     return undefined;
-  }, [me?.id, me?.organizationId, me?.isOffline, me?.role, me?.boothIds?.join(","), online, offlineDisabled, offlinePreferenceReady, syncCheck]);
+  }, [qc, me?.id, me?.organizationId, me?.isOffline, me?.role, me?.boothIds?.join(","), online, offlineDisabled, offlinePreferenceReady, syncCheck]);
   if (!me) return null;
   const onLogout = async () => {
     try { await logout(); } catch { /* Local data must still be removed when offline. */ }
