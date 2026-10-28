@@ -18,7 +18,7 @@ export default function BackButton({ fallback = "/" }) {
     <button
       type="button"
       onClick={goBack}
-      className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-amber-700/25 bg-amber-50 text-stone-900 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900"
+      className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/50 bg-white/95 text-brand-900 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
       aria-label={t("Go back")}
       title={t("Go back")}
     >

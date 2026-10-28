@@ -14,7 +14,7 @@ export default function AppHeader({ me, onLogout }) {
           <Fan className="shrink-0 text-white" size={25} aria-hidden="true" />
           <p className="app-brand-name">{APP_NAME}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="app-top-nav-actions">
           <div className="app-top-nav-language">
             <label className="sr-only" htmlFor="app-language">{t("Language")}</label>
             <select id="app-language" value={language} onChange={(event) => setLanguage(event.target.value)} className="rounded-full border border-white/30 bg-white px-2 py-2 text-xs font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" aria-label={t("Language")}>
@@ -22,9 +22,9 @@ export default function AppHeader({ me, onLogout }) {
               <option value="te">{"\u0c24\u0c46\u0c32\u0c41\u0c17\u0c41"}</option>
             </select>
           </div>
-          <button type="button" onClick={onLogout} className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-white/30 bg-white px-3 py-2 text-xs font-bold text-slate-900 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" aria-label={t("Logout")}>
+          <button type="button" onClick={onLogout} className="app-top-nav-logout inline-flex min-h-10 items-center gap-1.5 rounded-full border border-white/30 bg-white px-3 py-2 text-xs font-bold text-slate-900 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white" aria-label={t("Logout")}>
             <LogOut size={16} aria-hidden="true" />
-            <span>{t("Logout")}</span>
+            <span className="app-top-nav-logout-label">{t("Logout")}</span>
           </button>
         </div>
       </div>
