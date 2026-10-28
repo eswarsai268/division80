@@ -61,7 +61,7 @@ function setCookies(res, t) {
 const clearCookies = (res) => { res.clearCookie("access_token", { path: "/" }); res.clearCookie("refresh_token", { path: "/api/v1/auth" }); };
 /* ------------------------------ AUTH ------------------------------ */
 const a = (0, express_1.Router)();
-a.post("/login", rateLimit_1.limits.login, rateLimit_1.limits.loginEmail, (0, http_1.h)(async (req, res) => {
+a.post("/login", (0, http_1.h)(async (req, res) => {
     const body = (0, http_1.parse)(zod_1.z.object({
         email: zod_1.z.string().email().max(255).optional(),
         phone: phone.optional(),
