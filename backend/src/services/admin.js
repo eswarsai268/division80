@@ -104,8 +104,6 @@ exports.listUsers = listUsers;
 /** Admins create booth members with a temporary password. Creating ADMINs is deliberately NOT possible via API. */
 async function createUser(c, i) {
     const id = (0, crypto_1.randomUUID)();
-    if (i.role === "BOOTH_MEMBER" && !i.boothId)
-        throw new errors_1.AppError(422, "BOOTH_REQUIRED", "Select a booth for this booth member");
     const phone = (0, phone_1.normalizePhone)(i.phone);
     if (!/^\+?[1-9]\d{7,14}$/.test(phone))
         throw new errors_1.AppError(422, "INVALID_PHONE", "Enter a valid phone number");
@@ -113,7 +111,7 @@ async function createUser(c, i) {
     try {
         return await (0, pool_1.tx)(async (conn) => {
             if (i.role === "BOOTH_MEMBER") {
-                await createBoothMemberAccount(c, i.boothId, { ...i, phone }, id, passwordHash, conn);
+                await createBoothMemberUser(c, { ...i, phone }, id, passwordHash, conn);
                 return { id };
             }
             throw new errors_1.AppError(422, "INVALID_ROLE", "Only booth member accounts can be created here");
@@ -129,13 +127,17 @@ async function createBoothMemberAccount(c, boothId, member, userId, passwordHash
     const booth = (await (0, pool_1.query)("SELECT id FROM booths WHERE id = ? AND organization_id = ? AND status = 'ACTIVE' FOR UPDATE", [boothId, org(c)], conn))[0];
     if (!booth)
         throw (0, errors_1.notFound)();
+    await createBoothMemberUser(c, member, userId, passwordHash, conn);
+    const assignmentId = (0, crypto_1.randomUUID)();
+    await (0, pool_1.exec)("INSERT INTO booth_assignments (id, booth_id, user_id, created_by) VALUES (?,?,?,?)", [assignmentId, boothId, userId, c.user.id], conn);
+    return { id: userId, assignmentId };
+}
+async function createBoothMemberUser(c, member, userId, passwordHash, conn) {
     const phone = (0, phone_1.normalizePhone)(member.phone);
     if (!/^\+?[1-9]\d{7,14}$/.test(phone))
         throw new errors_1.AppError(422, "INVALID_PHONE", "Enter a valid phone number");
     await (0, pool_1.exec)("INSERT INTO users (id, organization_id, email, phone, password_hash, full_name, role) VALUES (?,?,?,?,?,?,'BOOTH_MEMBER')", [userId, org(c), `${phone.replace(/[^0-9]/g, "")}@phone.booth.local`, phone, passwordHash, member.fullName], conn);
-    const assignmentId = (0, crypto_1.randomUUID)();
-    await (0, pool_1.exec)("INSERT INTO booth_assignments (id, booth_id, user_id, created_by) VALUES (?,?,?,?)", [assignmentId, boothId, userId, c.user.id], conn);
-    return { id: userId, assignmentId };
+    return { id: userId };
 }
 async function updateUser(c, id, i) {
     if (id === c.user.id)

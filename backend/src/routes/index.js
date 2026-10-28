@@ -145,11 +145,6 @@ ad.post("/users", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, awa
     fullName: zod_1.z.string().min(2).max(200),
     password,
     role: zod_1.z.literal("BOOTH_MEMBER"),
-    boothId: http_1.uuid.optional(),
-}).superRefine((value, ctx) => {
-    if (!value.boothId) {
-        ctx.addIssue({ code: zod_1.z.ZodIssueCode.custom, path: ["boothId"], message: "Select a booth for this booth member" });
-    }
 }), req.body)), 201)));
 ad.patch("/users/:userId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.updateUser((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.userId), (0, http_1.parse)(zod_1.z.object({ status: zod_1.z.enum(["ACTIVE", "SUSPENDED"]).optional() }), req.body)))));
 ad.post("/events", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.createEvent((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ kind: zod_1.z.enum(["EVENT", "ANNOUNCEMENT"]), title: zod_1.z.string().min(2).max(200), body: zod_1.z.string().min(2).max(5000), startsAt: zod_1.z.string().datetime().optional() }), req.body)), 201)));

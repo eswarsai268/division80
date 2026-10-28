@@ -10,13 +10,12 @@ import { isValidPhone, normalizePhone } from "../../utils/phone";
 import { t } from "../../i18n";
 
 export default function AdminUsers() {
-  const [f, setF] = useState({ phone: "", fullName: "", password: "", boothId: "" });
+  const [f, setF] = useState({ phone: "", fullName: "", password: "" });
   const [createdPhone, setCreatedPhone] = useState("");
   const q = useGet(["admin", "users"], "/admin/users");
-  const booths = useGet(["admin", "booths"], "/admin/booths");
   const create = useAct(() => post("/admin/users", { ...f, role: "BOOTH_MEMBER", phone: normalizePhone(f.phone), fullName: f.fullName.trim() }).then((result) => {
     setCreatedPhone(normalizePhone(f.phone));
-    setF({ phone: "", fullName: "", password: "", boothId: "" });
+    setF({ phone: "", fullName: "", password: "" });
     return result;
   }));
   const upd = useAct((v) => patch(`/admin/users/${v.id}`, { status: v.status }));
@@ -25,10 +24,9 @@ export default function AdminUsers() {
       <input className="input" placeholder={t("Full name")} value={f.fullName} onChange={(e) => setF({ ...f, fullName: e.target.value })} aria-label={t("Full name")}/>
       <input className="input" type="tel" autoComplete="tel" placeholder={t("Phone number")} value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} aria-label={t("Phone number")}/>
       <input className="input" type="password" minLength={4} placeholder={t("Initial password (4+ characters)")} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} aria-label={t("Initial password")} autoComplete="new-password"/>
-      <select className="input" value={f.boothId} onChange={(e) => setF({ ...f, boothId: e.target.value })} aria-label={t("Assign member to booth")}><option value="">{t("Select booth (required)")}</option>{booths.data?.filter((b) => b.status === "ACTIVE").map((b) => <option key={b.id} value={b.id}>{b.code} - {b.name}</option>)}</select>
       {(create.error || upd.error) && <ErrorBox error={create.error ?? upd.error}/>}
-      {create.isSuccess && <p role="status" className="text-sm text-emerald-700">{`Member ${createdPhone} created and assigned. They can sign in with this phone number and password.`}</p>}
-      <button className="btn w-full" disabled={create.isPending || f.password.length < 4 || !isValidPhone(f.phone) || f.fullName.trim().length < 2 || !f.boothId} onClick={() => create.mutate(undefined)}>{create.isPending ? "Creating..." : "Create and assign booth login"}</button>
+      {create.isSuccess && <p role="status" className="text-sm text-emerald-700">{`Member ${createdPhone} created. Assign them to a booth from Assignments.`}</p>}
+      <button className="btn w-full" disabled={create.isPending || f.password.length < 4 || !isValidPhone(f.phone) || f.fullName.trim().length < 2} onClick={() => create.mutate(undefined)}>{create.isPending ? "Creating..." : "Create booth member"}</button>
     </div>
     <Async q={q}>{(d) => <>{d.map((u) => <div key={u.id} className="card mb-2 flex items-center justify-between text-sm"><div><p className="font-medium">{u.fullName}</p><p className="text-xs text-slate-500">{u.phone || u.email || "No phone number"} - {String(u.role).replace("_", " ")}</p></div><div className="flex items-center gap-2"><Badge s={u.status}/>{u.role !== "ADMIN" && <button className="btn-ghost" onClick={() => confirm(u.status === "ACTIVE" ? "Suspend this account?" : "Reactivate?") && upd.mutate({ id: u.id, status: u.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE" })}>{u.status === "ACTIVE" ? "Suspend" : "Activate"}</button>}</div></div>)}</>}</Async>
   </div>;
