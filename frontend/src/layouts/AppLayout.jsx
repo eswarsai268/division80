@@ -84,23 +84,6 @@ export default function AppLayout() {
   return (
     <div className="app-shell mx-auto min-h-screen max-w-3xl">
       <AppHeader me={me} onLogout={onLogout} />
-      {me.role === "BOOTH_MEMBER" && (offlineMode || syncProgress || syncError || offlineInfo || offlineDisabled) && <div className={`mx-4 mt-3 flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-xs ${offlineMode ? "bg-amber-100 text-amber-950" : syncError ? "bg-red-50 text-red-800" : "bg-emerald-50 text-emerald-900"}`} role="status">
-        <span>{offlineDisabled ? "Offline copy removed from this device." : offlineMode ? "Offline mode: search and printing use the saved roster, which may be out of date. Verification and admin functions need internet. Log out to remove this device copy." : syncProgress ? `Preparing offline roster: ${syncProgress.completed.toLocaleString()}${syncProgress.total ? ` of ${syncProgress.total.toLocaleString()}` : ""} houses.` : syncError || `Offline roster ready: ${offlineInfo?.householdCount.toLocaleString()} houses and ${offlineInfo?.peopleCount.toLocaleString()} people. It refreshes when you are online.`}</span>
-        {offlineDisabled ? <button className="shrink-0 font-bold underline disabled:opacity-50" type="button" disabled={!online} onClick={() => {
-          setOfflineRosterDisabled(me.id, false);
-          setOfflineDisabled(false);
-        }}>Download offline copy</button> : (offlineInfo || me.isOffline) && <button className="shrink-0 font-bold underline" type="button" onClick={async () => {
-          await clearOfflineRoster().catch(() => undefined);
-          qc.removeQueries({ queryKey: ["booth"] });
-          setOfflineInfo(null);
-          setOfflineRosterDisabled(me.id, true);
-          setOfflineDisabled(true);
-          if (offlineMode) {
-            qc.clear();
-            nav(loginFor(me.role));
-          }
-        }}>Clear offline copy</button>}
-      </div>}
       <main key={language} className="p-4"><Outlet context={{ onLogout }} /></main>
       <BottomNav {...(offlineMode && me.role === "BOOTH_MEMBER" ? { ...NAV.BOOTH_MEMBER, main: NAV.BOOTH_MEMBER.main.filter((item) => item.to === "/booth/households") } : NAV[me.role])} />
     </div>
