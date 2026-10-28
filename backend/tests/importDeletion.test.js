@@ -76,8 +76,8 @@ describe("offline roster revision", () => {
       .resolves.toEqual({ revision: "1:20261027120000000000" });
 
     const [sql, params] = db.query.mock.calls[0];
-    expect(sql).toContain("FROM import_jobs WHERE organization_id = ? AND deleted_at IS NOT NULL");
-    expect(params).toEqual(["org-1"]);
+    expect(sql).toContain("FROM import_jobs j WHERE j.organization_id = ? AND j.deleted_at IS NOT NULL");
+    expect(params).toEqual(Array(7).fill("org-1"));
   });
 
   it("does not expose revision checks to non-booth roles", async () => {
