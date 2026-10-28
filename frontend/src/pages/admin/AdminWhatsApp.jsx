@@ -91,6 +91,6 @@ export default function AdminWhatsApp() {
             <div><p className="font-medium">{campaign.templateName}</p><p className="text-xs text-slate-500">{fmt(campaign.createdAt)} · {campaign.acceptedCount.toLocaleString()} {t("accepted by WhatsApp")}, {campaign.failedCount.toLocaleString()} {t("failed")}, {campaign.skippedCount.toLocaleString()} {t("skipped")}</p></div>
             <Badge s={campaign.status} />
         </div>) : <Empty text="No campaigns yet." />}
-        <p className="text-xs text-slate-500">{t("Campaign totals are retained. Recipient phone numbers are removed immediately when their source import is deleted; remaining snapshots expire after 30 days.")}</p>
+        <p className="text-xs text-slate-500">{t("Recipient history linked to a deleted import is removed and remaining campaign totals are recalculated. Other recipient snapshots expire after 30 days.")}</p>
     </div>;
 }

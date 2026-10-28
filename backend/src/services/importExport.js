@@ -290,30 +290,51 @@ async function deleteImportJob(c, id) {
         let candidateBoothIds = [];
         let candidateHouseholdIds = [];
         if (tracked) {
-            const campaignJobs = (await (0, pool_1.query)(`SELECT DISTINCT r.job_id AS jobId
-                FROM whatsapp_campaign_recipients r JOIN import_phone_contacts pc ON pc.id = r.phone_contact_id
-                WHERE pc.import_job_id = ? AND pc.organization_id = ?`, [id, c.user.organizationId], conn)).map((row) => row.jobId);
-            if (campaignJobs.length) {
-                const marks = (0, pool_1.placeholders)(campaignJobs.length);
-                await (0, pool_1.exec)(`UPDATE whatsapp_campaign_recipients r
-                    JOIN import_phone_contacts pc ON pc.id = r.phone_contact_id
-                    SET r.error_code = IF(r.status IN ('PENDING','PROCESSING'), 'SOURCE_IMPORT_DELETED', r.error_code),
-                        r.status = IF(r.status IN ('PENDING','PROCESSING'), 'SKIPPED', r.status),
-                        r.locked_by = NULL, r.locked_at = NULL,
-                        r.recipient_phone = NULL, r.phone_contact_id = NULL
-                    WHERE pc.import_job_id = ? AND pc.organization_id = ?`, [id, c.user.organizationId], conn);
-                await (0, pool_1.exec)(`UPDATE whatsapp_campaign_jobs j SET
-                    accepted_count = (SELECT COUNT(*) FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'ACCEPTED'),
-                    failed_count = (SELECT COUNT(*) FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'FAILED'),
-                    skipped_count = j.invalid_phone_count + (SELECT COUNT(*) FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'SKIPPED'),
-                    status = CASE
-                      WHEN EXISTS (SELECT 1 FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status IN ('PENDING','PROCESSING')) THEN 'PROCESSING'
-                      WHEN EXISTS (SELECT 1 FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'FAILED') THEN 'COMPLETED_WITH_ERRORS'
-                      ELSE 'COMPLETED' END,
-                    finished_at = IF(EXISTS (SELECT 1 FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status IN ('PENDING','PROCESSING')), NULL, COALESCE(j.finished_at, NOW(3)))
-                    WHERE j.id IN (${marks}) AND j.organization_id = ?`, [...campaignJobs, c.user.organizationId], conn);
+            const schemaTables = new Set((await (0, pool_1.query)(`SELECT TABLE_NAME AS tableName FROM information_schema.tables
+                WHERE table_schema = DATABASE()
+                  AND table_name IN ('import_phone_contacts', 'whatsapp_campaign_jobs', 'whatsapp_campaign_recipients')`, [], conn))
+                .map((row) => String(row.tableName)));
+            const hasPhoneContacts = schemaTables.has("import_phone_contacts");
+            const hasCampaignJobs = schemaTables.has("whatsapp_campaign_jobs");
+            const hasCampaignRecipients = schemaTables.has("whatsapp_campaign_recipients");
+            if (hasCampaignJobs !== hasCampaignRecipients || ((hasCampaignJobs || hasCampaignRecipients) && !hasPhoneContacts))
+                throw new errors_1.AppError(503, "INCOMPLETE_IMPORT_MIGRATION", "Complete the import and WhatsApp database migrations before deleting this import");
+            if (hasPhoneContacts) {
+                if (hasCampaignJobs) {
+                    const campaignJobs = (await (0, pool_1.query)(`SELECT DISTINCT r.job_id AS jobId
+                        FROM whatsapp_campaign_recipients r
+                        JOIN import_phone_contacts pc ON pc.id = r.phone_contact_id
+                        JOIN whatsapp_campaign_jobs j ON j.id = r.job_id AND j.organization_id = pc.organization_id
+                        WHERE pc.import_job_id = ? AND pc.organization_id = ?`, [id, c.user.organizationId], conn)).map((row) => row.jobId);
+                    if (campaignJobs.length) {
+                        await (0, pool_1.exec)(`DELETE r FROM whatsapp_campaign_recipients r
+                            JOIN import_phone_contacts pc ON pc.id = r.phone_contact_id
+                            JOIN whatsapp_campaign_jobs j ON j.id = r.job_id AND j.organization_id = pc.organization_id
+                            WHERE pc.import_job_id = ? AND pc.organization_id = ?`, [id, c.user.organizationId], conn);
+                        for (let offset = 0; offset < campaignJobs.length; offset += 500) {
+                            const batch = campaignJobs.slice(offset, offset + 500);
+                            const marks = (0, pool_1.placeholders)(batch.length);
+                            await (0, pool_1.exec)(`UPDATE whatsapp_campaign_jobs j SET
+                                recipient_count = (SELECT COUNT(*) FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id),
+                                accepted_count = (SELECT COUNT(*) FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'ACCEPTED'),
+                                failed_count = (SELECT COUNT(*) FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'FAILED'),
+                                invalid_phone_count = 0,
+                                skipped_count = (SELECT COUNT(*) FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'SKIPPED'),
+                                status = CASE
+                                  WHEN EXISTS (SELECT 1 FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status IN ('PENDING','PROCESSING')) THEN 'PROCESSING'
+                                  WHEN EXISTS (SELECT 1 FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'FAILED') THEN 'COMPLETED_WITH_ERRORS'
+                                  ELSE 'COMPLETED' END,
+                                finished_at = IF(EXISTS (SELECT 1 FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status IN ('PENDING','PROCESSING')), NULL, COALESCE(j.finished_at, NOW(3)))
+                                WHERE j.id IN (${marks}) AND j.organization_id = ?`, [...batch, c.user.organizationId], conn);
+                            await (0, pool_1.exec)(`DELETE j FROM whatsapp_campaign_jobs j
+                                WHERE j.id IN (${marks}) AND j.organization_id = ?
+                                  AND NOT EXISTS (SELECT 1 FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id)`,
+                            [...batch, c.user.organizationId], conn);
+                        }
+                    }
+                }
+                await (0, pool_1.exec)("DELETE FROM import_phone_contacts WHERE import_job_id = ? AND organization_id = ?", [id, c.user.organizationId], conn);
             }
-            await (0, pool_1.exec)("DELETE FROM import_phone_contacts WHERE import_job_id = ? AND organization_id = ?", [id, c.user.organizationId], conn);
             candidateBoothIds = (await (0, pool_1.query)(`SELECT b.id FROM booths b
                 WHERE b.organization_id = ?
                   AND (b.source_import_job_id = ? OR EXISTS (
@@ -334,6 +355,7 @@ async function deleteImportJob(c, id) {
             if (candidateHouseholdIds.length) {
                 const marks = (0, pool_1.placeholders)(candidateHouseholdIds.length);
                 await (0, pool_1.exec)(`UPDATE households h SET
+                    source_import_job_id = IF(h.source_import_job_id = ?, NULL, h.source_import_job_id),
                     address_line = IF(h.address_source_import_job_id = ?, NULL, h.address_line),
                     address_source_import_job_id = IF(h.address_source_import_job_id = ?, NULL, h.address_source_import_job_id),
                     verification_status = CASE
@@ -344,16 +366,19 @@ async function deleteImportJob(c, id) {
                       ) THEN 'IN_VERIFICATION'
                       ELSE 'RESOLVED'
                     END
-                    WHERE h.id IN (${marks})`, [id, id, ...candidateHouseholdIds], conn);
+                    WHERE h.id IN (${marks})`, [id, id, id, ...candidateHouseholdIds], conn);
             }
             if (candidateBoothIds.length) {
                 const marks = (0, pool_1.placeholders)(candidateBoothIds.length);
                 // Carry legacy booths into the same deferred cleanup pipeline if another
                 // import is still running and the booth becomes empty in this transaction.
-                await (0, pool_1.exec)(`UPDATE booths b SET source_import_job_id = ?
-                    WHERE b.organization_id = ? AND b.id IN (${marks})
-                      AND NOT EXISTS (SELECT 1 FROM households h WHERE h.booth_id = b.id)`,
-                [id, c.user.organizationId, ...candidateBoothIds], conn);
+                await (0, pool_1.exec)(`UPDATE booths b SET source_import_job_id = CASE
+                        WHEN NOT EXISTS (SELECT 1 FROM households h WHERE h.booth_id = b.id)
+                          AND (b.source_import_job_id IS NULL OR b.source_import_job_id = ?) THEN ?
+                        WHEN b.source_import_job_id = ? THEN NULL
+                        ELSE b.source_import_job_id END
+                    WHERE b.organization_id = ? AND b.id IN (${marks})`,
+                [id, id, id, c.user.organizationId, ...candidateBoothIds], conn);
             }
         }
         await (0, pool_1.exec)(`UPDATE import_jobs SET deleted_at = NOW(3), payload = NULL, errors = NULL,
