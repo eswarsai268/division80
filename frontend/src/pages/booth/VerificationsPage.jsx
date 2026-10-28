@@ -27,5 +27,5 @@ export default function VerificationsPage() {
             }
         },
     });
-    return <div><Title>{t("Recent verifications")}</Title><Async q={q}>{(d) => d.length ? <>{d.map((v) => <div key={v.id} className="card mb-2 text-sm"><div className="flex justify-between"><span>{t("House")} {v.houseCode} · {v.citizenName}</span><Badge s={v.result}/></div><p className="text-xs text-slate-500">{t("Step")} {v.step} · {v.verifier} · {fmt(v.createdAt)}</p></div>)}</> : <Empty text="No verifications recorded yet."/>}</Async></div>;
+    return <div><Title>{t("Recent verifications")}</Title>{q.data?.length > 0 && <p className="mb-2 text-sm text-slate-600">{t("Total")}: {q.data.length} {t("verification records")}</p>}<Async q={q}>{(d) => d.length ? <>{d.map((v) => <div key={v.id} className={`card mb-2 text-sm ${v.result === "PASSED" ? "border-l-4 border-emerald-500" : ""}`}><div className="flex justify-between"><span>{t("House")} {v.houseCode} · {v.citizenName}</span><Badge s={v.result}/></div><p className="text-xs text-slate-500">{t("Step")} {v.step} · {v.verifier} · {fmt(v.createdAt)}</p></div>)}</> : <Empty text="No verifications recorded yet."/>}</Async></div>;
 }

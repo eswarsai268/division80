@@ -57,6 +57,7 @@ export default function BoothDashboard() {
           [Home, h.PENDING + h.IN_VERIFICATION + h.RESOLVED, "Households"],
           [Clock3, h.PENDING + h.IN_VERIFICATION, "Pending visits"],
           [CheckCircle2, h.RESOLVED, "Verified households"],
+          [Users, d.verifiedPeople ?? 0, "Verified voters"],
         ];
         return <div className="grid grid-cols-2 gap-3">{cards.map(([Icon, value, label]) => <div key={label} className="metric-card"><span className="metric-icon"><Icon size={20}/></span><strong>{value}</strong><span>{t(label)}</span></div>)}</div>;
       }}</Async>
@@ -66,7 +67,7 @@ export default function BoothDashboard() {
 
       <section>
         <div className="section-heading"><h2>{t("Recent verifications")}</h2><Link to="/booth/verifications" className="section-action">{t("View all")} <ArrowRight size={15}/></Link></div>
-        <Async q={verifications}>{(rows) => rows.length ? <div className="space-y-2">{rows.slice(0, 4).map((v) => <Link key={v.id} to="/booth/verifications" className="card activity-card">
+        <Async q={verifications}>{(rows) => rows.length ? <div className="space-y-2">{rows.slice(0, 4).map((v) => <Link key={v.id} to="/booth/verifications" className={`card activity-card ${v.result === "PASSED" ? "border-l-4 border-emerald-500" : ""}`}>
           <div className="flex items-center justify-between gap-2"><span className="font-semibold">{t("House")} {v.houseCode}</span><Badge s={v.result}/></div>
           <p className="mt-1 text-sm text-slate-600">{v.citizenName} · Step {v.step}</p><p className="mt-2 text-xs text-slate-500">{fmt(v.createdAt)}</p>
         </Link>)}</div> : <Empty text="Recorded verification activity will appear here."/>}</Async>
