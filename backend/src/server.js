@@ -19,7 +19,7 @@ async function main() {
   // Redis must be connected BEFORE the app (and its rate limiters) is loaded.
   await connectRedis();
   const { createApp } = require("./app");
-  const server = createApp().listen(env.PORT, () => logger.info({ port: env.PORT }, "api listening"));
+  const server = createApp().listen(env.PORT, "0.0.0.0", () => logger.info({ port: env.PORT }, "api listening"));
   server.on("error", (err) => {
     logger.fatal({ err }, "http server error");
     process.exit(1);
