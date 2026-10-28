@@ -44,9 +44,12 @@ export default function RoleRoute({ roles }) {
   }, [online]);
   if ((online && isLoading) || (!online && offlineCheckPending)) return <div className="p-8 text-center text-slate-500">{t("Loading…")}</div>;
   const activeIdentity = online ? me : offlineIdentity;
-  if (online && (!activeIdentity || error?.status === 401)) return <Navigate to={pathname.startsWith("/admin") ? "/admin/login" : "/booth/login"} replace />;
-  if (!activeIdentity) {
-    if (!online) return <div className="p-8 text-center text-slate-500">{t("You are offline. Reconnect to continue.")}</div>;
+  const networkOffline = !online || error?.status === 0;
+  if (networkOffline && (!activeIdentity)) {
+    // Don't redirect to login when offline; stay on the current page.
+    return <div className="p-8 text-center text-slate-500">{t("You are offline. Reconnect to continue.")}</div>;
+  }
+  if (online && (!activeIdentity || error?.status === 401)) {
     return <Navigate to={pathname.startsWith("/admin") ? "/admin/login" : "/booth/login"} replace />;
   }
   if (!roles.includes(activeIdentity.role)) return <AccessDenied role={activeIdentity.role} />;
