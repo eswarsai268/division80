@@ -19,7 +19,7 @@ export default function OfflineBanner() {
       background: "#b45309", color: "#fff", textAlign: "center",
       padding: "6px 12px", fontSize: "13px", fontWeight: 600,
     }}>
-      You are offline. Cached data may be shown; new changes will sync when connected.
+      You are offline. Search uses the roster previously downloaded to this device; new changes sync after reconnecting.
     </div>
   );
 }
