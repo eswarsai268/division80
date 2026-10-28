@@ -19,7 +19,7 @@ export default function AdminBooths() {
     const q = useGet(["admin", "booths"], "/admin/booths");
     const memberFields = [member.fullName, member.phone, member.password];
     const memberStarted = memberFields.some(Boolean);
-    const memberComplete = member.fullName.trim().length >= 2 && isValidPhone(member.phone) && member.password.length >= 12;
+    const memberComplete = member.fullName.trim().length >= 2 && isValidPhone(member.phone) && member.password.length >= 4;
     const m = useAct(() => post("/admin/booths", {
         code: code.trim(),
         name: name.trim(),
@@ -39,8 +39,8 @@ export default function AdminBooths() {
         <div><h3 className="text-sm font-semibold">{t("First booth member login (optional)")}</h3><p className="mt-1 text-xs text-slate-500">{t("Create and assign the member now. They can sign in at Booth login with this phone number and password.")}</p></div>
         <input className="input" placeholder={t("Member full name")} value={member.fullName} onChange={(e) => setMember({ ...member, fullName: e.target.value })} aria-label={t("Booth member full name")}/>
         <input className="input" type="tel" autoComplete="tel" placeholder={t("Member phone number")} value={member.phone} onChange={(e) => setMember({ ...member, phone: e.target.value })} aria-label={t("Booth member phone number")}/>
-        <input className="input" type="password" autoComplete="new-password" minLength={12} placeholder={t("Initial password (12+ characters)")} value={member.password} onChange={(e) => setMember({ ...member, password: e.target.value })} aria-label={t("Booth member initial password")}/>
-        {invalidPartialMember && <p className="text-xs text-amber-800">{t("To create a member login, provide a name, valid phone number, and password of at least 12 characters.")}</p>}
+        <input className="input" type="password" autoComplete="new-password" minLength={4} placeholder={t("Initial password (4+ characters)")} value={member.password} onChange={(e) => setMember({ ...member, password: e.target.value })} aria-label={t("Booth member initial password")}/>
+        {invalidPartialMember && <p className="text-xs text-amber-800">{t("To create a member login, provide a name, valid phone number, and password of at least 4 characters.")}</p>}
       </div>
       {m.error && <ErrorBox error={m.error}/>}
       {m.isSuccess && <p role="status" className="text-sm text-emerald-700">{createdMemberPhone ? `Booth created. ${createdMemberPhone} is assigned and can sign in at Booth login.` : "Booth created."}</p>}
