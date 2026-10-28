@@ -13,6 +13,9 @@ export default function RootRedirect() {
       {error?.message && <p className="mt-3 text-xs text-slate-500">{t("The saved booth identity or roster could not be read on this device.")}</p>}
     </main>;
   }
+  if (me?.role === "BOOTH_MEMBER" && (me.isOffline || !navigator.onLine)) {
+    return <Navigate to="/booth/households" replace />;
+  }
   return <Navigate to={me ? homeFor(me.role) : "/booth/login"} replace />;
 }
 

@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import AppHeader from "../components/AppHeader";
 import BottomNav from "../components/BottomNav";
 import { loginFor } from "../auth/paths";
@@ -15,6 +15,7 @@ export default function AppLayout() {
   const { data: me } = useMe();
   const { language } = useLanguage();
   const qc = useQueryClient();
+  const location = useLocation();
   const nav = useNavigate();
   const [online, setOnline] = useState(() => navigator.onLine);
   const [offlineInfo, setOfflineInfo] = useState(null);
@@ -76,6 +77,8 @@ export default function AppLayout() {
   }, [me?.isOffline]);
   if (!me) return null;
   const offlineMode = me.isOffline || !online;
+  const offlineHouseholdsRoute = /^\/booth\/households(?:\/[^/]+(?:\/citizens)?)?$/.test(location.pathname);
+  const showOfflineUnavailable = me.role === "BOOTH_MEMBER" && offlineMode && !offlineHouseholdsRoute;
   const onLogout = async () => {
     try { await logout(); } catch { /* Local data must still be removed when offline. */ }
     qc.clear();
@@ -101,8 +104,12 @@ export default function AppLayout() {
           }
         }}>Clear offline copy</button>}
       </div>}
-      <main key={language} className="p-4"><Outlet context={{ onLogout }} /></main>
-      <BottomNav {...(offlineMode && me.role === "BOOTH_MEMBER" ? { ...NAV.BOOTH_MEMBER, main: NAV.BOOTH_MEMBER.main.filter((item) => item.to === "/booth/households") } : NAV[me.role])} />
+      <main key={language} className="p-4">{showOfflineUnavailable ? <section className="card space-y-3 text-center">
+        <h1 className="text-lg font-bold">Internet connection required</h1>
+        <p className="text-sm text-slate-600">Dashboard, verification activity, and events need an internet connection. Your saved house roster, search, and printing are available offline.</p>
+        <Link className="btn inline-flex justify-center" to="/booth/households">Open houses</Link>
+      </section> : <Outlet context={{ onLogout }} />}</main>
+      <BottomNav {...NAV[me.role]} />
     </div>
   );
 }
