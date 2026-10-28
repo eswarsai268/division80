@@ -104,12 +104,8 @@ export default function AppLayout() {
           }
         }}>Clear offline copy</button>}
       </div>}
-      <main key={language} className="p-4">{showOfflineUnavailable ? <section className="card space-y-3 text-center">
-        <h1 className="text-lg font-bold">Internet connection required</h1>
-        <p className="text-sm text-slate-600">Dashboard, verification activity, and events need an internet connection. Your saved house roster, search, and printing are available offline.</p>
-        <Link className="btn inline-flex justify-center" to="/booth/households">Open houses</Link>
-      </section> : <Outlet context={{ onLogout }} />}</main>
-      <BottomNav {...NAV[me.role]} />
+      <main key={language} className="p-4"><Outlet context={{ onLogout }} /></main>
+      <BottomNav {...(offlineMode && me.role === "BOOTH_MEMBER" ? { ...NAV.BOOTH_MEMBER, main: NAV.BOOTH_MEMBER.main.filter((item) => item.to === "/booth/households") } : NAV[me.role])} />
     </div>
   );
 }
