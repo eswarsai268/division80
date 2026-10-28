@@ -49,7 +49,7 @@ const verification = __importStar(require("../services/verification"));
 const households_1 = require("../repositories/households");
 const extra_1 = require("./extra");
 const router = (0, express_1.Router)();
-const password = zod_1.z.string().min(12).max(128);
+const password = zod_1.z.string().min(4).max(128);
 const phone = zod_1.z.string().min(8).max(24).regex(/^\+?[0-9 ()-]+$/).refine((value) => /^\+?[1-9]\d{7,14}$/.test(value.replace(/[()\s-]/g, "")), "Enter a valid phone number");
 const ACCESS_MS = env_1.env.ACCESS_TOKEN_TTL_SECONDS * 1000;
 const REFRESH_MS = env_1.env.REFRESH_TOKEN_TTL_DAYS * 86_400_000;

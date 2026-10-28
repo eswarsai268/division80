@@ -10,7 +10,7 @@ exports.revokeAssignment = revokeAssignment;
 exports.createUser = createUser;
 exports.updateUser = updateUser;
 exports.dashboard = dashboard;
-exports.createEvent = createEvent;
+exports.createEvent = createEvent;     
 exports.setEventStatus = setEventStatus;
 const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
@@ -132,7 +132,7 @@ async function createBoothMemberAccount(c, boothId, member, userId, passwordHash
     const phone = (0, phone_1.normalizePhone)(member.phone);
     if (!/^\+?[1-9]\d{7,14}$/.test(phone))
         throw new errors_1.AppError(422, "INVALID_PHONE", "Enter a valid phone number");
-    await (0, pool_1.exec)("INSERT INTO users (id, organization_id, email, phone, password_hash, full_name, role) VALUES (?,?,NULL,?,?,?,'BOOTH_MEMBER')", [userId, org(c), phone, passwordHash, member.fullName], conn);
+    await (0, pool_1.exec)("INSERT INTO users (id, organization_id, email, phone, password_hash, full_name, role) VALUES (?,?,?,?,?,?,'BOOTH_MEMBER')", [userId, org(c), `${phone.replace(/[^0-9]/g, "")}@phone.booth.local`, phone, passwordHash, member.fullName], conn);
     const assignmentId = (0, crypto_1.randomUUID)();
     await (0, pool_1.exec)("INSERT INTO booth_assignments (id, booth_id, user_id, created_by) VALUES (?,?,?,?)", [assignmentId, boothId, userId, c.user.id], conn);
     return { id: userId, assignmentId };
