@@ -45,7 +45,7 @@ export default function AdminAssignments() {
             <input type="checkbox" checked={boothIds.includes(booth.id)} disabled={!userId || alreadyAssigned.has(booth.id)} onChange={() => toggleBooth(booth.id)}/>
             <span>{booth.code}{alreadyAssigned.has(booth.id) ? " · already assigned" : ""}</span>
           </label>)}
-          {activeBooths.length === 0 && <p className="text-sm text-slate-500">No active booths. Import booth codes or create booths first.</p>}
+          {activeBooths.length === 0 && <p className="text-sm text-slate-500">No active booths. Import a voter list with booth codes first.</p>}
         </div>
         {unassignedBooths.length > 1 && <button type="button" className="btn-ghost mt-2" disabled={!userId} onClick={() => setBoothIds(unassignedBooths.map((booth) => booth.id))}>Select all unassigned booths</button>}
       </div>
