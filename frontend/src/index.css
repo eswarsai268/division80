@@ -112,23 +112,31 @@ body {
 }
 
 .app-top-nav-inner {
-  position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   width: 100%;
   max-width: 48rem;
   min-height: 3.75rem;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
   margin: 0 auto;
   padding: 0.65rem max(1rem, env(safe-area-inset-right)) 0.65rem max(1rem, env(safe-area-inset-left));
 }
 
-.app-top-nav-back, .app-top-nav-language { z-index: 1; display: flex; flex: 0 0 auto; align-items: center; }
-.app-top-nav-brand { position: absolute; left: 50%; display: flex; width: calc(100% - 12rem); align-items: center; justify-content: center; gap: 0.5rem; transform: translateX(-50%); }
-.app-top-nav-brand .app-brand-name { max-width: 17rem; margin: 0; text-align: center; }
-@media (min-width: 40rem) { .app-top-nav-brand .app-brand-name { white-space: nowrap; } }
-@media (max-width: 23rem) { .app-top-nav-brand { gap: 0.25rem; } .app-top-nav-brand .app-brand-name { font-size: 0.66rem; } }
+.app-top-nav-back, .app-top-nav-language { display: flex; min-width: 0; align-items: center; }
+.app-top-nav-brand { display: flex; min-width: 0; align-items: center; justify-content: center; gap: 0.4rem; }
+.app-top-nav-brand > svg { width: 1.4rem; height: 1.4rem; flex: 0 0 auto; }
+.app-top-nav-brand .app-brand-name { overflow: hidden; max-width: 100%; margin: 0; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.app-top-nav-actions { display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 0.4rem; }
+.app-top-nav-logout { min-width: 2.5rem; justify-content: center; padding-right: 0.65rem; padding-left: 0.65rem; }
+@media (max-width: 25rem) {
+  .app-top-nav-inner { gap: 0.35rem; padding-right: max(0.65rem, env(safe-area-inset-right)); padding-left: max(0.65rem, env(safe-area-inset-left)); }
+  .app-top-nav-brand { gap: 0.25rem; }
+  .app-top-nav-brand > svg { width: 1.2rem; height: 1.2rem; }
+  .app-top-nav-brand .app-brand-name { font-size: 0.66rem; }
+  .app-top-nav-actions { gap: 0.3rem; }
+  .app-top-nav-logout-label { display: none; }
+}
 
 .profile-logout-card { width: 100%; margin-top: 0.55rem; border: 0; cursor: pointer; font: inherit; text-align: left; }
 .profile-logout-card:focus-visible { outline: 2px solid #075081; outline-offset: 2px; }
