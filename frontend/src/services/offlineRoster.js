@@ -2,6 +2,7 @@ import { api } from "../api/client";
 
 const DATABASE = "samasya-offline-roster";
 const VERSION = 1;
+const ROSTER_DATA_VERSION = 2;
 const STORES = ["identity", "roster", "keys"];
 const CURRENT = "current";
 const DISABLED_KEY_PREFIX = "samasya-offline-disabled:";
@@ -103,6 +104,7 @@ export async function saveOfflineIdentity(identity) {
   await write("identity", {
     userId: identity.id,
     organizationId: identity.organizationId,
+    rosterDataVersion: ROSTER_DATA_VERSION,
     profile: { ...identity, isOffline: false },
     savedAt: Date.now(),
   });
@@ -200,6 +202,7 @@ async function downloadAndSaveRoster(identity, onProgress) {
   ]);
   if (localIdentity?.userId === identity.id && localIdentity?.organizationId === identity.organizationId
       && localRoster?.userId === identity.id && localRoster?.organizationId === identity.organizationId
+      && localRoster.rosterDataVersion === ROSTER_DATA_VERSION
       && localRoster.serverRevision === currentRevision.revision
       && OFFLINE_SNAPSHOT_NAMES.every((name) => localRoster.snapshotNames?.includes(name))
       && Date.now() - localRoster.updatedAt < FRESH_OFFLINE_COPY_MS) {

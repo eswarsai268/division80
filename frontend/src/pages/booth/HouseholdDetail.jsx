@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { useState } from "react";
 import { flushSync } from "react-dom";
-import { Printer } from "lucide-react";
+import { MessageCircle, Printer } from "lucide-react";
 import Async from "../../components/Async";
 import Empty from "../../components/Empty";
 import ErrorBox from "../../components/ErrorBox";
@@ -139,7 +139,10 @@ export default function HouseholdDetail() {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.verificationDone} disabled={!canEdit} onChange={(event) => setDraft("verificationDone", event.target.checked)}/>{t("Verification done")}</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.lifeStatus === "DECEASED"} disabled={!canEdit} onChange={(event) => setDraft("lifeStatus", event.target.checked ? "DECEASED" : "ALIVE")}/>{t("Dead")}</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.notHere} disabled={!canEdit} onChange={(event) => setDraft("notHere", event.target.checked)}/>{t("Not here")}</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.addressChanged} disabled={!canEdit} onChange={(event) => setDraft("addressChanged", event.target.checked)}/>{t("Address changed / shifted")}</label>
+        <div className="flex items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.addressChanged} disabled={!canEdit} onChange={(event) => setDraft("addressChanged", event.target.checked)}/>{t("Address changed / shifted")}</label>
+          {c.whatsappPhone && <a className="no-print inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-green-600 text-white hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700" href={`https://wa.me/${c.whatsappPhone}`} target="_blank" rel="noopener noreferrer" aria-label={t("Open WhatsApp chat")} title={t("Open WhatsApp chat")}><MessageCircle size={20}/></a>}
+        </div>
       </div>
       {draft.addressChanged && <label className="block text-sm">{t("New address")}<input className="input mt-1" maxLength={255} value={draft.newAddress} disabled={!canEdit} placeholder={t("Enter changed address")} onChange={(event) => setDraft("newAddress", event.target.value)}/></label>}
       <label className="block text-sm">{t("Additional notes")}<textarea className="input mt-1 min-h-24" maxLength={1000} value={draft.visitNotes} disabled={!canEdit} placeholder={t("Write any additional details for this person")} onChange={(event) => setDraft("visitNotes", event.target.value)}/></label>

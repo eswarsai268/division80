@@ -27,9 +27,28 @@ describe("import-owned phone contacts", () => {
     expect(preview).toMatchObject({ rosterRows: 3, phoneRows: 2, invalidPhoneRows: 2, skippedRows: 2, validRows: 5 });
     const payload = JSON.parse(exec.mock.calls[0][1][8]);
     expect(payload.records).toHaveLength(3);
-    expect(payload.records[0]).not.toHaveProperty("phone");
+    expect(payload.records[0].phone).toBeNull();
+    expect(payload.records[1].phone).toBeNull();
+    expect(payload.records[2].phone).toBe("+919876543210");
     expect(payload.records[0]).not.toHaveProperty("whatsappOptIn");
     expect(payload.phoneContacts.map(({ phone }) => phone)).toEqual(["+919876543210", "9876543211"]);
     expect(payload.phoneContacts.every((contact) => Object.keys(contact).length === 1)).toBe(true);
+  });
+
+  it("stores a valid CSV phone with its person row and keeps the separate import contact", async () => {
+    vi.spyOn(db, "query")
+      .mockResolvedValueOnce([{ id: "booth-1", code: "1", status: "ACTIVE" }])
+      .mockResolvedValueOnce([]);
+    const exec = vi.spyOn(db, "exec").mockResolvedValue({ affectedRows: 1 });
+    const csv = [
+      "booth_code,house_code,full_name,voter_id,phone,gender",
+      "1,10,Person,VOTER1,+91 98765 43210,MALE",
+    ].join("\n");
+
+    await createImportJob({ user: { id: "admin-1", organizationId: "org-1" } }, csv);
+
+    const payload = JSON.parse(exec.mock.calls[0][1][8]);
+    expect(payload.records[0].phone).toBe("+919876543210");
+    expect(payload.phoneContacts).toEqual([{ phone: "+919876543210" }]);
   });
 });

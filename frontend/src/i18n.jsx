@@ -55,6 +55,7 @@ const te = {
   "Cancel": "రద్దు చేయండి",
   "Name not set": "పేరు సెట్ చేయలేదు",
   "Phone number": "ఫోన్ నంబర్",
+  "Open WhatsApp chat": "వాట్సాప్ చాట్ తెరవండి",
   "Email address": "ఇమెయిల్ చిరునామా",
   "Search": "శోధించండి",
   "Loading…": "లోడ్ అవుతోంది…",

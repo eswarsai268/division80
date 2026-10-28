@@ -28,7 +28,7 @@ Before deploying code that uses new database fields or tables, apply the pending
 
 ## Data import and exports
 
-Admins can import one CSV or `.xlsx` worksheet at a time, up to 50 MiB and 50,000 rows. The voter-list headers `Booth number`, `S. No`, `Voter Name`, `Father's Name/ Husband's Name`, `Door No`, and `Voter Id No` are accepted, alongside the existing normalized headers. Relationship defaults to `RESIDENT`; fields absent from a source sheet keep their existing defaults. The worker must be running to commit imports and generate exports. Imported roster rows and verification history are retained independently of login accounts.
+Admins can import one CSV or `.xlsx` worksheet at a time, up to 50 MiB and 50,000 rows. The voter-list headers `Booth number`, `S. No`, `Voter Name`, `Father's Name/ Husband's Name`, `Door No`, and `Voter Id No` are accepted, alongside the existing normalized headers. Relationship defaults to `RESIDENT`; fields absent from a source sheet keep their existing defaults. Valid phone numbers are associated with the person in the same source row and are also retained as import-owned WhatsApp contacts; invalid phone values do not reject otherwise valid roster rows. The worker must be running to commit imports and generate exports. Imported roster rows and verification history are retained independently of login accounts.
 
 Exports include active roster, shifted and deceased people, D2D status, households and verification progress. Voter IDs are masked in exports; generated files expire after 24 hours.
 
@@ -44,6 +44,5 @@ npm run build
 ```
 
 Database-backed authorization tests require `TEST_DB=1` and a dedicated synthetic database. Never point them at production or real citizen data. The API contract is in `docs/api/openapi.json`; security assumptions and known gaps are in `docs/security/threat-model.md`.
-
 
 

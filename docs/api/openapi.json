@@ -240,7 +240,7 @@
       "description": "Validation error"
      }
     },
-    "description": "Lists household members across active booths in the caller organization. Voter IDs are masked outside booths assigned to the caller."
+    "description": "Lists household members across active booths in the caller organization. Voter IDs are masked and WhatsApp phone links are omitted outside booths assigned to the caller."
    }
   },
   "/api/v1/booth/booths/{boothId}/summary": {
