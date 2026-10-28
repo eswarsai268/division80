@@ -26,6 +26,13 @@ function getWorkerConfig(source = process.env) {
     if (nodeEnv === "production" && databaseSsl !== "true" && !errors.includes("DATABASE_SSL"))
         errors.push("DATABASE_SSL");
 
+    const whatsappPhoneNumberId = source.WHATSAPP_PHONE_NUMBER_ID ?? "";
+    const whatsappApiVersion = source.WHATSAPP_API_VERSION ?? "";
+    const whatsappDefaultCountryCode = source.WHATSAPP_DEFAULT_COUNTRY_CODE ?? "91";
+    if (whatsappPhoneNumberId && !/^\d{1,32}$/.test(whatsappPhoneNumberId)) errors.push("WHATSAPP_PHONE_NUMBER_ID");
+    if (whatsappApiVersion && !/^v\d+\.\d+$/.test(whatsappApiVersion)) errors.push("WHATSAPP_API_VERSION");
+    if (!/^[1-9]\d{0,3}$/.test(whatsappDefaultCountryCode)) errors.push("WHATSAPP_DEFAULT_COUNTRY_CODE");
+
     if (errors.length)
         throw new Error(`Invalid worker environment: ${[...new Set(errors)].join(", ")}`);
 
@@ -37,6 +44,10 @@ function getWorkerConfig(source = process.env) {
         databasePassword: source.DATABASE_PASSWORD ?? "",
         databaseName: source.DATABASE_NAME ?? "samasya_medhi",
         databaseSsl,
+        whatsappAccessToken: source.WHATSAPP_ACCESS_TOKEN ?? "",
+        whatsappPhoneNumberId,
+        whatsappApiVersion,
+        whatsappDefaultCountryCode,
     };
 }
 

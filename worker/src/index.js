@@ -32,7 +32,7 @@ async function main() {
     let lastMaint = 0;
     while (!stopping) {
         try {
-            const n = (await processOutbox()) + (await (0, jobs_1.processImports)()) + (await (0, jobs_1.processExports)());
+            const n = (await processOutbox()) + (await (0, jobs_1.processImports)()) + (await (0, jobs_1.processExports)()) + (await (0, jobs_1.processWhatsAppCampaigns)());
             if (Date.now() - lastMaint > 60_000) {
                 await (0, jobs_1.maintenance)();
                 lastMaint = Date.now();

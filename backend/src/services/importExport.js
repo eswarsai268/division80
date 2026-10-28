@@ -13,6 +13,14 @@ const crypto_1 = require("crypto");
 const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
 const csv_1 = require("./csv");
+const importPhone_1 = require("../utils/importPhone");
+
+function normalizePhoneForImport(phone) {
+    const normalized = importPhone_1.normalizeImportedPhone(phone);
+    if (normalized === undefined) return undefined;
+    if (normalized === null) return null;
+    return normalized;
+}
 const REQUIRED = ["booth_code", "house_code", "full_name"];
 const MAX_ROWS = 50_000;
 const LIFE = ["ALIVE", "DECEASED", "UNKNOWN"];
@@ -24,6 +32,7 @@ const HEADER_ALIASES = {
     additional_notes: "visit_notes", shifted: "address_changed",
     no_here: "not_here",
     voter_id_no: "voter_id", voter_id_number: "voter_id",
+    phone_number: "phone", phone_no: "phone", mobile: "phone", mobile_no: "phone", mobile_number: "phone", contact_number: "phone", whatsapp_number: "phone",
     father_s_name_husband_s_name: "father_or_husband_name",
     father_name_husband_name: "father_or_husband_name",
     father_name_or_husband_name: "father_or_husband_name",
@@ -67,6 +76,8 @@ async function createImportJob(c, csv) {
     const bad = (line, message) => { errorCount++; if (errors.length < 200)
         errors.push({ line, message }); };
     const valid = [];
+    const phoneContacts = new Map();
+    let invalidPhoneRows = 0;
     const seen = new Set();
     const householdAddresses = new Map();
     let duplicateRows = 0;
@@ -74,6 +85,15 @@ async function createImportJob(c, csv) {
         const r = rows[i] ?? [];
         const line = i + 1;
         const get = (n) => { const k = headerIndex.get(n); return k === undefined ? "" : (r[k] ?? "").trim(); };
+        const phoneResult = normalizePhoneForImport(get("phone"));
+        if (phoneResult === undefined || phoneResult === null) {
+            invalidPhoneRows++;
+        } else {
+            const phoneDigits = phoneResult.replace(/[+]/g, "");
+            if (!phoneContacts.has(phoneDigits)) {
+                phoneContacts.set(phoneDigits, phoneResult);
+            }
+        }
         const f = {
             booth: get("booth_code"),
             house: get("house_code"),
@@ -211,13 +231,15 @@ async function createImportJob(c, csv) {
         });
     }
     const ids = [...seen];
-    const existing = new Set();
+    const existing = new Map();
     // Keep each lookup comfortably below MySQL's placeholder/packet limits while
     // avoiding dozens of sequential network round trips for large voter lists.
     const voterLookupBatchSize = 5000;
     for (let i = 0; i < ids.length; i += voterLookupBatchSize) {
         const chunk = ids.slice(i, i + voterLookupBatchSize);
-        (await (0, pool_1.query)(`SELECT voter_id FROM citizens WHERE voter_id IN (${(0, pool_1.placeholders)(chunk.length)})`, chunk)).forEach((r) => existing.add(String(r.voter_id).toUpperCase()));
+        (await (0, pool_1.query)(`SELECT ci.id, ci.voter_id FROM citizens ci
+            JOIN booths b ON b.id = ci.booth_id WHERE b.organization_id = ? AND ci.voter_id IN (${(0, pool_1.placeholders)(chunk.length)})`, [c.user.organizationId, ...chunk]))
+            .forEach((r) => existing.set(String(r.voter_id).toUpperCase(), r));
     }
     let existingRows = 0;
     const final = valid.filter((v) => { if (v.voterId && existing.has(v.voterId.toUpperCase())) {
@@ -227,8 +249,21 @@ async function createImportJob(c, csv) {
     const pendingBoothCodes = [...new Set(final.filter((v) => !v.boothId).map((v) => v.boothCode))].sort();
     const skippedRows = existingRows + duplicateRows;
     const id = (0, crypto_1.randomUUID)();
-    await (0, pool_1.exec)(`INSERT INTO import_jobs (id, organization_id, created_by, total_rows, valid_rows, error_count, skipped_rows, errors, payload) VALUES (?,?,?,?,?,?,?,?,?)`, [id, c.user.organizationId, c.user.id, rows.length - 1, final.length, errorCount, skippedRows, JSON.stringify(errors), JSON.stringify(final)]);
-    return { id, status: "PREVIEW", totalRows: rows.length - 1, validRows: final.length, skippedRows, errorCount, errors: errors.slice(0, 50), pendingBoothCodes };
+    const contacts = [...phoneContacts.values()].map((phone) => ({ phone }));
+    await (0, pool_1.exec)(`INSERT INTO import_jobs (id, organization_id, created_by, total_rows, valid_rows, error_count, skipped_rows, errors, payload) VALUES (?,?,?,?,?,?,?,?,?)`, [id, c.user.organizationId, c.user.id, rows.length - 1, final.length + contacts.length, errorCount, skippedRows, JSON.stringify(errors), JSON.stringify({ records: final, phoneContacts: contacts })]);
+    return {
+        id,
+        status: "PREVIEW",
+        totalRows: rows.length - 1,
+        validRows: final.length + contacts.length,
+        rosterRows: final.length,
+        phoneRows: contacts.length,
+        invalidPhoneRows,
+        skippedRows,
+        errorCount,
+        errors: errors.slice(0, 50),
+        pendingBoothCodes,
+    };
 }
 const IMPORT_COLS = `id, status, total_rows AS totalRows, valid_rows AS validRows, skipped_rows AS skippedRows, error_count AS errorCount, processed_rows AS processedRows, result, last_error AS lastError, created_at AS createdAt, data_tracked AS dataTracked, (status = 'PREVIEW' OR status = 'QUEUED' OR (status NOT IN ('COMMITTING') AND data_tracked = 1)) AS canDelete`;
 async function getImportJob(c, id) {
@@ -255,6 +290,30 @@ async function deleteImportJob(c, id) {
         let candidateBoothIds = [];
         let candidateHouseholdIds = [];
         if (tracked) {
+            const campaignJobs = (await (0, pool_1.query)(`SELECT DISTINCT r.job_id AS jobId
+                FROM whatsapp_campaign_recipients r JOIN import_phone_contacts pc ON pc.id = r.phone_contact_id
+                WHERE pc.import_job_id = ? AND pc.organization_id = ?`, [id, c.user.organizationId], conn)).map((row) => row.jobId);
+            if (campaignJobs.length) {
+                const marks = (0, pool_1.placeholders)(campaignJobs.length);
+                await (0, pool_1.exec)(`UPDATE whatsapp_campaign_recipients r
+                    JOIN import_phone_contacts pc ON pc.id = r.phone_contact_id
+                    SET r.error_code = IF(r.status IN ('PENDING','PROCESSING'), 'SOURCE_IMPORT_DELETED', r.error_code),
+                        r.status = IF(r.status IN ('PENDING','PROCESSING'), 'SKIPPED', r.status),
+                        r.locked_by = NULL, r.locked_at = NULL,
+                        r.recipient_phone = NULL, r.phone_contact_id = NULL
+                    WHERE pc.import_job_id = ? AND pc.organization_id = ?`, [id, c.user.organizationId], conn);
+                await (0, pool_1.exec)(`UPDATE whatsapp_campaign_jobs j SET
+                    accepted_count = (SELECT COUNT(*) FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'ACCEPTED'),
+                    failed_count = (SELECT COUNT(*) FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'FAILED'),
+                    skipped_count = j.invalid_phone_count + (SELECT COUNT(*) FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'SKIPPED'),
+                    status = CASE
+                      WHEN EXISTS (SELECT 1 FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status IN ('PENDING','PROCESSING')) THEN 'PROCESSING'
+                      WHEN EXISTS (SELECT 1 FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status = 'FAILED') THEN 'COMPLETED_WITH_ERRORS'
+                      ELSE 'COMPLETED' END,
+                    finished_at = IF(EXISTS (SELECT 1 FROM whatsapp_campaign_recipients r WHERE r.job_id = j.id AND r.status IN ('PENDING','PROCESSING')), NULL, COALESCE(j.finished_at, NOW(3)))
+                    WHERE j.id IN (${marks}) AND j.organization_id = ?`, [...campaignJobs, c.user.organizationId], conn);
+            }
+            await (0, pool_1.exec)("DELETE FROM import_phone_contacts WHERE import_job_id = ? AND organization_id = ?", [id, c.user.organizationId], conn);
             candidateBoothIds = (await (0, pool_1.query)(`SELECT b.id FROM booths b
                 WHERE b.organization_id = ?
                   AND (b.source_import_job_id = ? OR EXISTS (
