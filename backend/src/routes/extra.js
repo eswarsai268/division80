@@ -129,6 +129,7 @@ function extendBooth(b) {
         verificationDone: zod_1.z.boolean(),
         notHere: zod_1.z.boolean(),
         addressChanged: zod_1.z.boolean(),
+        dFlag: zod_1.z.boolean().optional().default(false),
         newAddress: zod_1.z.string().max(255),
         visitNotes: zod_1.z.string().max(1000),
     }), req.body)))));

@@ -45,7 +45,7 @@ async function listCitizens(c, f) {
     }
     const rows = await (0, pool_1.query)(`SELECT ci.id, ci.full_name AS fullName, ci.father_or_husband_name AS fatherOrHusbandName, ci.relation, ci.voter_id AS voterId, ci.life_status AS lifeStatus,
             ci.roll_serial AS rollSerial, ci.age, ci.gender, h.address_line AS address, h.house_code AS houseCode, b.code AS boothCode,
-            ci.polling_station AS pollingStation, ci.polling_address AS pollingAddress,
+            ci.polling_station AS pollingStation, ci.polling_address AS pollingAddress, ci.d_flag AS dFlag,
             (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED') AS passedSteps
        FROM citizens ci JOIN households h ON h.id = ci.household_id JOIN booths b ON b.id = ci.booth_id
       WHERE ${where.join(" AND ")} ORDER BY ci.id LIMIT ${f.limit + 1}`, p);

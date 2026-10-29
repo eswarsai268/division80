@@ -117,6 +117,7 @@ async function createImportJob(c, csv) {
             addressChanged: get("address_changed"),
             newAddress: get("new_address"),
             visitNotes: get("visit_notes"),
+            d: get("d"),
         };
         // CSV/XLSX values are parsed as strings and never evaluated. Formula-leading
         // text is stored literally; CSV exports escape it before spreadsheet use.
@@ -166,8 +167,9 @@ async function createImportJob(c, csv) {
         const notHere = parseBoolean(f.notHere);
         const addressChanged = parseBoolean(f.addressChanged);
         const verificationDone = parseBoolean(f.verificationDone);
-        if (notHere === null || addressChanged === null || verificationDone === null) {
-            bad(line, "verification_done, not_here and address_changed must be 0/1, true/false, or yes/no");
+        const d = parseBoolean(f.d === "" ? "0" : (f.d || "0"));
+        if (notHere === null || addressChanged === null || verificationDone === null || d === null) {
+            bad(line, "verification_done, not_here, address_changed and d must be 0/1, true/false, or yes/no");
             continue;
         }
         if (f.newAddress.length > 255 || f.visitNotes.length > 1000) {
@@ -251,6 +253,7 @@ async function createImportJob(c, csv) {
             gender,
             lifeStatus,
             verificationDone,
+            dFlag: d === true,
             notHere,
             addressChanged,
             newAddress: f.newAddress || null,

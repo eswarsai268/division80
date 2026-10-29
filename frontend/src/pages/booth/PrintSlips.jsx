@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Printer, Search } from "lucide-react";
+import { Printer } from "lucide-react";
 import Async from "../../components/Async";
 import Empty from "../../components/Empty";
 import VoterSlip from "../../components/VoterSlip";
@@ -36,6 +35,30 @@ export default function PrintSlips() {
     finally { setLoading(false); }
   };
 
+  const loadAll = async () => {
+    setAllSlips([]); setPage(1); setSettings(null);
+    setLoading(true); setError("");
+    try {
+      let p = 0;
+      while (true) {
+        const nextP = p + 1;
+        const params = new URLSearchParams({ page: String(nextP), pageSize: "200" });
+        if (boothId) params.set("booth", boothId);
+        if (pollingStation) params.set("pollingStation", pollingStation);
+        if (doorFrom) params.set("doorFrom", doorFrom);
+        if (doorTo) params.set("doorTo", doorTo);
+        const res = await api(`/slips/batch?${params}`);
+        if (!res.items || res.items.length === 0) break;
+        setSettings(res.settings);
+        setAllSlips((prev) => [...prev, ...res.items]);
+        p = nextP;
+        if (res.items.length < 200) break;
+      }
+      setPage(p);
+    } catch (e) { setError(e?.message || "Failed to load slips"); }
+    finally { setLoading(false); }
+  };
+
   const handlePrint = () => {
     const n = allSlips.length;
     if (!confirm(`Printing ${n} slips. Continue?`)) return;
@@ -58,6 +81,7 @@ export default function PrintSlips() {
           </div>
           <div className="flex gap-2">
             <button className="btn flex-1" disabled={loading} onClick={() => loadPage(1)}>{loading ? t("Loading…") : t("Load slips")}</button>
+            <button className="btn-ghost" disabled={loading} onClick={loadAll}>{loading ? t("Loading…") : t("Load all")}</button>
             {allSlips.length > 0 && <button className="btn-ghost" onClick={() => { setAllSlips([]); setPage(1); setSettings(null); }}>{t("Clear")}</button>}
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}

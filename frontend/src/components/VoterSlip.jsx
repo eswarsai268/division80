@@ -1,10 +1,19 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import Sanscript from "@indic-transliteration/sanscript";
+
+function toTelugu(text) {
+  if (!text) return "";
+  try { return Sanscript.t(String(text).toLowerCase(), "itrans", "telugu"); }
+  catch { return ""; }
+}
 
 export default function VoterSlip({ data }) {
   const s = data.settings || {};
   const banner = s.bannerPath || "/slip/banner.png";
   const [bannerOk, setBannerOk] = useState(true);
+  const voterNameTe = data.voterName ? toTelugu(data.voterName) : "";
+  const fatherNameTe = data.fatherName ? toTelugu(data.fatherName) : "";
   return (
     <div className="voter-slip-card">
       <div className="slip-top">
@@ -17,13 +26,15 @@ export default function VoterSlip({ data }) {
         </div>
       </div>
       <div className="slip-details">
-        <div className="slip-row"><span className="slip-label">ఓటరు పేరు</span><span className="slip-dots" /><span className="slip-value">{data.voterName ?? "—"}</span></div>
-        <div className="slip-row"><span className="slip-label">తండ్రి పేరు</span><span className="slip-dots" /><span className="slip-value">{data.fatherName ?? "—"}</span></div>
+        <div className="slip-row"><span className="slip-label">ఓటరు పేరు / Voter Name</span><span className="slip-dots" /><span className="slip-value">{data.voterName ?? "—"}</span></div>
+        {voterNameTe && <div className="slip-row slip-telugu-name"><span className="slip-dots" /><span className="slip-value slip-telugu-text">{voterNameTe}</span></div>}
+        <div className="slip-row"><span className="slip-label">తండ్రి పేరు / Father's Name</span><span className="slip-dots" /><span className="slip-value">{data.fatherName ?? "—"}</span></div>
+        {fatherNameTe && <div className="slip-row slip-telugu-name"><span className="slip-dots" /><span className="slip-value slip-telugu-text">{fatherNameTe}</span></div>}
         {(data.age != null || data.gender) && (
-          <div className="slip-row"><span className="slip-label">వయస్సు / లింగము</span><span className="slip-dots" /><span className="slip-value">{[data.age != null ? data.age : null, data.gender && data.gender !== "UNKNOWN" ? data.gender : null].filter(Boolean).join(" / ") || "—"}</span></div>
+          <div className="slip-row"><span className="slip-label">వయస్సు / లింగము / Age / Gender</span><span className="slip-dots" /><span className="slip-value">{[data.age != null ? data.age : null, data.gender && data.gender !== "UNKNOWN" ? data.gender : null].filter(Boolean).join(" / ") || "—"}</span></div>
         )}
-        <div className="slip-row"><span className="slip-label">ఇంటి సంఖ్య</span><span className="slip-dots" /><span className="slip-value">{data.doorNo ?? "—"}</span></div>
-        <div className="slip-row"><span className="slip-label">ఓటరు ఐడి కార్డు నెం.</span><span className="slip-dots" /><span className="slip-value">{data.voterId ?? "—"}</span></div>
+        <div className="slip-row"><span className="slip-label">ఇంటి సంఖ్య / Door No</span><span className="slip-dots" /><span className="slip-value">{data.doorNo ?? "—"}</span></div>
+        <div className="slip-row"><span className="slip-label">ఓటరు ఐడి కార్డు నెం. / Voter ID</span><span className="slip-dots" /><span className="slip-value">{data.voterId ?? "—"}</span></div>
       </div>
       <div className="slip-polling-bar">
         <span>📅</span>

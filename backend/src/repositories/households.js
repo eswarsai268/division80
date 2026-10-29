@@ -198,7 +198,7 @@ async function listOfflineRosterForUser(u, f) {
                 c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName,
                 c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus, c.phone,
                 c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone, c.polling_station AS pollingStation, c.polling_address AS pollingAddress,
-                c.not_here AS notHere, c.address_changed AS addressChanged,
+                c.not_here AS notHere, c.address_changed AS addressChanged, c.d_flag AS dFlag,
                 c.new_address AS newAddress, c.visit_notes AS visitNotes
             FROM citizens c JOIN households h ON h.id = c.household_id AND h.booth_id = c.booth_id
             JOIN booths b ON b.id = h.booth_id AND b.organization_id = h.organization_id AND b.status = 'ACTIVE'
@@ -270,7 +270,7 @@ async function listCitizensForUser(u, householdId) {
     const house = await getHouseholdForUser(u, householdId); // authorisation first
     const rows = await (0, pool_1.query)(`SELECT c.id, c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName, c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus, c.phone,
             c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone, c.polling_station AS pollingStation, c.polling_address AS pollingAddress,
-            c.not_here AS notHere, c.address_changed AS addressChanged,
+            c.not_here AS notHere, c.address_changed AS addressChanged, c.d_flag AS dFlag,
             c.new_address AS newAddress, c.visit_notes AS visitNotes,
             (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = c.id AND v.result = 'PASSED') AS passedSteps
        FROM citizens c WHERE c.household_id = ? AND c.booth_id = ? AND c.deleted_at IS NULL ORDER BY c.relation, c.full_name`, [householdId, house.boothId]);
@@ -303,9 +303,9 @@ async function updateVisitForUser(c, citizenId, input) {
         if (!citizen)
             throw (0, errors_1.notFound)();
         await (0, pool_1.exec)(`UPDATE citizens SET life_status = ?, d2d_verified = ?, not_here = ?, address_changed = ?,
-            new_address = ?, visit_notes = ? WHERE id = ? AND deleted_at IS NULL`,
+            d_flag = ?, new_address = ?, visit_notes = ? WHERE id = ? AND deleted_at IS NULL`,
         [input.lifeStatus, input.verificationDone ? 1 : 0, input.notHere ? 1 : 0, input.addressChanged ? 1 : 0,
-            input.addressChanged ? input.newAddress || null : null, input.visitNotes || null, citizenId], conn);
+            input.dFlag ? 1 : 0, input.addressChanged ? input.newAddress || null : null, input.visitNotes || null, citizenId], conn);
         return { id: citizenId };
     });
 }

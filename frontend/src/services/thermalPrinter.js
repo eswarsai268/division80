@@ -7,12 +7,14 @@ const PAPER_DOTS = 384;
 export function getVoterSlipContent(record, household) {
   return {
     fields: [
-      ["S.No.", record.rollSerial],
-      ["Name", record.fullName],
-      ["Father / husband", record.fatherOrHusbandName],
-      ["Door number", household.houseCode],
-      ["Voter ID", record.voterId],
-      ["Booth number", household.boothCode],
+      ["S.No. / సంఖ్య", record.rollSerial],
+      ["Name / పేరు", record.fullName],
+      ["Father / husband / తండ్రి", record.fatherOrHusbandName],
+      ["Door number / ఇంటి సంఖ్య", household.houseCode],
+      ["Voter ID / ఓటరు ఐడి", record.voterId],
+      ["Booth number / బూత్", household.boothCode],
+      ["Polling station / పోలింగ్ కేంద్రం", record.pollingStation],
+      ["Polling address / పోలింగ్ చిరునామా", record.pollingAddress],
     ].map(([label, value]) => ({ label, value: value == null || value === "" ? "—" : String(value) })),
     summary: [record.relation, record.age == null ? null : `${record.age} years`, record.gender].filter(Boolean),
   };
@@ -51,12 +53,12 @@ function wrapText(context, value, maxWidth) {
 }
 
 function drawLabelValue(context, label, value, y, maxWidth) {
-  context.font = "16px Arial, sans-serif";
+  context.font = "16px 'Noto Sans Telugu', Arial, sans-serif";
   context.fillStyle = "#333";
   context.fillText(label, 16, y);
   y += 24;
 
-  context.font = "bold 22px Arial, sans-serif";
+  context.font = "bold 22px 'Noto Sans Telugu', Arial, sans-serif";
   context.fillStyle = "#000";
   const lines = wrapText(context, value, maxWidth);
   for (const line of lines) {
@@ -79,7 +81,7 @@ async function renderVoterSlip(record, household) {
   context.fillStyle = "#000";
   context.textBaseline = "top";
   let y = 18;
-  context.font = "bold 25px Arial, sans-serif";
+  context.font = "bold 25px 'Noto Sans Telugu', Arial, sans-serif";
   context.textAlign = "center";
   context.fillText("VOTER DETAILS", PAPER_DOTS / 2, y);
   context.textAlign = "left";
@@ -93,7 +95,7 @@ async function renderVoterSlip(record, household) {
 
   context.fillRect(16, y, PAPER_DOTS - 32, 2);
   y += 16;
-  context.font = "16px Arial, sans-serif";
+  context.font = "16px 'Noto Sans Telugu', Arial, sans-serif";
   if (content.summary.length) {
     const summary = content.summary.join(" · ");
     for (const line of wrapText(context, summary, maxWidth)) {
