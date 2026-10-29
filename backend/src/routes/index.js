@@ -151,5 +151,24 @@ ad.post("/events", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, aw
 ad.post("/events/:eventId/publish", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.setEventStatus((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.eventId), "PUBLISHED"))));
 ad.post("/events/:eventId/archive", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await admin.setEventStatus((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.eventId), "ARCHIVED"))));
 (0, extra_1.extendAdmin)(ad);
+const slips = __importStar(require("../services/slips"));
+// ... (after router.use("/admin", ad);)
+const sl = (0, express_1.Router)();
+sl.use(authenticate_1.authenticate, authorize_1.authorize("ADMIN", "BOOTH_MEMBER"));
+sl.get("/voter/:id", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await slips.getVoterSlip((0, http_1.ctx)(req), (0, http_1.parse)(http_1.uuid, req.params.id)))));
+sl.get("/batch", rateLimit_1.limits.slips, (0, http_1.h)(async (req, res) => {
+    const q = (0, http_1.parse)(zod_1.z.object({
+        booth: http_1.uuid.optional(),
+        pollingStation: zod_1.z.string().max(20).optional(),
+        doorFrom: zod_1.z.string().max(255).optional(),
+        doorTo: zod_1.z.string().max(255).optional(),
+        page: zod_1.z.coerce.number().int().min(1).default(1),
+        pageSize: zod_1.z.coerce.number().int().min(1).max(200).default(200),
+    }), req.query);
+    const result = await slips.listSlipBatch((0, http_1.ctx)(req), { boothId: q.booth, pollingStation: q.pollingStation, doorFrom: q.doorFrom, doorTo: q.doorTo, page: q.page, pageSize: q.pageSize });
+    await slips.logBatchPrint((0, http_1.ctx)(req), { boothId: q.booth, pollingStation: q.pollingStation, doorFrom: q.doorFrom, doorTo: q.doorTo }, result.items.length);
+    return (0, http_1.ok)(req, res, result);
+}));
 router.use("/admin", ad);
+router.use("/slips", sl);
 exports.default = router;

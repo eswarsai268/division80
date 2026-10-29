@@ -30,10 +30,14 @@ async function listCitizens(c, f) {
         where.push("ci.booth_id = ?");
         p.push(f.boothId);
     }
+    if (f.pollingStation) {
+        where.push("ci.polling_station = ?");
+        p.push(f.pollingStation);
+    }
     if (f.search) {
-        where.push("(ci.full_name LIKE ? OR ci.voter_id LIKE ? OR h.house_code LIKE ?)");
+        where.push("(ci.full_name LIKE ? OR ci.voter_id LIKE ? OR h.house_code LIKE ? OR ci.polling_station LIKE ?)");
         const term = esc(f.search) + "%";
-        p.push(term, term, term.toUpperCase());
+        p.push(term, term, term.toUpperCase(), term);
     }
     if (f.cursor) {
         where.push("ci.id > ?");
@@ -41,6 +45,7 @@ async function listCitizens(c, f) {
     }
     const rows = await (0, pool_1.query)(`SELECT ci.id, ci.full_name AS fullName, ci.father_or_husband_name AS fatherOrHusbandName, ci.relation, ci.voter_id AS voterId, ci.life_status AS lifeStatus,
             ci.roll_serial AS rollSerial, ci.age, ci.gender, h.address_line AS address, h.house_code AS houseCode, b.code AS boothCode,
+            ci.polling_station AS pollingStation, ci.polling_address AS pollingAddress,
             (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = ci.id AND v.result = 'PASSED') AS passedSteps
        FROM citizens ci JOIN households h ON h.id = ci.household_id JOIN booths b ON b.id = ci.booth_id
       WHERE ${where.join(" AND ")} ORDER BY ci.id LIMIT ${f.limit + 1}`, p);
@@ -76,8 +81,8 @@ async function createCitizen(c, input) {
         else if (input.address) {
             await (0, pool_1.exec)("UPDATE households SET address_line = COALESCE(address_line, ?) WHERE id = ?", [input.address, household.id], conn);
         }
-        await (0, pool_1.exec)(`INSERT INTO citizens (id, household_id, booth_id, full_name, relation, voter_id, life_status, roll_serial, age, gender)
-            VALUES (?,?,?,?,?,?,?,?,?,?)`, [id, household.id, input.boothId, input.fullName, input.relation, voterId, input.lifeStatus, input.rollSerial ?? null, input.age ?? null, input.gender]);
+        await (0, pool_1.exec)(`INSERT INTO citizens (id, household_id, booth_id, full_name, relation, voter_id, life_status, roll_serial, age, gender, polling_station, polling_address)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, [id, household.id, input.boothId, input.fullName, input.relation, voterId, input.lifeStatus, input.rollSerial ?? null, input.age ?? null, input.gender, input.pollingStation ?? null, input.pollingAddress ?? null]);
         await (0, pool_1.exec)("UPDATE households SET verification_status = 'IN_VERIFICATION' WHERE id = ?", [household.id], conn);
         return { id, householdId: household.id };
     });
@@ -143,10 +148,18 @@ async function updateEvent(c, id, i) {
 }
 async function settings(c) {
     const o = (await (0, pool_1.query)("SELECT name, slug FROM organizations WHERE id = ?", [org(c)]))[0];
-    const media = (await (0, pool_1.query)("SELECT login_video_url AS loginVideoUrl FROM organization_settings WHERE organization_id = ?", [org(c)]))[0];
+    const media = (await (0, pool_1.query)("SELECT login_video_url AS loginVideoUrl, ward_number AS wardNumber, polling_date_text AS pollingDateText, age_reference_date AS ageReferenceDate, publication_date AS publicationDate, slip_title AS slipTitle, slip_banner_path AS slipBannerPath FROM organization_settings WHERE organization_id = ?", [org(c)]))[0];
     return {
         organization: o,
         loginVideoUrl: media?.loginVideoUrl ?? null,
+        slip: {
+            wardNumber: media?.wardNumber ?? "79",
+            pollingDateText: media?.pollingDateText ?? "01-11-2026, ఆదివారం",
+            ageReferenceDate: media?.ageReferenceDate ?? "2026-01-01",
+            publicationDate: media?.publicationDate ?? "2026-09-22",
+            slipTitle: media?.slipTitle ?? "విజయవాడ నగర పాలక సంస్థ • ఫోటో ఓటర్ల జాబితా 2026",
+            bannerPath: media?.slipBannerPath ?? "/slip/banner.png",
+        },
         security: { accessTokenMinutes: Math.round(env_1.env.ACCESS_TOKEN_TTL_SECONDS / 60), refreshTokenDays: env_1.env.REFRESH_TOKEN_TTL_DAYS, minPasswordLength: 4,
             passwordHashing: "argon2id", cookiesSecure: env_1.env.NODE_ENV === "production", rateLimitStore: redis_1.redis ? "redis" : "memory (single instance only)" },
         limits: { maxImportRows: 50000, exportExpiryHours: 24 },
@@ -172,6 +185,13 @@ async function updateLoginVideo(c, loginVideoUrl) {
     return { loginVideoUrl };
 }
 exports.updateLoginVideo = updateLoginVideo;
+async function updateSlipSettings(c, input) {
+    await (0, pool_1.exec)(`INSERT INTO organization_settings (organization_id, ward_number, polling_date_text, age_reference_date, publication_date, slip_title, slip_banner_path, updated_by)
+      VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE ward_number = VALUES(ward_number), polling_date_text = VALUES(polling_date_text), age_reference_date = VALUES(age_reference_date), publication_date = VALUES(publication_date), slip_title = VALUES(slip_title), slip_banner_path = VALUES(slip_banner_path), updated_by = VALUES(updated_by)`,
+      [org(c), input.wardNumber ?? null, input.pollingDateText ?? null, input.ageReferenceDate ?? null, input.publicationDate ?? null, input.slipTitle ?? null, input.bannerPath ?? null, c.user.id]);
+    return { updated: true };
+}
+exports.updateSlipSettings = updateSlipSettings;
 async function listVerificationsForBooths(c) {
     if (c.user.boothIds.length === 0)
         return [];

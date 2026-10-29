@@ -197,7 +197,7 @@ async function listOfflineRosterForUser(u, f) {
         (0, pool_1.query)(`SELECT c.id, c.household_id AS householdId, c.booth_id AS boothId,
                 c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName,
                 c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus, c.phone,
-                c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone,
+                c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone, c.polling_station AS pollingStation, c.polling_address AS pollingAddress,
                 c.not_here AS notHere, c.address_changed AS addressChanged,
                 c.new_address AS newAddress, c.visit_notes AS visitNotes
             FROM citizens c JOIN households h ON h.id = c.household_id AND h.booth_id = c.booth_id
@@ -269,7 +269,7 @@ async function getHouseholdForUser(u, householdId) {
 async function listCitizensForUser(u, householdId) {
     const house = await getHouseholdForUser(u, householdId); // authorisation first
     const rows = await (0, pool_1.query)(`SELECT c.id, c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName, c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus, c.phone,
-            c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone,
+            c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone, c.polling_station AS pollingStation, c.polling_address AS pollingAddress,
             c.not_here AS notHere, c.address_changed AS addressChanged,
             c.new_address AS newAddress, c.visit_notes AS visitNotes,
             (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = c.id AND v.result = 'PASSED') AS passedSteps

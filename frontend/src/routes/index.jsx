@@ -11,6 +11,8 @@ import BoothDashboard from "../pages/booth/BoothDashboard";
 import Households from "../pages/booth/Households";
 import HouseholdDetail from "../pages/booth/HouseholdDetail";
 import VerificationsPage from "../pages/booth/VerificationsPage";
+import PrintSlip from "../pages/booth/PrintSlip";
+import PrintSlips from "../pages/booth/PrintSlips";
 // admin
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminBooths from "../pages/admin/AdminBooths";
@@ -48,6 +50,8 @@ export default function AppRoutes() {
           <Route path="/booth/households/:id" element={<HouseholdDetail />} />
           <Route path="/booth/households/:id/citizens" element={<HouseholdDetail />} />
           <Route path="/booth/verifications" element={<VerificationsPage />} />
+          <Route path="/booth/print-slips" element={<PrintSlips />} />
+          <Route path="/slips/voter/:id" element={<PrintSlip />} />
         </Route>
       </Route>
 

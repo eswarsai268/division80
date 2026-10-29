@@ -59,7 +59,7 @@ function extendAdmin(ad) {
         }), req.body);
         (0, http_1.ok)(req, res, await whatsapp.createTemplateCampaign((0, http_1.ctx)(req), body), 201);
     }));
-    ad.get("/citizens", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listCitizens((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery.extend({ search: zod_1.z.string().max(100).optional(), boothId: http_1.uuid.optional() }), req.query)))));
+    ad.get("/citizens", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listCitizens((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery.extend({ search: zod_1.z.string().max(100).optional(), boothId: http_1.uuid.optional(), pollingStation: zod_1.z.string().max(20).optional() }), req.query)))));
     ad.post("/citizens", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.createCitizen((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
         boothId: http_1.uuid,
         houseCode: zod_1.z.string().min(1).max(255).refine((value) => !/[\u0000-\u001F\u007F]/.test(value)),
@@ -71,13 +71,22 @@ function extendAdmin(ad) {
         age: zod_1.z.number().int().min(0).max(130).nullable().optional(),
         gender: zod_1.z.enum(["MALE", "FEMALE", "OTHER", "UNKNOWN"]).default("UNKNOWN"),
         lifeStatus: zod_1.z.enum(["ALIVE", "DECEASED", "UNKNOWN"]).default("UNKNOWN"),
+        pollingStation: zod_1.z.string().max(20).regex(/^[0-9A-Za-z/_-]+$/).optional(),
+        pollingAddress: zod_1.z.string().max(255).optional(),
     }), req.body)), 201)));
     ad.patch("/citizens/:citizenId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.updateCitizen((0, http_1.ctx)(req), idp(req, "citizenId"), (0, http_1.parse)(zod_1.z.object({ fullName: zod_1.z.string().min(1).max(200).optional(), lifeStatus: zod_1.z.enum(["ALIVE", "DECEASED", "UNKNOWN"]).optional() }), req.body)))));
     ad.delete("/citizens/:citizenId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.archiveCitizen((0, http_1.ctx)(req), idp(req, "citizenId")))));
     ad.get("/households", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listHouseholds((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery.extend({ search: zod_1.z.string().max(32).optional(), boothId: http_1.uuid.optional(), status: zod_1.z.enum(["PENDING", "IN_VERIFICATION", "RESOLVED"]).optional() }), req.query)))));
     ad.delete("/households/:householdId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.deleteHousehold((0, http_1.ctx)(req), idp(req, "householdId")))));
     ad.get("/assignments", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listAllAssignments((0, http_1.ctx)(req)))));
-    ad.get("/events", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listEvents((0, http_1.ctx)(req)))));
+    ad.patch("/settings/slip", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.updateSlipSettings((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({
+        wardNumber: zod_1.z.string().max(16).optional(),
+        pollingDateText: zod_1.z.string().max(100).optional(),
+        ageReferenceDate: zod_1.z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).optional(),
+        publicationDate: zod_1.z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).optional(),
+        slipTitle: zod_1.z.string().max(200).optional(),
+        bannerPath: zod_1.z.string().max(255).optional(),
+    }), req.body)))));
     ad.patch("/events/:eventId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.updateEvent((0, http_1.ctx)(req), idp(req, "eventId"), (0, http_1.parse)(zod_1.z.object({ title: zod_1.z.string().min(2).max(200).optional(), body: zod_1.z.string().min(2).max(5000).optional(), startsAt: zod_1.z.string().datetime().optional() }), req.body)))));
     ad.get("/settings", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.settings((0, http_1.ctx)(req)))));
     ad.patch("/settings/login-media", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.updateLoginVideo((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ loginVideoUrl: zod_1.z.string().url().max(1000).nullable() }), req.body).loginVideoUrl))));

@@ -27,4 +27,5 @@ exports.limits = {
     importJobs: (0, exports.limiter)("imports", 20, HOUR, byUser),
     exportJobs: (0, exports.limiter)("exports", 10, HOUR, byUser),
     admin: (0, exports.limiter)("admin", 120, MIN, byUser),
+    slips: (0, exports.limiter)("slips", 30, MIN, byUser),
 };

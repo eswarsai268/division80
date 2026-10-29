@@ -365,3 +365,38 @@ body {
   .voter-slip-row strong { display: block; font-size: 10pt; line-height: 1.2; overflow-wrap: anywhere; }
   .voter-slip-summary { margin: 2mm 0 0; padding-top: 2mm; border-top: 0.2mm solid #888; font-size: 7pt; }
 }
+/* Digital Voter Slip */
+.voter-slip-card { width: 100mm; max-width: 100%; min-height: 140mm; box-sizing: border-box; padding: 6mm; background: #fff; color: #111; border: 1px solid #999; font-family: "Noto Sans Telugu", "Poppins", sans-serif; font-size: 11px; line-height: 1.4; }
+.slip-top { text-align: center; margin-bottom: 4mm; }
+.slip-small { font-size: 10px; color: #555; }
+.slip-title { font-size: 13px; font-weight: 700; margin: 2mm 0; }
+.slip-sub { font-size: 11px; margin-bottom: 2mm; }
+.slip-ward-row { display: flex; align-items: center; gap: 4mm; justify-content: center; margin-top: 2mm; font-size: 11px; }
+.slip-sno-box { border: 1px solid #333; padding: 1mm 3mm; font-weight: 700; font-size: 12px; }
+.slip-details { margin: 3mm 0; }
+.slip-row { display: flex; align-items: baseline; gap: 2mm; margin: 1.5mm 0; border-bottom: 1px dotted #999; padding-bottom: 1.5mm; }
+.slip-label { flex: 0 0 38%; font-size: 11px; color: #333; }
+.slip-dots { flex: 1; border-bottom: 1px dotted #bbb; margin: 0 2mm; }
+.slip-value { flex: 0 0 55%; font-size: 12px; font-weight: 600; word-break: break-word; }
+.slip-polling-bar { display: flex; align-items: center; gap: 2mm; background: #f3f4f6; padding: 2mm; margin: 3mm 0; font-size: 11px; font-weight: 600; border-radius: 2mm; }
+.slip-scan-row { display: flex; gap: 3mm; margin: 3mm 0; }
+.slip-polling-place { flex: 1; }
+.slip-station-code { font-size: 22px; font-weight: 800; color: #075081; }
+.slip-station-label { font-size: 10px; color: #555; margin: 1mm 0; }
+.slip-address { font-size: 10px; color: #333; line-height: 1.3; max-height: 3.6em; overflow: hidden; word-break: break-word; }
+.slip-qr { flex: 0 0 auto; text-align: center; }
+.slip-qr-text { font-size: 9px; margin-top: 1mm; word-break: break-all; }
+.slip-footer { display: flex; justify-content: space-between; gap: 2mm; font-size: 9px; color: #555; margin-top: 3mm; border-top: 1px solid #ddd; padding-top: 2mm; }
+.slip-notice { font-size: 9px; color: #444; margin-top: 2mm; line-height: 1.3; }
+.slip-banner { width: 100%; max-height: 18mm; object-fit: contain; margin-top: 2mm; }
+
+@media print {
+  @page { size: A4 portrait; margin: 8mm; }
+  body * { visibility: hidden !important; }
+  .print-slip-page, .print-slip-page * { visibility: visible !important; }
+  .print-slip-page { position: absolute; inset: 0; width: 100%; }
+  .slip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .voter-slip-card { width: 100%; min-height: 0; page-break-inside: avoid; break-inside: avoid; margin: 0; }
+  .voter-slip-card .slip-banner { max-height: 14mm; }
+}
+

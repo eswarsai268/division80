@@ -25,7 +25,7 @@ const REQUIRED = ["booth_code", "house_code", "full_name"];
 const MAX_ROWS = 50_000;
 const LIFE = ["ALIVE", "DECEASED", "UNKNOWN"];
 const HEADER_ALIASES = {
-    booth: "booth_code", booth_n: "booth_code", booth_no: "booth_code", booth_number: "booth_code",
+    booth: "booth_code", booth_n: "booth_code", booth_no: "booth_code", booth_number: "booth_code", phone: "phone", phone_number: "phone", phone_no: "phone",
     door_no: "house_code", door_number: "house_code",
     name: "full_name", voter_name: "full_name", serial: "roll_serial", sn: "roll_serial", s_no: "roll_serial", serial_n: "roll_serial",
     serial_no: "roll_serial", serial_number: "roll_serial",
@@ -81,6 +81,9 @@ async function createImportJob(c, csv) {
     const seen = new Set();
     const householdAddresses = new Map();
     let duplicateRows = 0;
+    const boothStationValues = new Map();
+    const boothAddressValues = new Map();
+    const consistencyWarnings = [];
     for (let i = 1; i < rows.length; i++) {
         const r = rows[i] ?? [];
         const line = i + 1;
@@ -98,6 +101,8 @@ async function createImportJob(c, csv) {
             booth: get("booth_code"),
             house: get("house_code"),
             address: get("address") || get("address_line"),
+            pollingStation: get("polling_station"),
+            pollingAddress: get("polling_address"),
             serial: get("roll_serial") || get("serial_number"),
             name: get("full_name"),
             fatherOrHusbandName: get("father_or_husband_name"),
@@ -169,6 +174,18 @@ async function createImportJob(c, csv) {
             bad(line, "new_address must be at most 255 characters and visit_notes at most 1000 characters");
             continue;
         }
+        // Polling station validation
+        const pollingStation = (f.pollingStation || "").trim();
+        if (pollingStation && (pollingStation.length > 20 || !/^[0-9A-Za-z/_-]+$/.test(pollingStation))) {
+            bad(line, "polling_station must be at most 20 characters and contain only letters, numbers, /, _, -");
+            continue;
+        }
+        // Polling address validation
+        const pollingAddress = (f.pollingAddress || "").trim().replace(/\s+/g, " ");
+        if (pollingAddress.length > 255) {
+            bad(line, "polling_address must be at most 255 characters");
+            continue;
+        }
         if (f.serial && ([...f.serial].length > 32 || /[\u0000-\u001F\u007F]/.test(f.serial))) {
             bad(line, "Invalid roll_serial: use at most 32 printable characters");
             continue;
@@ -209,6 +226,14 @@ async function createImportJob(c, csv) {
             householdAddresses.set(householdKey, f.address);
         if (f.voter)
             seen.add(f.voter.toUpperCase());
+        if (boothId) {
+            if (!boothStationValues.has(boothId)) {
+                boothStationValues.set(boothId, []);
+                boothAddressValues.set(boothId, []);
+            }
+            boothStationValues.get(boothId).push(pollingStation);
+            boothAddressValues.get(boothId).push(pollingAddress);
+        }
         valid.push({
             boothId: boothId ?? null,
             boothCode,
@@ -220,6 +245,8 @@ async function createImportJob(c, csv) {
             relation: rel,
             voterId: f.voter || null,
             phone: phoneResult ?? null,
+            pollingStation: pollingStation || null,
+            pollingAddress: pollingAddress || null,
             age,
             gender,
             lifeStatus,
@@ -230,6 +257,30 @@ async function createImportJob(c, csv) {
             visitNotes: f.visitNotes || null,
             line,
         });
+    }
+    // Consistency check + fill empty cells with most common value per booth.
+    const mostCommon = (arr) => {
+        const counts = new Map();
+        for (const v of arr) if (v) counts.set(v, (counts.get(v) || 0) + 1);
+        let best = null, bestCount = 0;
+        for (const [v, c] of counts) if (c > bestCount) { best = v; bestCount = c; }
+        return best;
+    };
+    const boothStationFill = new Map();
+    const boothAddressFill = new Map();
+    for (const [bid, vals] of boothStationValues) {
+        boothStationFill.set(bid, mostCommon(vals));
+        const distinct = new Set(vals.filter(Boolean));
+        if (distinct.size > 1) consistencyWarnings.push(`Conflicting polling_station values for booth ${bid}: ${[...distinct].join(", ")}`);
+    }
+    for (const [bid, vals] of boothAddressValues) {
+        boothAddressFill.set(bid, mostCommon(vals));
+        const distinct = new Set(vals.filter(Boolean));
+        if (distinct.size > 1) consistencyWarnings.push(`Conflicting polling_address values for booth ${bid}: ${[...distinct].join(", ")}`);
+    }
+    for (const row of valid) {
+        if (!row.pollingStation && row.boothId) row.pollingStation = boothStationFill.get(row.boothId) || null;
+        if (!row.pollingAddress && row.boothId) row.pollingAddress = boothAddressFill.get(row.boothId) || null;
     }
     const ids = [...seen];
     const existing = new Map();
@@ -264,6 +315,10 @@ async function createImportJob(c, csv) {
         errorCount,
         errors: errors.slice(0, 50),
         pendingBoothCodes,
+        rowsWithStation: valid.filter((r) => r.pollingStation).length,
+        rowsWithAddress: valid.filter((r) => r.pollingAddress).length,
+        boothsDetected: new Set(valid.map((r) => r.boothCode)).size,
+        warnings: consistencyWarnings.slice(0, 50),
     };
 }
 const IMPORT_COLS = `id, status, total_rows AS totalRows, valid_rows AS validRows, skipped_rows AS skippedRows, error_count AS errorCount, processed_rows AS processedRows, result, last_error AS lastError, created_at AS createdAt, data_tracked AS dataTracked, (status = 'PREVIEW' OR status = 'QUEUED' OR (status NOT IN ('COMMITTING') AND data_tracked = 1)) AS canDelete`;
