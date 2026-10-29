@@ -102,9 +102,7 @@ async function listHouseholdsForUser(u, f) {
                 AND c.deleted_at IS NULL AND c.d2d_verified = 0)`);
         }
         else if (f.status === "RESOLVED") {
-            where.push(`EXISTS (SELECT 1 FROM citizens c WHERE c.household_id = h.id AND c.booth_id = h.booth_id AND c.deleted_at IS NULL)
-                AND NOT EXISTS (SELECT 1 FROM citizens c WHERE c.household_id = h.id AND c.booth_id = h.booth_id
-                    AND c.deleted_at IS NULL AND c.d2d_verified = 0)`);
+            where.push(`EXISTS (SELECT 1 FROM citizens c WHERE c.household_id = h.id AND c.booth_id = h.booth_id AND c.deleted_at IS NULL AND c.d2d_verified = 1)`);
         }
         else {
             where.push("h.verification_status = ?");
@@ -136,7 +134,8 @@ async function listHouseholdsForUser(u, f) {
     const rows = await (0, pool_1.query)(`SELECT h.id, h.booth_id AS boothId, b.code AS boothCode, b.name AS boothName,
             h.house_code AS houseCode, h.verification_status AS status,
             (SELECT COUNT(*) FROM citizens c WHERE c.household_id = h.id AND c.booth_id = h.booth_id AND c.deleted_at IS NULL) AS citizenCount,
-            (SELECT COUNT(*) FROM citizens c WHERE c.household_id = h.id AND c.booth_id = h.booth_id AND c.deleted_at IS NULL AND c.d2d_verified = 1) AS visitedCount
+            (SELECT COUNT(*) FROM citizens c WHERE c.household_id = h.id AND c.booth_id = h.booth_id AND c.deleted_at IS NULL AND c.d2d_verified = 1) AS visitedCount,
+            (SELECT COUNT(*) FROM citizens c WHERE c.household_id = h.id AND c.booth_id = h.booth_id AND c.deleted_at IS NULL AND (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = c.id AND v.result = 'PASSED') = 6) AS verifiedCount
        FROM households h JOIN booths b ON b.id = h.booth_id AND b.status = 'ACTIVE'
       WHERE ${where.join(" AND ")} ORDER BY b.code, h.house_code, h.id LIMIT ${effectiveLimit + 1}`, params);
     const more = rows.length > effectiveLimit;
