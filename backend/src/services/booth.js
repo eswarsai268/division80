@@ -19,7 +19,7 @@ async function dashboard(user) {
         return {
             booths: Number(boothRow.count),
             households,
-            verifiedPeople: Number((await (0, pool_1.query)(`SELECT COUNT(*) AS count FROM citizens c JOIN households h ON h.id = c.household_id WHERE h.organization_id = ? AND c.deleted_at IS NULL AND h.deleted_at IS NULL AND (SELECT COUNT(*) FROM verifications v WHERE v.citizen_id = c.id AND v.result = 'PASSED') = 6`, [user.organizationId]))[0].count),
+            verifiedPeople: Number((await (0, pool_1.query)(`SELECT COUNT(*) AS count FROM citizens c JOIN households h ON h.id = c.household_id WHERE h.organization_id = ? AND c.deleted_at IS NULL AND h.deleted_at IS NULL AND c.d2d_verified = 1`, [user.organizationId]))[0].count),
         };
     });
 }
