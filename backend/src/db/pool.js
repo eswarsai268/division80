@@ -27,6 +27,8 @@ exports.pool = promise_1.default.createPool({
     connectTimeout: 10_000,
     timezone: "Z",
 });
+// Query timeout is set to 10 seconds, which is a reasonable upper bound for most queries. If a query takes longer than this, it will be aborted and an error will be thrown. This helps prevent long-running queries from blocking the connection pool and causing timeouts for other requests.            
+// Note that this timeout is applied per query, not per connection. If a connection is idle for longer than the connectTimeout, it will be closed and removed from the pool.  
 const QUERY_TIMEOUT_MS = 10_000;
 async function query(sql, params = [], conn = exports.pool) {
     const [rows] = await conn.execute({ sql, timeout: QUERY_TIMEOUT_MS }, params);
