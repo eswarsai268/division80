@@ -13,6 +13,9 @@ exports.listVerificationsForBooths = listVerificationsForBooths;
 exports.listDeadPeople = listDeadPeople;
 exports.freezeDeadPerson = freezeDeadPerson;
 exports.unfreezeDeadPerson = unfreezeDeadPerson;
+exports.listDFlagPeople = listDFlagPeople;
+exports.freezeDFlagPerson = freezeDFlagPerson;
+exports.unfreezeDFlagPerson = unfreezeDFlagPerson;
 const pool_1 = require("../db/pool");
 const env_1 = require("../config/env");
 const redis_1 = require("../cache/redis");
@@ -235,6 +238,52 @@ async function freezeDeadPerson(c, id) {
     return { id, frozen: true };
 }
 async function unfreezeDeadPerson(c, id) {
+    const row = (await (0, pool_1.query)(`SELECT ci.id, b.organization_id AS orgId FROM citizens ci JOIN booths b ON b.id = ci.booth_id WHERE ci.id = ? AND ci.deleted_at IS NULL`, [id]))[0];
+    if (!row || row.orgId !== org(c)) throw (0, errors_1.notFound)();
+    await (0, pool_1.exec)(`UPDATE citizens SET is_frozen = 0, frozen_at = NULL, frozen_by = NULL WHERE id = ?`, [id]);
+    return { id, frozen: false };
+}
+async function listDFlagPeople(c, f) {
+    const where = ["b.organization_id = ?", "ci.deleted_at IS NULL", "ci.d_flag = 1"];
+    const p = [org(c)];
+    if (f.boothId) { where.push("ci.booth_id = ?"); p.push(f.boothId); }
+    if (f.completedBy) { where.push("ci.d_completed_by = ?"); p.push(f.completedBy); }
+    if (f.search) {
+        where.push("(ci.full_name LIKE ? OR ci.voter_id LIKE ? OR h.house_code LIKE ?)");
+        const term = esc(f.search) + "%";
+        p.push(term, term, term.toUpperCase());
+    }
+    if (f.frozen === "frozen") where.push("ci.is_frozen = 1");
+    if (f.frozen === "unfrozen") where.push("ci.is_frozen = 0");
+    const limit = Math.min(Math.max(Number(f.limit) || 50, 1), 200);
+    const cursor = f.cursor;
+    if (cursor) { where.push("ci.id > ?"); p.push(cursor); }
+    const rows = await (0, pool_1.query)(`SELECT ci.id, ci.full_name AS fullName, ci.voter_id AS voterId, ci.age, ci.gender, ci.life_status AS lifeStatus,
+            ci.is_frozen AS isFrozen, ci.frozen_at AS frozenAt, ci.frozen_by AS frozenBy,
+            ci.d_completed_by AS completedBy, ci.d_completed_at AS completedAt,
+            h.house_code AS houseCode, b.code AS boothCode, u.full_name AS frozenByName, cu.full_name AS completedByName
+       FROM citizens ci JOIN households h ON h.id = ci.household_id JOIN booths b ON b.id = ci.booth_id
+       LEFT JOIN users u ON u.id = ci.frozen_by
+       LEFT JOIN users cu ON cu.id = ci.d_completed_by
+      WHERE ${where.join(" AND ")} ORDER BY ci.id LIMIT ${limit + 1}`, p);
+    const more = rows.length > limit;
+    const items = (more ? rows.slice(0, limit) : rows).map((r) => ({
+        id: r.id, fullName: r.fullName, voterId: (0, households_1.maskVoter)(r.voterId),
+        age: r.age, gender: r.gender, lifeStatus: r.lifeStatus, houseCode: r.houseCode, boothCode: r.boothCode,
+        isFrozen: !!r.isFrozen, frozenAt: r.frozenAt, frozenBy: r.frozenBy, frozenByName: r.frozenByName,
+        completedBy: r.completedBy, completedAt: r.completedAt, completedByName: r.completedByName,
+    }));
+    return { items, nextCursor: more ? items[items.length - 1].id : null };
+}
+async function freezeDFlagPerson(c, id) {
+    const row = (await (0, pool_1.query)(`SELECT ci.id, ci.d_flag AS dFlag, b.organization_id AS orgId
+       FROM citizens ci JOIN booths b ON b.id = ci.booth_id WHERE ci.id = ? AND ci.deleted_at IS NULL`, [id]))[0];
+    if (!row || row.orgId !== org(c)) throw (0, errors_1.notFound)();
+    if (!row.dFlag) throw (0, errors_1.conflict)("Only D-completed citizens can be frozen");
+    await (0, pool_1.exec)(`UPDATE citizens SET is_frozen = 1, frozen_at = NOW(), frozen_by = ? WHERE id = ?`, [c.user.id, id]);
+    return { id, frozen: true };
+}
+async function unfreezeDFlagPerson(c, id) {
     const row = (await (0, pool_1.query)(`SELECT ci.id, b.organization_id AS orgId FROM citizens ci JOIN booths b ON b.id = ci.booth_id WHERE ci.id = ? AND ci.deleted_at IS NULL`, [id]))[0];
     if (!row || row.orgId !== org(c)) throw (0, errors_1.notFound)();
     await (0, pool_1.exec)(`UPDATE citizens SET is_frozen = 0, frozen_at = NULL, frozen_by = NULL WHERE id = ?`, [id]);
