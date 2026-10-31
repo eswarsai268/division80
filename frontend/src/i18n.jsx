@@ -173,6 +173,7 @@ const te = {
   "Search voter records": "ఓటరు రికార్డులను శోధించండి",
   "Search S.No.": "సీరియల్ నంబర్‌తో శోధించండి",
   "Enter an S.No. to find matching records.": "సరిపోలిన రికార్డులను కనుగొనడానికి సీరియల్ నంబర్ నమోదు చేయండి.",
+  "Visit updates require an internet connection.": "సందర్శన వివరాలను నవీకరించడానికి ఇంటర్నెట్ కనెక్షన్ అవసరం.",
   "Filter records": "రికార్డులను వడపోసండి",
   "Enter a serial number, name, voter ID, or house code to find records.": "రికార్డులను కనుగొనడానికి సీరియల్ నంబర్, పేరు, ఓటరు ID లేదా ఇంటి కోడ్ నమోదు చేయండి.",
   "Matching records": "సరిపోలిన రికార్డులు",

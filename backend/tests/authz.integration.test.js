@@ -68,6 +68,13 @@ describe.skipIf(!enabled)("authorization and retired routes", () => {
       voterId: `****${ids.voterIdB.slice(-4)}`,
       pollingStation: "Station B",
     });
+    expect(house.searchRecords[0].lifeStatus).toBe("ALIVE");
+    expect(Boolean(house.searchRecords[0].verificationDone)).toBe(false);
+    expect(Boolean(house.searchRecords[0].notHere)).toBe(false);
+    expect(Boolean(house.searchRecords[0].addressChanged)).toBe(false);
+    expect(Boolean(house.searchRecords[0].dFlag)).toBe(false);
+    expect(house.searchRecords[0].ownBooth).toBe(false);
+    expect(house.searchRecords[0].whatsappPhone).toBeNull();
     const houseSearch = await agent.get("/api/v1/booth/households?search=HOUSE-B").expect(200);
     const houseRecord = houseSearch.body.data.items.find((item) => item.id === ids.houseB);
     expect(houseRecord.searchRecords[0].fullName).toBe("Resident B");
