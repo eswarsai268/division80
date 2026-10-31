@@ -1,108 +1,12 @@
-import { useEffect, useState } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ArrowRight, Building2, ChevronDown, Search, Users, X } from "lucide-react";
 import { Link } from "react-router-dom";
-import { api } from "../../api/client";
 import Async from "../../components/Async";
 import Empty from "../../components/Empty";
-import { isOfflineFallbackError, readOfflineRoster, searchOfflineRoster } from "../../services/offlineRoster";
-import { useMe } from "../../auth/useMe";
+import { HOUSEHOLD_FILTERS, useHouseholdSearch } from "../../hooks/useHouseholdSearch";
 import { t } from "../../i18n";
 
-const FILTERS = [
-    ["UNVERIFIED", "Not verified"],
-    ["RESOLVED", "Verified"],
-    ["", "All houses"],
-];
-const FILTER_STORAGE_KEY = "boothHouseholdFilters";
-const OFFLINE_ROSTER_MESSAGE = "No offline roster is saved on this device yet. Reconnect, sign in as a booth member, and wait until the offline roster download is complete.";
-
-async function getOfflineRoster() {
-    const cached = await readOfflineRoster();
-    if (!cached) throw new Error(OFFLINE_ROSTER_MESSAGE);
-    return cached;
-}
-
-function readFilters() {
-    try {
-        return JSON.parse(sessionStorage.getItem(FILTER_STORAGE_KEY) ?? "{}") ?? {};
-    } catch {
-        return {};
-    }
-}
-function saveFilters(filters) {
-    try {
-        sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
-    } catch {
-        // Search still works when browser storage is unavailable.
-    }
-}
-
 export default function Households() {
-    const { data: me } = useMe();
-    const [search, setSearch] = useState(() => readFilters().search ?? "");
-    const [debouncedSearch, setDebouncedSearch] = useState(() => (readFilters().search ?? "").trim());
-    const [status, setStatus] = useState(() => readFilters().status ?? "");
-    const [boothId, setBoothId] = useState(() => readFilters().boothId ?? "");
-    const booths = useQuery({
-        queryKey: ["booth", "organization-booths"],
-        queryFn: async ({ signal }) => {
-            if (me?.isOffline || !navigator.onLine) {
-                const cached = await getOfflineRoster();
-                return cached.booths;
-            }
-            try {
-                return await api("/booth/booths", { signal });
-            } catch (error) {
-                if (!isOfflineFallbackError(error)) throw error;
-                const cached = await getOfflineRoster();
-                return cached.booths;
-            }
-        },
-    });
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
-        return () => clearTimeout(timer);
-    }, [search]);
-    useEffect(() => {
-        if (!booths.isSuccess || booths.isFetching || !boothId) return;
-        if (booths.data.some((booth) => booth.id === boothId)) return;
-        setBoothId("");
-        saveFilters({ search, status, boothId: "" });
-    }, [booths.data, booths.isFetching, booths.isSuccess, boothId, search, status]);
-    const query = useInfiniteQuery({
-        queryKey: ["booth", "households", boothId, debouncedSearch, status],
-        initialPageParam: null,
-        queryFn: async ({ pageParam, signal }) => {
-            if (me?.isOffline || !navigator.onLine) {
-                const cached = await getOfflineRoster();
-                return searchOfflineRoster(cached, { search: debouncedSearch, status, boothId, cursor: pageParam });
-            }
-            const params = new URLSearchParams({ limit: "1000" });
-            if (boothId)
-                params.set("boothId", boothId);
-            if (debouncedSearch)
-                params.set("search", debouncedSearch);
-            if (status)
-                params.set("status", status);
-            if (pageParam)
-                params.set("cursor", pageParam);
-            try {
-                return await api(`/booth/households?${params}`, { signal });
-            } catch (error) {
-                if (!isOfflineFallbackError(error)) throw error;
-                const cached = await getOfflineRoster();
-                return searchOfflineRoster(cached, { search: debouncedSearch, status, boothId, cursor: pageParam });
-            }
-        },
-        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    });
-    useEffect(() => {
-        if (debouncedSearch && query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
-    }, [debouncedSearch, query.fetchNextPage, query.hasNextPage, query.isFetchingNextPage]);
-    const items = query.data?.pages.flatMap((page) => page.items) ?? [];
-    const orderedItems = debouncedSearch ? [...items].sort((a, b) => (a.searchRank ?? 99) - (b.searchRank ?? 99)) : items;
-    const totals = query.data?.pages[0];
+    const { booths, boothId, debouncedSearch, items, orderedItems, query, search, setBoothId, setSearch, setStatus, status, totals } = useHouseholdSearch();
 
     return <div className="space-y-4">
       <header className="rounded-3xl bg-brand-600 p-5 text-white shadow-sm">
@@ -115,7 +19,7 @@ export default function Households() {
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700"><Building2 size={23}/></span>
         <span className="min-w-0 flex-1">
           <span className="block text-xs text-slate-500">{t("Organization booths")}</span>
-        <select className="mt-1 w-full bg-transparent text-base font-bold text-slate-900 focus:outline-none" value={boothId} onChange={(event) => { const value = event.target.value; setBoothId(value); saveFilters({ search, status, boothId: value }); }} aria-label={t("Choose booth")}>
+        <select className="mt-1 w-full bg-transparent text-base font-bold text-slate-900 focus:outline-none" value={boothId} onChange={(event) => setBoothId(event.target.value)} aria-label={t("Choose booth")}>
             <option value="">{t("All organization booths")}</option>
             {available.map((booth) => <option key={booth.id} value={booth.id}>{booth.name} · {t("Booth")} {booth.code}</option>)}
           </select>
@@ -124,16 +28,16 @@ export default function Households() {
       </label> : <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">{t("No active booths are available in your organization.")}</div>}</Async>
 
       <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white p-1.5 shadow-sm" role="tablist" aria-label={t("Filter houses")}>
-        {FILTERS.map(([value, label]) => <button key={value || "all"} type="button" role="tab" aria-selected={status === value} onClick={() => { setStatus(value); saveFilters({ search, status: value, boothId }); }}
+        {HOUSEHOLD_FILTERS.map(([value, label]) => <button key={value || "all"} type="button" role="tab" aria-selected={status === value} onClick={() => setStatus(value)}
           className={`min-h-11 rounded-xl px-2 text-sm font-semibold ${status === value ? "bg-brand-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}>{t(label)}</button>)}
       </div>
 
       <div className="flex min-h-14 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 shadow-sm">
         <Search className="shrink-0 text-slate-500" size={21}/>
         <input className="w-full bg-transparent text-base outline-none placeholder:text-slate-400" value={search} maxLength={100}
-          onChange={(event) => { const value = event.target.value; setSearch(value); saveFilters({ search: value, status, boothId }); }}
+          onChange={(event) => setSearch(event.target.value)}
           placeholder={t("Search house, serial, name or voter ID")} aria-label={t("Search house, serial, name or voter ID")}/>
-        {search && <button type="button" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 hover:bg-slate-100" onClick={() => { setSearch(""); saveFilters({ search: "", status, boothId }); }} aria-label={t("Clear search")} title={t("Clear search")}><X size={18}/></button>}
+        {search && <button type="button" className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 hover:bg-slate-100" onClick={() => setSearch("")} aria-label={t("Clear search")} title={t("Clear search")}><X size={18}/></button>}
       </div>
 
       {totals && <p role="status" className="rounded-xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">{totals.offline || !navigator.onLine ? "Saved offline roster results:" : "Database results for these filters:"} <strong className="text-slate-900">{totals.totalHouseholds.toLocaleString()} houses</strong> with <strong className="text-slate-900">{totals.totalPeople.toLocaleString()} people</strong>. Showing {orderedItems.length.toLocaleString()} house cards.</p>}

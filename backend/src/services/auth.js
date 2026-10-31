@@ -46,7 +46,10 @@ async function refresh(presented) {
             return null;
         }
         const next = (0, tokens_1.newRefreshToken)();
-        await (0, pool_1.exec)("UPDATE sessions SET prev_refresh_hash = refresh_hash, refresh_hash = ? WHERE id = ?", [(0, tokens_1.sha256)(next), s.id], conn);
+        await (0, pool_1.exec)(`UPDATE sessions
+            SET prev_refresh_hash = refresh_hash, refresh_hash = ?,
+                expires_at = DATE_ADD(NOW(3), INTERVAL ${env_1.env.REFRESH_TOKEN_TTL_DAYS} DAY)
+            WHERE id = ?`, [(0, tokens_1.sha256)(next), s.id], conn);
         return { accessToken: (0, tokens_1.signAccess)(s.user_id, s.id), refreshToken: next, sessionId: s.id };
     });
     if (!out)

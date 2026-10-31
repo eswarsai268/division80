@@ -242,7 +242,7 @@ function normalize(value) {
   return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleUpperCase().replace(/\s+/g, " ").trim();
 }
 
-export function searchOfflineRoster(data, { search = "", status = "", boothId = "", cursor = null, limit = 100 } = {}) {
+export function searchOfflineRoster(data, { search = "", status = "", boothId = "", cursor = null, limit = 100, searchField = "all" } = {}) {
   const query = normalize(search).trim();
   const tokens = query.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   const matches = data.households.flatMap((house) => {
@@ -254,14 +254,46 @@ export function searchOfflineRoster(data, { search = "", status = "", boothId = 
       .map(([, value]) => normalize(value));
     const citizens = house.citizens.filter((citizen) => {
       if (!tokens.length) return true;
+      if (searchField === "serial") return normalize(citizen.rollSerial).includes(query);
       const values = Object.entries(citizen)
         .filter(([key, value]) => !["id", "householdId", "boothId"].includes(key) && (typeof value === "string" || typeof value === "number" || typeof value === "boolean"))
         .map(([, value]) => normalize(value));
       return tokens.every((token) => values.some((value) => value.includes(token)));
     });
-    const houseMatch = tokens.length > 0 && tokens.every((token) => houseValues.some((value) => value.includes(token)));
+    const houseMatch = searchField !== "serial" && tokens.length > 0 && tokens.every((token) => houseValues.some((value) => value.includes(token)));
     if (tokens.length && !citizens.length && !houseMatch) return [];
-    return [{ ...house, matchingCitizens: tokens.length ? citizens.map(({ id, fullName, fatherOrHusbandName }) => ({ id, fullName, fatherOrHusbandName })) : [] }];
+    const records = houseMatch ? house.citizens : citizens;
+    return [{
+      ...house,
+      searchRecords: tokens.length ? records.map((citizen) => ({
+        id: citizen.id,
+        fullName: citizen.fullName,
+        fatherOrHusbandName: citizen.fatherOrHusbandName,
+        relation: citizen.relation,
+        voterId: citizen.voterId,
+        rollSerial: citizen.rollSerial,
+        age: citizen.age,
+        gender: citizen.gender,
+        pollingStation: citizen.pollingStation,
+        pollingAddress: citizen.pollingAddress,
+        verificationDone: citizen.verificationDone,
+        isFrozen: citizen.isFrozen,
+      })) : [],
+      matchingCitizens: tokens.length ? citizens.map((citizen) => ({
+        id: citizen.id,
+        fullName: citizen.fullName,
+        fatherOrHusbandName: citizen.fatherOrHusbandName,
+        relation: citizen.relation,
+        voterId: citizen.voterId,
+        rollSerial: citizen.rollSerial,
+        age: citizen.age,
+        gender: citizen.gender,
+        pollingStation: citizen.pollingStation,
+        pollingAddress: citizen.pollingAddress,
+        verificationDone: citizen.verificationDone,
+        isFrozen: citizen.isFrozen,
+      })) : [],
+    }];
   });
   const ordered = matches.sort((a, b) => {
     const aHouse = normalize(a.houseCode) === query ? 0 : 1;
