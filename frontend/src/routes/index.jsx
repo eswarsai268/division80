@@ -24,6 +24,7 @@ import AdminImport from "../pages/admin/AdminImport";
 import AdminExports from "../pages/admin/AdminExports";
 import AdminWhatsApp from "../pages/admin/AdminWhatsApp";
 import AdminEvents from "../pages/admin/AdminEvents";
+import AdminDeadPeople from "../pages/admin/AdminDeadPeople";
 import AdminSettings from "../pages/admin/AdminSettings";
 const Redirect = ({ to }) => <Navigate to={to} replace />;
 
@@ -68,6 +69,7 @@ export default function AppRoutes() {
           <Route path="/admin/exports" element={<AdminExports />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsApp />} />
           <Route path="/admin/events" element={<AdminEvents />} />
+          <Route path="/admin/dead-people" element={<AdminDeadPeople />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
         </Route>
       </Route>

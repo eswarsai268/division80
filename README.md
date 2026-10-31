@@ -17,6 +17,19 @@ npm run dev:worker
 
 Configure the variables in `.env.example`. Production API, worker and migration processes require `DATABASE_SSL=true` with certificate validation enabled. The frontend calls `/api/v1`; Vite proxies `/api` to `http://localhost:4000` for local development.
 
+## Cloudinary slip and login media
+
+Admins can customize the printed voter slip and the login-page video from **Admin → Settings**. Upload your images/videos to Cloudinary and paste the HTTPS delivery URLs:
+
+1. Sign up at https://cloudinary.com (free tier covers most needs).
+2. In the dashboard, note your **Cloud name**.
+3. Settings → Upload → Add upload preset → set **Signing mode** to **Unsigned** (name it e.g. `slip_unsigned`).
+4. Upload your slip header image, footer image and (optionally) login video via the Cloudinary Media Library or the Upload API.
+5. Copy each asset's HTTPS delivery URL (it looks like `https://res.cloudinary.com/<cloud>/image/upload/v123/...png`).
+6. In Admin → Settings → "Voter slip design", paste the URLs into **Header banner URL** and **Footer banner URL**, pick an **Accent color**, then **Save slip design**. For the login video, use "Login welcome video".
+
+Only `https://res.cloudinary.com/...` URLs are accepted by the server. Images are rendered in the browser; the backend stores only the URL.
+
 Before deploying code that uses new database fields or tables, apply the pending migrations to the intended database and confirm their entries in `schema_migrations`. Review pending migrations before running `npm run migrate` against an existing production database; older unapplied migrations may include data removal.
 
 ## Roles and visibility

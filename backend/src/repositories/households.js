@@ -196,7 +196,7 @@ async function listOfflineRosterForUser(u, f) {
         (0, pool_1.query)(`SELECT id, address_line AS address FROM households WHERE id IN (${marks}) AND organization_id = ?`, [...ids, u.organizationId]),
         (0, pool_1.query)(`SELECT c.id, c.household_id AS householdId, c.booth_id AS boothId,
                 c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName,
-                c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus, c.phone,
+                c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus, c.is_frozen AS isFrozen, c.phone,
                 c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone, c.polling_station AS pollingStation, c.polling_address AS pollingAddress,
                 c.not_here AS notHere, c.address_changed AS addressChanged, c.d_flag AS dFlag,
                 c.new_address AS newAddress, c.visit_notes AS visitNotes
@@ -268,7 +268,7 @@ async function getHouseholdForUser(u, householdId) {
 }
 async function listCitizensForUser(u, householdId) {
     const house = await getHouseholdForUser(u, householdId); // authorisation first
-    const rows = await (0, pool_1.query)(`SELECT c.id, c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName, c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus, c.phone,
+    const rows = await (0, pool_1.query)(`SELECT c.id, c.full_name AS fullName, c.father_or_husband_name AS fatherOrHusbandName, c.relation, c.voter_id AS voterId, c.life_status AS lifeStatus, c.is_frozen AS isFrozen, c.phone,
             c.roll_serial AS rollSerial, c.age, c.gender, c.d2d_verified AS verificationDone, c.polling_station AS pollingStation, c.polling_address AS pollingAddress,
             c.not_here AS notHere, c.address_changed AS addressChanged, c.d_flag AS dFlag,
             c.new_address AS newAddress, c.visit_notes AS visitNotes,
@@ -297,11 +297,13 @@ async function updateVisitForUser(c, citizenId, input) {
             throw (0, errors_1.notFound)();
         if (!(await (0, boothAssignments_1.lockActiveBoothAssignment)(conn, u.id, u.organizationId, candidate.boothId)))
             throw (0, errors_1.notFound)();
-        const citizen = (await (0, pool_1.query)(`SELECT id FROM citizens
+        const citizen = (await (0, pool_1.query)(`SELECT id, is_frozen AS isFrozen FROM citizens
             WHERE id = ? AND booth_id = ? AND deleted_at IS NULL FOR UPDATE`,
         [citizenId, candidate.boothId], conn))[0];
         if (!citizen)
             throw (0, errors_1.notFound)();
+        if (citizen.isFrozen)
+            throw (0, errors_1.forbidden)();
         await (0, pool_1.exec)(`UPDATE citizens SET life_status = ?, d2d_verified = ?, not_here = ?, address_changed = ?,
             d_flag = ?, new_address = ?, visit_notes = ? WHERE id = ? AND deleted_at IS NULL`,
         [input.lifeStatus, input.verificationDone ? 1 : 0, input.notHere ? 1 : 0, input.addressChanged ? 1 : 0,
