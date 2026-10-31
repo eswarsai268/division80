@@ -86,8 +86,14 @@ function extendAdmin(ad) {
         publicationDate: zod_1.z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).optional(),
         slipTitle: zod_1.z.string().max(200).optional(),
         bannerPath: zod_1.z.string().max(255).optional(),
+        accentColor: zod_1.z.string().regex(/^#[0-9a-fA-F]{3,8}$/).optional(),
+        headerBannerPath: zod_1.z.string().max(255).optional(),
+        templateUrl: zod_1.z.string().url().max(500).optional(),
     }), req.body)))));
     ad.patch("/events/:eventId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.updateEvent((0, http_1.ctx)(req), idp(req, "eventId"), (0, http_1.parse)(zod_1.z.object({ title: zod_1.z.string().min(2).max(200).optional(), body: zod_1.z.string().min(2).max(5000).optional(), startsAt: zod_1.z.string().datetime().optional() }), req.body)))));
+    ad.get("/dead-people", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listDeadPeople((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery.extend({ search: zod_1.z.string().max(64).optional(), boothId: http_1.uuid.optional(), frozen: zod_1.z.enum(["all", "frozen", "unfrozen"]).optional().default("all") }), req.query)))));
+    ad.post("/dead-people/:citizenId/freeze", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.freezeDeadPerson((0, http_1.ctx)(req), idp(req, "citizenId")))));
+    ad.post("/dead-people/:citizenId/unfreeze", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.unfreezeDeadPerson((0, http_1.ctx)(req), idp(req, "citizenId")))));
     ad.get("/settings", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.settings((0, http_1.ctx)(req)))));
     ad.patch("/settings/login-media", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.updateLoginVideo((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({ loginVideoUrl: zod_1.z.string().url().max(1000).nullable() }), req.body).loginVideoUrl))));
     ad.post("/settings/password/change", rateLimit_1.limits.passwordChange, (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await auth.changePassword((0, http_1.ctx)(req), (0, http_1.parse)(zod_1.z.object({

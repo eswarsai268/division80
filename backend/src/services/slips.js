@@ -3,7 +3,7 @@ const pool_1 = require("../db/pool");
 const errors_1 = require("../errors");
 const org = (c) => c.user.organizationId;
 async function getSlipSettings(organizationId) {
-    const media = (await (0, pool_1.query)("SELECT ward_number AS wardNumber, polling_date_text AS pollingDateText, age_reference_date AS ageReferenceDate, publication_date AS publicationDate, slip_title AS slipTitle, slip_banner_path AS bannerPath FROM organization_settings WHERE organization_id = ?", [organizationId]))[0];
+    const media = (await (0, pool_1.query)("SELECT ward_number AS wardNumber, polling_date_text AS pollingDateText, age_reference_date AS ageReferenceDate, publication_date AS publicationDate, slip_title AS slipTitle, slip_banner_path AS bannerPath, slip_accent_color AS accentColor, slip_header_banner_path AS headerBannerPath, slip_template_url AS templateUrl FROM organization_settings WHERE organization_id = ?", [organizationId]))[0];
     return {
         wardNumber: media?.wardNumber ?? "79",
         pollingDateText: media?.pollingDateText ?? "01-11-2026, ఆదివారం",
@@ -11,6 +11,9 @@ async function getSlipSettings(organizationId) {
         publicationDate: media?.publicationDate ?? "2026-09-22",
         slipTitle: media?.slipTitle ?? "విజయవాడ నగర పాలక సంస్థ • ఫోటో ఓటర్ల జాబితా 2026",
         bannerPath: media?.bannerPath ?? "/slip/banner.png",
+        accentColor: media?.accentColor ?? "#1e3a8a",
+        headerBannerPath: media?.headerBannerPath ?? null,
+        templateUrl: media?.templateUrl ?? null,
     };
 }
 function assertBoothAccess(c, boothId) {

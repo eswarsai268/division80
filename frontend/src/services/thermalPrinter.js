@@ -2,7 +2,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 
 const NativeThermalPrinter = registerPlugin("ThermalPrinter");
 const PRINT_BATCH_SIZE = 5;
-const PAPER_DOTS = 384;
+const PAPER_DOTS = 640;
 
 export function getVoterSlipContent(record, household) {
   return {

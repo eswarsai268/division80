@@ -11,11 +11,23 @@ function toTelugu(text) {
 export default function VoterSlip({ data }) {
   const s = data.settings || {};
   const banner = s.bannerPath || "/slip/banner.png";
+  const headerBanner = s.headerBannerPath;
+  const templateUrl = s.templateUrl;
+  const accent = s.accentColor || "#1e3a8a";
   const [bannerOk, setBannerOk] = useState(true);
+  const [headerOk, setHeaderOk] = useState(true);
+  const [templateOk, setTemplateOk] = useState(true);
   const voterNameTe = data.voterName ? toTelugu(data.voterName) : "";
   const fatherNameTe = data.fatherName ? toTelugu(data.fatherName) : "";
+  const cardStyle = templateUrl && templateOk
+    ? { "--slip-accent": accent, backgroundImage: `url(${templateUrl})`, backgroundSize: "100% 100%", backgroundRepeat: "no-repeat", backgroundColor: "transparent" }
+    : { "--slip-accent": accent };
   return (
-    <div className="voter-slip-card">
+    <div className="voter-slip-card" style={cardStyle}>
+      {templateUrl && templateOk && <img src={templateUrl} alt="" style={{ display: "none" }} onError={() => setTemplateOk(false)} />}
+      {headerOk && headerBanner && (
+        <img src={headerBanner} alt="" className="slip-header-banner" onError={() => setHeaderOk(false)} />
+      )}
       <div className="slip-top">
         <div className="slip-small">డిజిటల్ ఓటరు స్లిప్</div>
         <div className="slip-title">{s.slipTitle || "విజయవాడ నగర పాలక సంస్థ • ఫోటో ఓటర్ల జాబితా 2026"}</div>
