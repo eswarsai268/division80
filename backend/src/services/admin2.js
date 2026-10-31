@@ -14,6 +14,8 @@ exports.listDeadPeople = listDeadPeople;
 exports.freezeDeadPerson = freezeDeadPerson;
 exports.unfreezeDeadPerson = unfreezeDeadPerson;
 exports.listDFlagPeople = listDFlagPeople;
+exports.listDFlagCountsByMember = listDFlagCountsByMember;
+exports.freezeAllDFlagPeople = freezeAllDFlagPeople;
 exports.freezeDFlagPerson = freezeDFlagPerson;
 exports.unfreezeDFlagPerson = unfreezeDFlagPerson;
 const pool_1 = require("../db/pool");
@@ -275,6 +277,35 @@ async function listDFlagPeople(c, f) {
     }));
     return { items, nextCursor: more ? items[items.length - 1].id : null };
 }
+async function listDFlagCountsByMember(c, f) {
+    const organizationId = org(c);
+    const where = ["u.organization_id = ?", "u.role = 'BOOTH_MEMBER'"];
+    const params = [organizationId, organizationId];
+    if (f.cursor) { where.push("u.id > ?"); params.push(f.cursor); }
+    const members = await (0, pool_1.query)(`SELECT u.id AS memberId, u.full_name AS fullName,
+            COALESCE(counts.dCount, 0) AS dCount
+       FROM users u
+       LEFT JOIN (
+            SELECT ci.d_completed_by AS memberId, COUNT(DISTINCT ci.id) AS dCount
+              FROM citizens ci JOIN booths b ON b.id = ci.booth_id
+             WHERE b.organization_id = ? AND ci.deleted_at IS NULL
+               AND ci.d_flag = 1 AND ci.d_completed_by IS NOT NULL
+             GROUP BY ci.d_completed_by
+       ) counts ON counts.memberId = u.id
+      WHERE ${where.join(" AND ")}
+      ORDER BY u.id
+      LIMIT ${f.limit + 1}`, params);
+    const more = members.length > f.limit;
+    const items = (more ? members.slice(0, f.limit) : members).map((member) => ({
+        memberId: member.memberId,
+        fullName: member.fullName,
+        dCount: Number(member.dCount),
+    }));
+    return {
+        items,
+        nextCursor: more ? items[items.length - 1].memberId : null,
+    };
+}
 async function freezeDFlagPerson(c, id) {
     const row = (await (0, pool_1.query)(`SELECT ci.id, ci.d_flag AS dFlag, b.organization_id AS orgId
        FROM citizens ci JOIN booths b ON b.id = ci.booth_id WHERE ci.id = ? AND ci.deleted_at IS NULL`, [id]))[0];
@@ -282,6 +313,14 @@ async function freezeDFlagPerson(c, id) {
     if (!row.dFlag) throw (0, errors_1.conflict)("Only D-completed citizens can be frozen");
     await (0, pool_1.exec)(`UPDATE citizens SET is_frozen = 1, frozen_at = NOW(), frozen_by = ? WHERE id = ?`, [c.user.id, id]);
     return { id, frozen: true };
+}
+async function freezeAllDFlagPeople(c) {
+    const result = await (0, pool_1.exec)(`UPDATE citizens ci
+       JOIN booths b ON b.id = ci.booth_id
+       SET ci.is_frozen = 1, ci.frozen_at = NOW(), ci.frozen_by = ?
+       WHERE b.organization_id = ? AND ci.deleted_at IS NULL
+         AND ci.d_flag = 1 AND ci.is_frozen = 0`, [c.user.id, org(c)]);
+    return { frozenCount: result.affectedRows };
 }
 async function unfreezeDFlagPerson(c, id) {
     const row = (await (0, pool_1.query)(`SELECT ci.id, b.organization_id AS orgId FROM citizens ci JOIN booths b ON b.id = ci.booth_id WHERE ci.id = ? AND ci.deleted_at IS NULL`, [id]))[0];
