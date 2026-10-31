@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { Building2, CalendarDays, FileDown, FileUp, Home, Link2, Lock, MessageCircle, Search, Settings, UserCog, Users } from "lucide-react";
-=======
-import { Building2, CalendarDays, FileDown, FileUp, Flag, Home, Link2, Lock, MessageCircle, Settings, ShieldCheck, UserCog, Users } from "lucide-react";
->>>>>>> 3cb913169b0b71dfdec350ac95cd19fde3572ec2
+import { Building2, CalendarDays, FileDown, FileUp, Flag, Home, Link2, Lock, MessageCircle, Search, Settings, ShieldCheck, UserCog, Users } from "lucide-react";
 
 /** Navigation per role. `main` = bottom bar, `more` = the "More" sheet. */
 export const NAV = {
