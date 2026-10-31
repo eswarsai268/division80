@@ -65,7 +65,8 @@ const saveSlip = useAct((payload) => patch("/admin/settings/slip", payload));
       </div>
       <div><label className="label">{t("Accent color")}</label><input className="input" type="color" value={accentColor || "#1e3a8a"} onChange={(e) => setAccentColor(e.target.value)} /></div>
       <div><label className="label">{t("Header banner URL (Cloudinary)")}</label><input className="input" type="url" maxLength={255} placeholder="https://res.cloudinary.com/your-cloud/image/upload/header.png" value={headerBannerPath} onChange={(e) => setHeaderBannerPath(e.target.value)} /></div>
-      <div><label className="label">{t("Footer banner URL (Cloudinary)")}</label><input className="input" type="url" maxLength={255} placeholder="https://res.cloudinary.com/your-cloud/image/upload/footer.png" value={bannerPath} onChange={(e) => setBannerPath(e.target.value)} /></div>
+      <div><label className="label">{t("Footer banner URL (Cloudinary)")}</label><input className="input" type="url" maxLength={255} placeholder="https://res.cloudinary.com/your-cloud/image/upload/footer.png" value={bannerPath} onChange={(e) => setBannerPath(e.target.value)} />
+      {bannerPath && <img src={bannerPath} alt="footer preview" className="mt-2 max-h-24 rounded border border-slate-200" onError={(e) => { e.currentTarget.style.display = "none"; }} />}</div>
       <div><label className="label">{t("Full slip template URL (Cloudinary)")}</label><input className="input" type="url" maxLength={500} placeholder="https://res.cloudinary.com/your-cloud/image/upload/slip-template.png" value={templateUrl} onChange={(e) => setTemplateUrl(e.target.value)} /></div>
       {saveSlip.error && <ErrorBox error={saveSlip.error}/>}
       {saveSlip.isSuccess && <p role="status" className="text-sm font-medium text-emerald-700">{t("Slip design saved.")}</p>}
