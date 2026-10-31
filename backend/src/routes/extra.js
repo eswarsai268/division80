@@ -94,7 +94,9 @@ function extendAdmin(ad) {
     ad.get("/dead-people", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listDeadPeople((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery.extend({ search: zod_1.z.string().max(64).optional(), boothId: http_1.uuid.optional(), frozen: zod_1.z.enum(["all", "frozen", "unfrozen"]).optional().default("all") }), req.query)))));
     ad.post("/dead-people/:citizenId/freeze", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.freezeDeadPerson((0, http_1.ctx)(req), idp(req, "citizenId")))));
     ad.post("/dead-people/:citizenId/unfreeze", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.unfreezeDeadPerson((0, http_1.ctx)(req), idp(req, "citizenId")))));
+    ad.get("/d-people/member-counts", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listDFlagCountsByMember((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery, req.query)))));
     ad.get("/d-people", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.listDFlagPeople((0, http_1.ctx)(req), (0, http_1.parse)(http_1.pageQuery.extend({ search: zod_1.z.string().max(64).optional(), boothId: http_1.uuid.optional(), completedBy: http_1.uuid.optional(), frozen: zod_1.z.enum(["all", "frozen", "unfrozen"]).optional().default("all") }), req.query)))));
+    ad.post("/d-people/freeze-all", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.freezeAllDFlagPeople((0, http_1.ctx)(req)))));
     ad.post("/d-people/:citizenId/freeze", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.freezeDFlagPerson((0, http_1.ctx)(req), idp(req, "citizenId")))));
     ad.post("/d-people/:citizenId/unfreeze", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.unfreezeDFlagPerson((0, http_1.ctx)(req), idp(req, "citizenId")))));
     ad.get("/settings", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await a2.settings((0, http_1.ctx)(req)))));
