@@ -35,9 +35,10 @@ describe.skipIf(!enabled)("authorization and retired routes", () => {
       ids[`booth${suffix}`] = randomUUID();
       ids[`house${suffix}`] = randomUUID();
       ids[`citizen${suffix}`] = randomUUID();
+      ids[`voterId${suffix}`] = `TEST${ids[`citizen${suffix}`].replace(/-/g, "").slice(0, 8)}`;
       await q.exec("INSERT INTO booths (id, organization_id, code, name) VALUES (?,?,?,?)", [ids[`booth${suffix}`], ids.org, suffix + ids[`booth${suffix}`].slice(0, 5), `Booth ${suffix}`]);
       await q.exec("INSERT INTO households (id, organization_id, booth_id, house_code) VALUES (?,?,?,?)", [ids[`house${suffix}`], ids.org, ids[`booth${suffix}`], `HOUSE-${suffix}`]);
-      await q.exec("INSERT INTO citizens (id, household_id, booth_id, full_name, relation, voter_id, life_status) VALUES (?,?,?,?,?,?,?)", [ids[`citizen${suffix}`], ids[`house${suffix}`], ids[`booth${suffix}`], `Resident ${suffix}`, "MEMBER", `TEST${ids[`citizen${suffix}`].replace(/-/g, "").slice(0, 8)}`, "ALIVE"]);
+      await q.exec("INSERT INTO citizens (id, household_id, booth_id, full_name, father_or_husband_name, relation, voter_id, life_status, roll_serial, polling_station) VALUES (?,?,?,?,?,?,?,?,?,?)", [ids[`citizen${suffix}`], ids[`house${suffix}`], ids[`booth${suffix}`], `Resident ${suffix}`, `Parent ${suffix}`, "MEMBER", ids[`voterId${suffix}`], "ALIVE", `857${suffix === "A" ? "5" : "6"}`, `Station ${suffix}`]);
     }
     users.a = await mkUser("BOOTH_MEMBER", "member-a");
     users.b = await mkUser("BOOTH_MEMBER", "member-b");
@@ -54,6 +55,50 @@ describe.skipIf(!enabled)("authorization and retired routes", () => {
     expect(detail.body.data.citizens[0].fullName).toBe("Resident B");
     expect(detail.body.data.citizens[0].voterId).toMatch(/^\*\*\*\*/);
     expect(detail.body.data.household.ownBooth).toBe(false);
+  });
+
+  it("search results include record details while masking cross-booth voter IDs", async () => {
+    const agent = await login(users.a.email);
+    const response = await agent.get("/api/v1/booth/households?search=8576").expect(200);
+    const house = response.body.data.items.find((item) => item.id === ids.houseB);
+    expect(house.matchingCitizens[0]).toMatchObject({
+      fullName: "Resident B",
+      fatherOrHusbandName: "Parent B",
+      rollSerial: "8576",
+      voterId: `****${ids.voterIdB.slice(-4)}`,
+      pollingStation: "Station B",
+    });
+    const houseSearch = await agent.get("/api/v1/booth/households?search=HOUSE-B").expect(200);
+    const houseRecord = houseSearch.body.data.items.find((item) => item.id === ids.houseB);
+    expect(houseRecord.searchRecords[0].fullName).toBe("Resident B");
+    expect(houseRecord.searchRecords[0].voterId).toBe(`****${ids.voterIdB.slice(-4)}`);
+  });
+
+  it("supports serial-only lookup without matching names, voter IDs, or house codes", async () => {
+    const agent = await login(users.a.email);
+    const serial = await agent.get("/api/v1/booth/households?search=8576&searchField=serial").expect(200);
+    expect(serial.body.data.items.map((item) => item.id)).toEqual([ids.houseB]);
+    expect(serial.body.data.items[0].searchRecords.map((record) => record.rollSerial)).toEqual(["8576"]);
+
+    for (const search of ["Resident B", ids.voterIdB, "HOUSE-B"]) {
+      const response = await agent.get(`/api/v1/booth/households?search=${encodeURIComponent(search)}&searchField=serial`).expect(200);
+      expect(response.body.data.items).toHaveLength(0);
+    }
+
+    const generalSearch = await agent.get("/api/v1/booth/households?search=Resident%20B").expect(200);
+    expect(generalSearch.body.data.items.map((item) => item.id)).toContain(ids.houseB);
+  });
+
+  it("extends the session lifetime when rotating a refresh token", async () => {
+    const user = await mkUser("BOOTH_MEMBER", "refresh");
+    const agent = await login(user.email);
+    const session = (await q.query("SELECT id FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1", [user.id]))[0];
+    await q.exec("UPDATE sessions SET expires_at = DATE_ADD(NOW(3), INTERVAL 1 DAY) WHERE id = ?", [session.id]);
+
+    await agent.post("/api/v1/auth/refresh").set(H).expect(200);
+
+    const [result] = await q.query("SELECT expires_at > DATE_ADD(NOW(3), INTERVAL 29 DAY) AS renewed FROM sessions WHERE id = ?", [session.id]);
+    expect(Boolean(result.renewed)).toBe(true);
   });
 
   it("booth assignment still limits door-to-door visit writes", async () => {

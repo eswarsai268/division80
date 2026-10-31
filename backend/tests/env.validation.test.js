@@ -30,7 +30,21 @@ function loadApiConfig(env) {
     });
 }
 
+function readApiTokenConfig(env) {
+    return spawnSync(process.execPath, ["-e", "const { env } = require('./src/config/env.js'); process.stdout.write(`${env.ACCESS_TOKEN_TTL_SECONDS},${env.REFRESH_TOKEN_TTL_DAYS}`)"], {
+        cwd: backendRoot,
+        env: cleanChildEnv(env),
+        encoding: "utf8",
+    });
+}
+
 describe("backend environment validation", () => {
+    it("defaults refresh sessions to 30 days while keeping access tokens short-lived", () => {
+        const result = readApiTokenConfig({ ...baseApiEnv, NODE_ENV: "test" });
+        expect(result.status).toBe(0);
+        expect(result.stdout).toBe("600,30");
+    });
+
     it("rejects missing and unsupported NODE_ENV without exposing values", () => {
         const missing = loadApiConfig(baseApiEnv);
         expect(missing.status).toBe(1);

@@ -28,7 +28,7 @@ const schema = zod_1.z.object({
     REDIS_URL: zod_1.z.string().optional(),
     JWT_ACCESS_SECRET: zod_1.z.string().min(32, "JWT_ACCESS_SECRET must be >= 32 chars"),
     ACCESS_TOKEN_TTL_SECONDS: zod_1.z.coerce.number().int().min(60).max(1800).default(600),
-    REFRESH_TOKEN_TTL_DAYS: zod_1.z.coerce.number().int().min(1).max(30).default(7),
+    REFRESH_TOKEN_TTL_DAYS: zod_1.z.coerce.number().int().min(1).max(30).default(30),
     CORS_ORIGIN: corsOrigin,
     DEFAULT_ORG_SLUG: zod_1.z.string().default("default"),
     TRUST_PROXY_HOPS: zod_1.z.coerce.number().int().min(0).max(5).default(0),

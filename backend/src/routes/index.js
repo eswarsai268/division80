@@ -108,7 +108,7 @@ const b = (0, express_1.Router)();
 b.use(authenticate_1.authenticate, (0, authorize_1.authorize)("BOOTH_MEMBER"));
 b.get("/dashboard", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await booth.dashboard((0, http_1.ctx)(req).user))));
 b.get("/households", rateLimit_1.limits.search, (0, http_1.h)(async (req, res) => {
-    const q = (0, http_1.parse)(http_1.pageQuery.extend({ limit: zod_1.z.coerce.number().int().min(1).max(1000).default(1000), search: zod_1.z.string().max(100).optional(), status: zod_1.z.enum(["PENDING", "IN_VERIFICATION", "RESOLVED", "UNVERIFIED"]).optional(), boothId: http_1.uuid.optional() }), req.query);
+    const q = (0, http_1.parse)(http_1.pageQuery.extend({ limit: zod_1.z.coerce.number().int().min(1).max(1000).default(1000), search: zod_1.z.string().max(100).optional(), searchField: zod_1.z.enum(["all", "serial"]).optional(), status: zod_1.z.enum(["PENDING", "IN_VERIFICATION", "RESOLVED", "UNVERIFIED"]).optional(), boothId: http_1.uuid.optional() }), req.query);
     (0, http_1.ok)(req, res, await (0, households_1.listHouseholdsForUser)((0, http_1.ctx)(req).user, q)); // boothId is only a filter; the repository enforces organization scope
 }));
 b.get("/households/:householdId", (0, http_1.h)(async (req, res) => (0, http_1.ok)(req, res, await (0, households_1.getHouseholdForUser)((0, http_1.ctx)(req).user, (0, http_1.parse)(http_1.uuid, req.params.householdId)))));

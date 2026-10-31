@@ -78,23 +78,32 @@ async function listHouseholdsForUser(u, f) {
     if (f.search) {
         const raw = f.search.trim().toUpperCase();
         const search = `%${escLike(raw)}%`;
-        const voterQuery = escLike(raw.replace(/[\s-]/g, ""));
-        const voterLike = voterQuery ? `%${voterQuery}%` : "%__NO_VOTER_MATCH__%";
-        const voterNearby = voterQuery && /\d/.test(raw) ? `%${[...voterQuery].join("%")}%` : voterLike;
-        const nameTerms = [...new Set(raw.split(/[^A-Z0-9]+/).filter(Boolean))];
-        const nameCombinations = nameTerms.length >= 3
-            ? nameTerms.flatMap((term, index) => nameTerms.slice(index + 1).map((other) => [term, other]))
-            : nameTerms.map((term) => [term]);
-        const nameConditions = nameCombinations.map((terms) => `(${terms.map(() => "UPPER(c.full_name) LIKE ?").join(" AND ")})`).join(" OR ");
-        const nameTermParams = nameCombinations.flatMap((terms) => terms.map((term) => `%${escLike(term)}%`));
-        where.push(`(UPPER(h.house_code) LIKE ? OR EXISTS (
-            SELECT 1 FROM citizens c WHERE c.household_id = h.id AND c.booth_id = h.booth_id AND c.deleted_at IS NULL
-              AND (UPPER(c.full_name) LIKE ? OR (${nameConditions})
-                   OR UPPER(REPLACE(REPLACE(COALESCE(c.voter_id, ''), '-', ''), ' ', '')) LIKE ?
-                   OR UPPER(REPLACE(REPLACE(COALESCE(c.voter_id, ''), '-', ''), ' ', '')) LIKE ?
-                   OR UPPER(COALESCE(c.roll_serial, '')) LIKE ? OR UPPER(COALESCE(c.father_or_husband_name, '')) LIKE ?)
-        ))`);
-        params.push(search, search, ...nameTermParams, voterLike, voterNearby, search, search);
+        if (f.searchField === "serial") {
+            where.push(`EXISTS (
+                SELECT 1 FROM citizens c WHERE c.household_id = h.id AND c.booth_id = h.booth_id
+                  AND c.deleted_at IS NULL AND UPPER(COALESCE(c.roll_serial, '')) LIKE ?
+            )`);
+            params.push(search);
+        }
+        else {
+            const voterQuery = escLike(raw.replace(/[\s-]/g, ""));
+            const voterLike = voterQuery ? `%${voterQuery}%` : "%__NO_VOTER_MATCH__%";
+            const voterNearby = voterQuery && /\d/.test(raw) ? `%${[...voterQuery].join("%")}%` : voterLike;
+            const nameTerms = [...new Set(raw.split(/[^A-Z0-9]+/).filter(Boolean))];
+            const nameCombinations = nameTerms.length >= 3
+                ? nameTerms.flatMap((term, index) => nameTerms.slice(index + 1).map((other) => [term, other]))
+                : nameTerms.map((term) => [term]);
+            const nameConditions = nameCombinations.map((terms) => `(${terms.map(() => "UPPER(c.full_name) LIKE ?").join(" AND ")})`).join(" OR ");
+            const nameTermParams = nameCombinations.flatMap((terms) => terms.map((term) => `%${escLike(term)}%`));
+            where.push(`(UPPER(h.house_code) LIKE ? OR EXISTS (
+                SELECT 1 FROM citizens c WHERE c.household_id = h.id AND c.booth_id = h.booth_id AND c.deleted_at IS NULL
+                  AND (UPPER(c.full_name) LIKE ? OR (${nameConditions})
+                       OR UPPER(REPLACE(REPLACE(COALESCE(c.voter_id, ''), '-', ''), ' ', '')) LIKE ?
+                       OR UPPER(REPLACE(REPLACE(COALESCE(c.voter_id, ''), '-', ''), ' ', '')) LIKE ?
+                       OR UPPER(COALESCE(c.roll_serial, '')) LIKE ? OR UPPER(COALESCE(c.father_or_husband_name, '')) LIKE ?)
+            ))`);
+            params.push(search, search, ...nameTermParams, voterLike, voterNearby, search, search);
+        }
     }
     if (f.status) {
         if (f.status === "UNVERIFIED") {
@@ -142,6 +151,7 @@ async function listHouseholdsForUser(u, f) {
     const items = rows.length > effectiveLimit ? rows.slice(0, effectiveLimit) : rows;
     if (f.search && items.length) {
         const houseIds = items.map((h) => h.id);
+        const serialOnly = f.searchField === "serial";
         const raw = f.search.trim().toUpperCase();
         const search = `%${escLike(raw)}%`;
         const voterQuery = escLike(raw.replace(/[\s-]/g, ""));
@@ -153,33 +163,78 @@ async function listHouseholdsForUser(u, f) {
             : nameTerms.map((term) => [term]);
         const nameConditions = nameCombinations.map((terms) => `(${terms.map(() => "UPPER(c.full_name) LIKE ?").join(" AND ")})`).join(" OR ");
         const nameTermParams = nameCombinations.flatMap((terms) => terms.map((term) => `%${escLike(term)}%`));
+        const houseCodeMatchIds = serialOnly ? [] : items.filter((house) => String(house.houseCode).toUpperCase().includes(raw)).map((house) => house.id);
+        const houseCodeMatchClause = houseCodeMatchIds.length
+            ? ` OR c.household_id IN (${(0, pool_1.placeholders)(houseCodeMatchIds.length)})`
+            : "";
+        const peopleSearchClause = serialOnly
+            ? "UPPER(COALESCE(c.roll_serial, '')) LIKE ?"
+            : `UPPER(c.full_name) LIKE ? OR (${nameConditions})
+                OR UPPER(REPLACE(REPLACE(COALESCE(c.voter_id, ''), '-', ''), ' ', '')) LIKE ?
+                OR UPPER(REPLACE(REPLACE(COALESCE(c.voter_id, ''), '-', ''), ' ', '')) LIKE ?
+                OR UPPER(COALESCE(c.roll_serial, '')) LIKE ? OR UPPER(COALESCE(c.father_or_husband_name, '')) LIKE ?${houseCodeMatchClause}`;
+        const peopleSearchParams = serialOnly
+            ? [search]
+            : [search, ...nameTermParams, voterLike, voterNearby, search, search, ...houseCodeMatchIds];
         const people = await (0, pool_1.query)(`SELECT c.household_id AS householdId, c.id, c.full_name AS fullName,
-                c.father_or_husband_name AS fatherOrHusbandName, c.voter_id AS voterId, c.roll_serial AS rollSerial
+                c.father_or_husband_name AS fatherOrHusbandName, c.voter_id AS voterId, c.roll_serial AS rollSerial,
+                c.relation, c.age, c.gender, c.polling_station AS pollingStation,
+                c.polling_address AS pollingAddress, c.d2d_verified AS verificationDone, c.is_frozen AS isFrozen
             FROM citizens c WHERE c.household_id IN (${(0, pool_1.placeholders)(houseIds.length)}) AND c.deleted_at IS NULL
-              AND (UPPER(c.full_name) LIKE ? OR (${nameConditions})
-                OR UPPER(REPLACE(REPLACE(COALESCE(c.voter_id, ''), '-', ''), ' ', '')) LIKE ?
-                OR UPPER(REPLACE(REPLACE(COALESCE(c.voter_id, ''), '-', ''), ' ', '')) LIKE ?
-                OR UPPER(COALESCE(c.roll_serial, '')) LIKE ? OR UPPER(COALESCE(c.father_or_husband_name, '')) LIKE ?)
-            ORDER BY c.full_name`, [...houseIds, search, ...nameTermParams, voterLike, voterNearby, search, search]);
+              AND (${peopleSearchClause})
+            ORDER BY c.full_name`, [...houseIds, ...peopleSearchParams]);
         const matched = people.map((person) => {
+            const serialHit = String(person.rollSerial ?? "").toUpperCase().includes(raw);
+            if (serialOnly)
+                return serialHit ? { ...person, score: String(person.rollSerial).toUpperCase() === raw ? 0 : 1 } : null;
             const voter = String(person.voterId ?? "").toUpperCase().replace(/[\s-]/g, "");
             const voterHit = voterQuery && (voter.includes(voterQuery) || (/\d/.test(raw) && [...voterQuery].every((ch, i) => voter.indexOf(ch, i ? voter.indexOf(voterQuery[i - 1]) + 1 : 0) >= 0)));
             const nameScore = nameMatchScore(person.fullName, raw);
-            const serialHit = String(person.rollSerial ?? "").toUpperCase().includes(raw);
             const relativeHit = String(person.fatherOrHusbandName ?? "").toUpperCase().includes(raw);
             const score = voterHit ? 0 : nameScore ?? (serialHit || relativeHit ? 8 : null);
             return score === null ? null : { ...person, score };
         }).filter(Boolean).sort((a, b) => a.score - b.score || String(a.fullName).localeCompare(String(b.fullName)));        const byHouse = new Map();
+        const searchRecordsByHouse = new Map();
+        const houseCodeMatchSet = new Set(houseCodeMatchIds);
+        const houseById = new Map(items.map((house) => [house.id, house]));
+        const toSearchRecord = (person, house) => ({
+            id: person.id,
+            fullName: person.fullName,
+            fatherOrHusbandName: person.fatherOrHusbandName,
+            voterId: u.boothIds.includes(house.boothId) ? person.voterId : (0, exports.maskVoter)(person.voterId),
+            rollSerial: person.rollSerial,
+            relation: person.relation,
+            age: person.age,
+            gender: person.gender,
+            pollingStation: person.pollingStation,
+            pollingAddress: person.pollingAddress,
+            verificationDone: person.verificationDone,
+            isFrozen: person.isFrozen,
+        });
+        for (const person of people) {
+            if (!houseCodeMatchSet.has(person.householdId)) continue;
+            const list = searchRecordsByHouse.get(person.householdId) ?? [];
+            list.push(toSearchRecord(person, houseById.get(person.householdId)));
+            searchRecordsByHouse.set(person.householdId, list);
+        }
         for (const person of matched) {
             const list = byHouse.get(person.householdId) ?? [];
+            const house = houseById.get(person.householdId);
             list.push({ id: person.id, fullName: person.fullName, fatherOrHusbandName: person.fatherOrHusbandName, score: person.score });
             byHouse.set(person.householdId, list);
+            if (!houseCodeMatchSet.has(person.householdId)) {
+                const records = searchRecordsByHouse.get(person.householdId) ?? [];
+                records.push(toSearchRecord(person, house));
+                searchRecordsByHouse.set(person.householdId, records);
+            }
         }
         for (const house of items) {
+            house.ownBooth = u.boothIds.includes(house.boothId);
             house.matchingCitizens = byHouse.get(house.id) ?? [];
+            house.searchRecords = searchRecordsByHouse.get(house.id) ?? [];
             const houseCode = String(house.houseCode).toUpperCase().replace(/[\s-]/g, "");
             const query = raw.replace(/[\s-]/g, "");
-            house.searchRank = houseCode === query ? -1 : house.matchingCitizens.length ? house.matchingCitizens[0].score : 9;
+            house.searchRank = !serialOnly && houseCode === query ? -1 : house.matchingCitizens.length ? house.matchingCitizens[0].score : 9;
         }
     }
     return { items, nextCursor: more ? items[items.length - 1].id : null, ...totals };
