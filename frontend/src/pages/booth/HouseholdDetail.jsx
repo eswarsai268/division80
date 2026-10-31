@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { useState } from "react";
 import { flushSync } from "react-dom";
-import { MessageCircle, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 import Async from "../../components/Async";
 import Empty from "../../components/Empty";
-import ErrorBox from "../../components/ErrorBox";
+import VisitDetailsControls from "../../components/VisitDetailsControls";
 import { api, patch } from "../../api/client";
 import { findOfflineHousehold, isOfflineFallbackError, readOfflineRoster } from "../../services/offlineRoster";
 import { useMe } from "../../auth/useMe";
@@ -103,7 +103,6 @@ export default function HouseholdDetail() {
     <div className="card"><h1 className="font-semibold">{t("House")} {household.houseCode}</h1><p className="mt-1 text-xs text-slate-500">{t("Booth")} {household.boothCode}{household.address ? ` · ${household.address}` : ""}</p><p className="mt-2 text-sm font-semibold text-emerald-700">{t("Visit progress")}: {citizens.filter((citizen) => citizen.verificationDone).length}/{citizens.length} {t("people visited")}</p></div>
     {household.offline && <div className="card bg-amber-50 text-sm text-amber-900">Offline copy: printing verified records is available; visit updates require internet.</div>}
     {!household.ownBooth && <div className="card bg-amber-50 text-sm text-amber-900">{t("Read-only view. Visit updates are available only for your assigned booths.")}</div>}
-    {visit.error && <ErrorBox error={visit.error}/>}
     <section className="no-print sticky top-2 z-10 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-200 bg-white p-3 shadow-md">
       <label className="flex min-h-10 items-center gap-2 text-sm font-semibold"><input type="checkbox" disabled={!citizens.some((c) => Boolean(c.verificationDone))} checked={citizens.some((c) => Boolean(c.verificationDone)) && citizens.filter((c) => Boolean(c.verificationDone)).every((c) => selectedIds.includes(c.id))} onChange={(event) => setSelectedIds(event.target.checked ? citizens.filter((c) => Boolean(c.verificationDone)).map((c) => c.id) : [])}/>{t("Select all verified")}</label>
       <button type="button" className="btn inline-flex min-h-10 items-center gap-2" disabled={!selectedIds.some((id) => citizens.some((c) => c.id === id && c.verificationDone))} onClick={() => printRecordsNow(citizens.filter((c) => selectedIds.includes(c.id) && c.verificationDone))}><Printer size={17}/>{t("Print selected")}</button>
@@ -138,19 +137,15 @@ export default function HouseholdDetail() {
         </dl>
         <p className="mt-3 border-t border-amber-200 pt-2 text-sm text-slate-600">{t(c.relation)} · {c.age ?? "—"} {t("years")} · {t(c.gender)}</p>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.verificationDone} disabled={!canEdit || Boolean(c.isFrozen)} onChange={(event) => setDraft("verificationDone", event.target.checked)}/>{t("Verification done")}</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.lifeStatus === "DECEASED"} disabled={!canEdit || Boolean(c.isFrozen)} onChange={(event) => setDraft("lifeStatus", event.target.checked ? "DECEASED" : "ALIVE")}/>{t("Dead")}</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.notHere} disabled={!canEdit || Boolean(c.isFrozen)} onChange={(event) => setDraft("notHere", event.target.checked)}/>{t("Not here")}</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.dFlag} disabled={!canEdit || Boolean(c.isFrozen)} onChange={(event) => setDraft("dFlag", event.target.checked)}/>{t("D")}</label>
-        <div className="flex items-center justify-between gap-3">
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.addressChanged} disabled={!canEdit || Boolean(c.isFrozen)} onChange={(event) => setDraft("addressChanged", event.target.checked)}/>{t("Address changed / shifted")}</label>
-          {c.whatsappPhone && <a className="no-print inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-green-600 text-white hover:bg-green-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700" href={`https://wa.me/${c.whatsappPhone}`} target="_blank" rel="noopener noreferrer" aria-label={t("Open WhatsApp chat")} title={t("Open WhatsApp chat")}><MessageCircle size={20}/></a>}
-        </div>
-      </div>
-      {draft.addressChanged && <label className="block text-sm">{t("New address")}<input className="input mt-1" maxLength={255} value={draft.newAddress} disabled={!canEdit || Boolean(c.isFrozen)} placeholder={t("Enter changed address")} onChange={(event) => setDraft("newAddress", event.target.value)}/></label>}
-      <label className="block text-sm">{t("Additional notes")}<textarea className="input mt-1 min-h-24" maxLength={1000} value={draft.visitNotes} disabled={!canEdit || Boolean(c.isFrozen)} placeholder={t("Write any additional details for this person")} onChange={(event) => setDraft("visitNotes", event.target.value)}/></label>
-      {canEdit && !c.isFrozen && <button className="btn w-full" disabled={visit.isPending || JSON.stringify(draft) === JSON.stringify(saved)} onClick={() => visit.mutate({ citizenId: c.id, ...draft })}>{t(visit.isPending ? "Saving…" : "Save visit details")}</button>}
+      <VisitDetailsControls
+        citizen={c}
+        draft={draft}
+        setDraft={setDraft}
+        canEdit={canEdit}
+        pending={visit.isPending}
+        onSave={JSON.stringify(draft) === JSON.stringify(saved) ? undefined : () => visit.mutate({ citizenId: c.id, ...draft })}
+        error={visit.variables?.citizenId === c.id ? visit.error : null}
+      />
       </div>;
     })}
     {printerDialogOpen && <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-3 sm:items-center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !printerPrinting) setPrinterDialogOpen(false); }}>

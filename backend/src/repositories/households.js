@@ -177,9 +177,11 @@ async function listHouseholdsForUser(u, f) {
             ? [search]
             : [search, ...nameTermParams, voterLike, voterNearby, search, search, ...houseCodeMatchIds];
         const people = await (0, pool_1.query)(`SELECT c.household_id AS householdId, c.id, c.full_name AS fullName,
-                c.father_or_husband_name AS fatherOrHusbandName, c.voter_id AS voterId, c.roll_serial AS rollSerial,
+                c.father_or_husband_name AS fatherOrHusbandName, c.voter_id AS voterId, c.roll_serial AS rollSerial, c.phone,
                 c.relation, c.age, c.gender, c.polling_station AS pollingStation,
-                c.polling_address AS pollingAddress, c.d2d_verified AS verificationDone, c.is_frozen AS isFrozen
+                c.polling_address AS pollingAddress, c.d2d_verified AS verificationDone, c.is_frozen AS isFrozen,
+                c.life_status AS lifeStatus, c.not_here AS notHere, c.address_changed AS addressChanged, c.d_flag AS dFlag,
+                c.new_address AS newAddress, c.visit_notes AS visitNotes
             FROM citizens c WHERE c.household_id IN (${(0, pool_1.placeholders)(houseIds.length)}) AND c.deleted_at IS NULL
               AND (${peopleSearchClause})
             ORDER BY c.full_name`, [...houseIds, ...peopleSearchParams]);
@@ -210,6 +212,16 @@ async function listHouseholdsForUser(u, f) {
             pollingAddress: person.pollingAddress,
             verificationDone: person.verificationDone,
             isFrozen: person.isFrozen,
+            lifeStatus: person.lifeStatus,
+            notHere: person.notHere,
+            addressChanged: person.addressChanged,
+            dFlag: person.dFlag,
+            newAddress: person.newAddress,
+            visitNotes: person.visitNotes,
+            ownBooth: u.boothIds.includes(house.boothId),
+            whatsappPhone: u.boothIds.includes(house.boothId)
+                ? (0, importPhone_1.toWhatsAppRecipient)(person.phone, env_1.env.WHATSAPP_DEFAULT_COUNTRY_CODE)
+                : null,
         });
         for (const person of people) {
             if (!houseCodeMatchSet.has(person.householdId)) continue;
