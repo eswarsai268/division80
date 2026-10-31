@@ -360,9 +360,13 @@ async function updateVisitForUser(c, citizenId, input) {
         if (citizen.isFrozen)
             throw (0, errors_1.forbidden)();
         await (0, pool_1.exec)(`UPDATE citizens SET life_status = ?, d2d_verified = ?, not_here = ?, address_changed = ?,
-            d_flag = ?, new_address = ?, visit_notes = ? WHERE id = ? AND deleted_at IS NULL`,
+            d_flag = ?, new_address = ?, visit_notes = ?,
+            d_completed_by = CASE WHEN ? = 1 THEN ? ELSE d_completed_by END,
+            d_completed_at = CASE WHEN ? = 1 THEN NOW() ELSE d_completed_at END
+            WHERE id = ? AND deleted_at IS NULL`,
         [input.lifeStatus, input.verificationDone ? 1 : 0, input.notHere ? 1 : 0, input.addressChanged ? 1 : 0,
-            input.dFlag ? 1 : 0, input.addressChanged ? input.newAddress || null : null, input.visitNotes || null, citizenId], conn);
+            input.dFlag ? 1 : 0, input.addressChanged ? input.newAddress || null : null, input.visitNotes || null,
+            input.dFlag ? 1 : 0, u.id, input.dFlag ? 1 : 0, citizenId], conn);
         return { id: citizenId };
     });
 }
