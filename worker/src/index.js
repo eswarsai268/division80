@@ -26,6 +26,8 @@ async function processOutbox() {
     }
     return rows.length;
 }
+
+//hello this false
 let stopping = false;
 async function main() {
     db_1.log.info({ workerId: db_1.WORKER_ID }, "worker started");
